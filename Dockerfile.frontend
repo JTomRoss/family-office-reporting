@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Python deps
+RUN pip install --no-cache-dir \
+    streamlit plotly httpx pandas
+
+# Copy frontend
+COPY frontend/ frontend/
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "frontend/app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]

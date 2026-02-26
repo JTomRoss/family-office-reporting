@@ -1,0 +1,160 @@
+"""
+FO Reporting – Servicio de cuentas (maestro).
+
+El Excel maestro de cuentas es el SSOT.
+Este servicio se encarga de:
+- Cargar/actualizar el maestro
+- Auto-completar metadata en otros procesos
+- Detectar errores de clasificación
+"""
+
+from typing import Optional
+from sqlalchemy.orm import Session
+
+from backend.db.models import Account, ValidationLog
+
+
+class AccountService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_all(self, active_only: bool = True) -> list[Account]:
+        query = self.db.query(Account)
+        if active_only:
+            query = query.filter(Account.is_active == True)
+        return query.order_by(Account.bank_code, Account.entity_name).all()
+
+    def get_by_number(self, account_number: str) -> Optional[Account]:
+        return (
+            self.db.query(Account)
+            .filter(Account.account_number == account_number)
+            .first()
+        )
+
+    def upsert_from_master(self, rows: list[dict], source_hash: str) -> dict:
+        """
+        Upsert desde Excel maestro.
+        Crea cuentas nuevas, actualiza existentes.
+
+        Returns:
+            {"created": n, "updated": n, "errors": [...]}
+        """
+        stats = {"created": 0, "updated": 0, "errors": []}
+
+        for row in rows:
+            acct_num = row.get("account_number")
+            if not acct_num:
+                stats["errors"].append(f"Fila sin account_number: {row}")
+                continue
+
+            existing = self.get_by_number(str(acct_num))
+
+            if existing:
+                # Actualizar
+                for field in [
+                    "bank_code", "bank_name", "account_type",
+                    "entity_name", "entity_type", "currency",
+                    "country", "mandate_type", "is_active",
+                ]:
+                    val = row.get(field)
+                    if val is not None:
+                        setattr(existing, field, val)
+                existing.source_file_hash = source_hash
+                stats["updated"] += 1
+            else:
+                # Crear
+                account = Account(
+                    account_number=str(acct_num),
+                    bank_code=str(row.get("bank_code", "unknown")),
+                    bank_name=str(row.get("bank_name", "")),
+                    account_type=str(row.get("account_type", "unknown")),
+                    entity_name=str(row.get("entity_name", "")),
+                    entity_type=str(row.get("entity_type", "")),
+                    currency=str(row.get("currency", "USD")),
+                    country=str(row.get("country", "")),
+                    mandate_type=row.get("mandate_type"),
+                    is_active=bool(row.get("is_active", True)),
+                    source_file_hash=source_hash,
+                )
+                self.db.add(account)
+                stats["created"] += 1
+
+        self.db.commit()
+
+        # Log
+        self._log(
+            "master_check", "info",
+            f"Maestro actualizado: {stats['created']} creadas, "
+            f"{stats['updated']} actualizadas, {len(stats['errors'])} errores"
+        )
+
+        return stats
+
+    def auto_fill_metadata(self, account_number: str) -> Optional[dict]:
+        """
+        Auto-completa metadata desde el maestro.
+        Usado durante carga de documentos.
+        """
+        account = self.get_by_number(account_number)
+        if not account:
+            return None
+        return {
+            "bank_code": account.bank_code,
+            "bank_name": account.bank_name,
+            "account_type": account.account_type,
+            "entity_name": account.entity_name,
+            "entity_type": account.entity_type,
+            "currency": account.currency,
+            "country": account.country,
+            "mandate_type": account.mandate_type,
+        }
+
+    def detect_classification_errors(self) -> list[dict]:
+        """
+        Detecta errores de clasificación en el maestro.
+        Ej: bank_code vacío, account_type inválido, etc.
+        """
+        errors = []
+        valid_types = {"custody", "current", "savings", "investment", "etf"}
+        valid_entity_types = {"sociedad", "persona"}
+
+        accounts = self.db.query(Account).all()
+        for acct in accounts:
+            if not acct.bank_code:
+                errors.append({
+                    "account": acct.account_number,
+                    "error": "bank_code vacío",
+                })
+            if acct.account_type not in valid_types:
+                errors.append({
+                    "account": acct.account_number,
+                    "error": f"account_type inválido: {acct.account_type}",
+                })
+            if acct.entity_type and acct.entity_type not in valid_entity_types:
+                errors.append({
+                    "account": acct.account_number,
+                    "error": f"entity_type inválido: {acct.entity_type}",
+                })
+
+        return errors
+
+    def get_filter_options(self) -> dict[str, list[str]]:
+        """Retorna opciones de filtro de cuentas para la UI."""
+        accounts = self.get_all()
+        return {
+            "bank_codes": sorted(set(a.bank_code for a in accounts)),
+            "entity_names": sorted(set(a.entity_name for a in accounts)),
+            "account_types": sorted(set(a.account_type for a in accounts)),
+            "currencies": sorted(set(a.currency for a in accounts)),
+            "countries": sorted(set(a.country for a in accounts)),
+        }
+
+    def _log(self, vtype: str, severity: str, message: str):
+        log = ValidationLog(
+            validation_type=vtype,
+            severity=severity,
+            message=message,
+            source_module="services.account_service",
+        )
+        self.db.add(log)
+        self.db.commit()

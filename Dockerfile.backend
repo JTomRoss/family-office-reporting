@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e "." 2>/dev/null || pip install --no-cache-dir \
+    fastapi uvicorn[standard] sqlalchemy pydantic pydantic-settings \
+    pandas openpyxl pdfplumber python-multipart httpx pyarrow aiofiles
+
+# Copy app code
+COPY backend/ backend/
+COPY parsers/ parsers/
+COPY calculations/ calculations/
+
+# Create data dirs
+RUN mkdir -p data/raw data/cache data/snapshots data/db
+
+EXPOSE 8000
+
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
