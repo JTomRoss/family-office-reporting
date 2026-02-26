@@ -1,0 +1,2807 @@
+﻿=== GOLDMAN SACHS MANDATO === Pages: 222
+
+--- Page 1 ---
+  Lines: 52
+  | BOATVIEW EX BROKERAGE ETF STATEMENT
+  | WRAP
+  | Page
+  | BOATVIEW EX BROKERAGE ETF STATEMENT
+  | WRAP
+  | 1
+  | General Information
+  | 2
+  | Overview
+  | 3
+  | US Tax Summary
+  | 4
+  | Asset Strategy Analysis
+  | 6
+  | STATEMENT DETAIL
+  | 9
+  | Report Disclosures
+  | 219
+  | D
+  | DEMETRIO ZANARTU
+  | APOQUINDO 3846 P19
+  | LAS CONDES, SANTIAGO
+  | CHILE
+  | Your Goldman Sachs team:
+  | Felipe Medina, 305-755-1061
+  | Roberto Awad, 305-755-1066
+  | Allan Gubbins, 305-755-1197
+  | Marcelo Ratafia, 305-755-1196
+  | Alejandro Hines, 305-755-1016
+  | Ivanna Ortega, 305-755-1056
+  | Andrea Rodriguez, 305-755-1555
+  | Maria Garzon, 305-755-1020
+  | Gilberto Ibarra, 305-755-1689
+  | Faustino Villanueva, 305-755-1169
+  | Esteban Jaramillo, 305-755-1025
+  | Marcela Cure, 305-755-1655
+  | Nicolas Gutierrez, 305-755-1652
+  | Goldman Sachs & Co. LLC
+  | Southeast Financial Center
+  | 200 S. Biscayne Blvd.
+  | Suite 5300
+  | Miami, FL 33131
+  | Robert T. Barlick, Jr., Region Head
+  | 305-755-1095
+  | www.goldman.com
+  | Please Direct Inquiries To: 305-755-1000
+  | Period Covering December 01, 2025 to December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | Investment Summary
+  | Page  1 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+
+--- Page 2 ---
+  Lines: 46
+  | PORTFOLIO INFORMATION
+  | PORTFOLIO NUMBER :
+  | XXX-XX451-9
+  | BASE CURRENCY :
+  | US DOLLAR (USD)
+  | INDIVIDUAL PORTFOLIOS
+  | PORTFOLIO NAME
+  | PORTFOLIO NAME
+  | PORTFOLIO NUMBER
+  | PORTFOLIO NUMBER
+  | PAGE
+  | PAGE
+  | BOATVIEW LTD ADVISORY
+  | XXX-XX063-1
+  | 9
+  | BOATVIEW LTD ARISTOTLE LCV
+  | XXX-XX064-9
+  | 31
+  | BOATVIEW LIMITED EASTERN SHORE
+  | XXX-XX065-6
+  | 57
+  | BOATVIEW LTD BROKERAGE
+  | XXX-XX066-4
+  | 97
+  | BOATVIEW LTD CORPORATE FIXED INCOME
+  | XXX-XX067-2
+  | 107
+  | BOATVIEW LTD HARDING LOEVNER
+  | XXX-XX069-8
+  | 165
+  | BOATVIEW LTD WELLINGTON NON-US EQ
+  | XXX-XX072-2
+  | 199
+  | BOATVIEW LTD BROKERAGE 2
+  | XXX-XX147-6
+  | 209
+  | BOATVIEW LTD BROKERAGE
+  | XXX-XX195-0
+  | 213
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | General Information
+  | Investment Summary
+  | Page  2 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+
+--- Page 3 ---
+  Lines: 81
+  | TOTAL PORTFOLIO
+  | 273,860,843.16
+  | PORTFOLIO ASSET ALLOCATION (INCLUDES ACCRUALS)
+  | Market Value
+  | Percentage
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | 38,078,891.58
+  | 13.90
+  | CASH
+  | 173.17
+  | 0.00
+  | DEPOSITS & MONEY MARKET FUNDS
+  | 38,078,718.41
+  | 13.90
+  | FIXED INCOME
+  | 133,671,048.88
+  | 48.81
+  | INVESTMENT GRADE FIXED INCOME
+  | 117,700,200.10
+  | 42.98
+  | OTHER FIXED INCOME
+  | 15,970,848.78
+  | 5.83
+  | PUBLIC EQUITY
+  | 102,110,902.70
+  | 37.29
+  | US EQUITY
+  | 72,271,494.76
+  | 26.39
+  | GLOBAL EQUITY
+  | 8,269,727.87
+  | 3.02
+  | NON-US EQUITY
+  | 21,569,680.07
+  | 7.88
+  | TOTAL PORTFOLIO
+  | 273,860,843.16
+  | 100.00
+  | CASH
+  | DEPOSITS & MONEY MARKET FUNDS
+  | INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | US EQUITY
+  | GLOBAL EQUITY
+  | NON-US EQUITY
+  | PORTFOLIO ACTIVITY
+  | Market Value
+  | MARKET VALUE AS OF DECEMBER 01, 2025
+  | 272,753,935.10
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INTEREST RECEIVED
+  | 360,312.48
+  | DIVIDENDS RECEIVED
+  | 15,464.16
+  | CHANGE IN MARKET VALUE
+  | 731,131.42
+  | MARKET VALUE AS OF DECEMBER 31, 2025
+  | 273,860,843.16
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INVESTMENT RESULTS
+  | Ending
+  | Beginning
+  | Market Value
+  | Net Deposits
+  | (Withdrawals)
+  | Investment
+  | Results
+  | Market Value
+  | Dec 31 25
+  | 272,753,935.10
+  | 0.00
+  | 1,106,908.06
+  | 273,860,843.16
+  | CURRENT MONTH
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | Overview
+  | Investment Summary
+  | Page  3 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+
+--- Page 4 ---
+  Lines: 81
+  | REPORTABLE INCOME
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | DIVIDENDS AND DISTRIBUTIONS
+  | 1,906.97
+  | 4,418.32
+  | 19,274.13
+  | Qualified US Dividends
+  | 9,228.35
+  | 9,353.50
+  | 35,914.00
+  | Non-Qualified US Dividends
+  | 6,621.23
+  | 12,939.06
+  | 81,596.59
+  | Qualified Foreign Dividends
+  | 2,437.41
+  | 4,339.85
+  | 21,474.90
+  | Non-Qualified Foreign Dividends
+  | 0.00
+  | 81.32
+  | 277.73
+  | Nondividend Distributions
+  | (3,340.61)
+  | (4,131.56)
+  | (16,556.53)
+  | Dividend Tax Withheld
+  | (939.33)
+  | (2,197.35)
+  | (13,924.44)
+  | Foreign Tax Withheld From Foreign Dividends
+  | 15,914.02
+  | 24,803.14
+  | 128,056.38
+  | TOTAL DIVIDENDS AND DISTRIBUTIONS
+  | REPORTABLE INTEREST
+  | 236,379.67
+  | 663,810.09
+  | 2,444,555.01
+  | Corporate Interest
+  | 0.00
+  | 0.00
+  | 5.60
+  | Interest Earned
+  | 0.00
+  | 0.00
+  | 136,840.30
+  | Accrued Interest Received
+  | 44,863.63
+  | 99,533.48
+  | 485,978.82
+  | Non-US Interest
+  | 79,069.18
+  | 325,618.49
+  | 938,250.18
+  | Bank Interest
+  | 360,312.48
+  | 1,088,962.06
+  | 4,005,629.91
+  | TOTAL REPORTABLE INTEREST
+  | 376,226.50
+  | 1,113,765.20
+  | 4,133,686.29
+  | TOTAL REPORTABLE INCOME
+  | NON-REPORTABLE ITEMS
+  | INTEREST/DIVIDENDS CHARGED
+  | 0.00
+  | 0.00
+  | (391.22)
+  | Interest Charged on Bank Deposit
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | US Tax Summary
+  | Investment Summary
+  | Page  4 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+
+--- Page 5 ---
+  Lines: 61
+  | NON-REPORTABLE ITEMS (Continued)
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | INTEREST/DIVIDENDS CHARGED
+  | 0.00
+  | (4.27)
+  | (27.05)
+  | Reclaimable Foreign Tax
+  | 0.00
+  | (4.27)
+  | (418.27)
+  | TOTAL INTEREST/DIVIDENDS CHARGED
+  | ACCRUED INTEREST PAID AT PURCHASE
+  | 0.00
+  | 0.00
+  | (367,897.54)
+  | Interest Paid on Other Securities
+  | 0.00
+  | 0.00
+  | (367,897.54)
+  | TOTAL ACCRUED INTEREST PAID AT PURCHASE
+  | OTHER NON-REPORTABLE ITEMS
+  | (551.82)
+  | (968.53)
+  | (4,585.61)
+  | Miscellaneous Paid
+  | (551.82)
+  | (968.53)
+  | (4,585.61)
+  | TOTAL OTHER NON-REPORTABLE ITEMS
+  | (551.82)
+  | (972.80)
+  | (372,901.42)
+  | TOTAL NON-REPORTABLE ITEMS
+  | REALIZED CAPITAL GAINS
+  | 17,825.12
+  | 2,855.81
+  | 1,442,109.48
+  | SHORT TERM REALIZED GAIN (LOSS)
+  | 6,943.61
+  | 22,804.77
+  | 227,382.93  ╣
+  | LONG TERM REALIZED GAIN (LOSS)
+  | 24,768.73
+  | 25,660.58
+  | 1,669,492.41
+  | TOTAL REALIZED CAPITAL GAINS
+  | UNREALIZED GAIN (LOSS)
+  | 18,607,881.13
+  | CURRENT UNREALIZED GAIN (LOSS)
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | US Tax Summary (Continued)
+  | Investment Summary
+  | Page  5 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+  | 1 Gains shown may not reflect the actual cost basis and should not be used for tax reporting.
+
+--- Page 6 ---
+  Lines: 74
+  | Market Value
+  | as of Dec 31 25
+  | Percentage
+  | of Portfolio
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | 173.17
+  | 0.00 %
+  | CASH
+  | 37,913,806.31
+  | 13.84 %
+  | MONEY MARKET FUNDS
+  | 164,912.10
+  | 0.06 %
+  | DEPOSITS
+  | 38,078,718.41
+  | 13.90 %
+  | TOTAL DEPOSITS & MONEY MARKET FUNDS
+  | 38,078,891.58
+  | 13.90 %
+  | TOTAL CASH, DEPOSITS & MONEY MARKET FUNDS
+  | FIXED INCOME
+  | INVESTMENT GRADE FIXED INCOME
+  | 107,851,679.01
+  | 39.38 %
+  | GS: CORPORATE FIXED INCOME
+  | 6,558,899.09
+  | 2.39 %
+  | GS US MORTGAGE BACKED SECURITIES PORTFOLIO
+  | 3,289,622.00
+  | 1.20 %
+  | ISHARES GLOBAL AGGREGATE BOND UCITS ETF
+  | 117,700,200.10
+  | 42.98 %
+  | TOTAL INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | 7,953,785.68
+  | 2.90 %
+  | BLUEBAY GLOBAL HIGH YIELD BOND FUND
+  | 8,017,063.10
+  | 2.93 %
+  | PGIM US BROAD MARKET HIGH YIELD
+  | 15,970,848.78
+  | 5.83 %
+  | TOTAL OTHER FIXED INCOME
+  | 133,671,048.88
+  | 48.81 %
+  | TOTAL FIXED INCOME
+  | PUBLIC EQUITY
+  | US EQUITY
+  | 2,174,940.00
+  | 0.79 %
+  | HEALTH CARE SELECT SECTOR INDEX FUND (SPDR)
+  | 31,996,812.25
+  | 11.68 %
+  | S&P 500 INDEX FUND (ISHARES)
+  | 25,709,343.00
+  | 9.39 %
+  | US EQUITY LARGE CAP
+  | 1,079,344.41
+  | 0.39 %
+  | ARISTOTLE: LARGE CAP VALUE
+  | 6,891,023.75
+  | 2.52 %
+  | S&P MIDCAP 400 INDEX FUND (SPDR)
+  | 1,271,006.35
+  | 0.46 %
+  | GS US SMALL CAP CORE EQUITY PORTFOLIO
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | Asset Strategy Analysis
+  | Investment Summary
+  | Page  6 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+
+--- Page 7 ---
+  Lines: 63
+  | Market Value
+  | as of Dec 31 25
+  | Percentage
+  | of Portfolio
+  | PUBLIC EQUITY
+  | US EQUITY
+  | 3,149,025.00
+  | 1.15 %
+  | RUSSELL 2000 INDEX FUND (SPDR)
+  | 72,271,494.76
+  | 26.39 %
+  | TOTAL US EQUITY
+  | GLOBAL EQUITY
+  | 8,269,727.87
+  | 3.02 %
+  | GQG PARTNERS GLOBAL EQUITY FUND
+  | NON-US EQUITY
+  | 4,040,679.00
+  | 1.48 %
+  | HARDING LOEVNER: NON-US EQUITY
+  | 5,448,143.77
+  | 1.99 %
+  | WELLINGTON: NON-US EQUITY LLC
+  | 2,692,058.81
+  | 0.98 %
+  | MSCI EUROPE INDEX FUND (ISHARES)
+  | 2,702,466.94
+  | 0.99 %
+  | XTRACKERS MSCI EUROPE USD HEDGED UCITS ETF
+  | 1,121,552.89
+  | 0.41 %
+  | MDAX NET RETURN FUND (INVESCO)
+  | 1,236,825.41
+  | 0.45 %
+  | EUROPEAN EQUITY
+  | 1,115,632.72
+  | 0.41 %
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO(SNAP)
+  | 1,201,223.80
+  | 0.44 %
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO (USD HEDGED)(SNAP)
+  | 901,720.48
+  | 0.33 %
+  | MSCI PACIFIC EX-JAPAN INDEX FUND (ISHARES)
+  | 1,109,376.25
+  | 0.41 %
+  | MSCI INDIA TOTAL RETURN INDEX FUND (ISHARES)
+  | 21,569,680.07
+  | 7.88 %
+  | TOTAL NON-US EQUITY
+  | 102,110,902.70
+  | 37.29 %
+  | TOTAL PUBLIC EQUITY
+  | 273,860,843.16
+  | 100.00 %
+  | TOTAL PORTFOLIO
+  | Period Ended December 31, 2025
+  | BOATVIEW EX BROKERAGE ETF STATEMENT WRAP
+  | Asset Strategy Analysis (Continued)
+  | Investment Summary
+  | Page  7 of  222
+  | Portfolio No: XXX-XX451-9
+  | A
+
+--- Page 8 ---
+  Lines: 3
+  | Page  8 of  222
+  | THIS PAGE INTENTIONALLY LEFT BLANK
+  | A
+
+--- Page 9 ---
+  Lines: 55
+  | BOATVIEW LIMITED
+  | Page
+  | BOATVIEW LTD ADVISORY
+  | 9
+  | General Information
+  | 10
+  | Overview
+  | 11
+  | US Tax Summary
+  | 12
+  | Performance
+  | 14
+  | Holdings
+  | 16
+  | Cash Activity
+  | 20
+  | Bank Statement
+  | 21
+  | Realized Gains and Losses
+  | 22
+  | Income and Expenses
+  | 25
+  | Deposits and Withdrawals
+  | 27
+  | Report Disclosures
+  | 219
+  | Your Goldman Sachs team:
+  | Felipe Medina, 305-755-1061
+  | Roberto Awad, 305-755-1066
+  | Allan Gubbins, 305-755-1197
+  | Marcelo Ratafia, 305-755-1196
+  | Alejandro Hines, 305-755-1016
+  | Ivanna Ortega, 305-755-1056
+  | Andrea Rodriguez, 305-755-1555
+  | Maria Garzon, 305-755-1020
+  | Gilberto Ibarra, 305-755-1689
+  | Faustino Villanueva, 305-755-1169
+  | Esteban Jaramillo, 305-755-1025
+  | Marcela Cure, 305-755-1655
+  | Nicolas Gutierrez, 305-755-1652
+  | Goldman Sachs & Co. LLC
+  | Southeast Financial Center
+  | 200 S. Biscayne Blvd.
+  | Suite 5300
+  | Miami, FL 33131
+  | Robert T. Barlick, Jr., Region Head
+  | 305-755-1095
+  | www.goldman.com
+  | Please Direct Inquiries To: 305-755-1000
+  | Period Covering December 01, 2025 to December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Statement Detail
+  | Page  9 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 10 ---
+  Lines: 22
+  | PORTFOLIO INFORMATION
+  | PORTFOLIO NUMBER :
+  | XXX-XX063-1
+  | BASE CURRENCY :
+  | US DOLLAR (USD)
+  | EXCHANGE RATES
+  | Currency
+  | Symbol
+  | Rate
+  | EURO
+  | EUR
+  | 0.85178
+  | JAPANESE YEN
+  | JPY
+  | 156.76600
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | General Information
+  | Statement Detail
+  | Page  10 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 11 ---
+  Lines: 83
+  | TOTAL PORTFOLIO
+  | 117,451,251.30
+  | PORTFOLIO ASSET ALLOCATION (INCLUDES ACCRUALS)
+  | Market Value
+  | Percentage
+  | CASH, DEPOSITS & MONEY MARKET FUNDS»
+  | 89,145.91
+  | 0.08
+  | DEPOSITS & MONEY MARKET FUNDS
+  | 89,145.91
+  | 0.08
+  | FIXED INCOME
+  | 25,819,369.87
+  | 21.98
+  | INVESTMENT GRADE FIXED INCOME
+  | 9,848,521.09
+  | 8.39
+  | OTHER FIXED INCOME
+  | 15,970,848.78
+  | 13.60
+  | PUBLIC EQUITY
+  | 91,542,735.52
+  | 77.94
+  | US EQUITY
+  | 71,192,150.35
+  | 60.61
+  | GLOBAL EQUITY
+  | 8,269,727.87
+  | 7.04
+  | NON-US EQUITY
+  | 12,080,857.30
+  | 10.29
+  | TOTAL PORTFOLIO
+  | 117,451,251.30
+  | 100.00
+  | DEPOSITS & MONEY MARKET FUNDS
+  | INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | US EQUITY
+  | GLOBAL EQUITY
+  | NON-US EQUITY
+  | PORTFOLIO ACTIVITY
+  | Market Value
+  | MARKET VALUE AS OF DECEMBER 01, 2025
+  | 116,698,096.49
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INTEREST RECEIVED
+  | 272.53
+  | DIVIDENDS RECEIVED
+  | 6,459.84
+  | CHANGE IN MARKET VALUE
+  | 746,422.44
+  | MARKET VALUE AS OF DECEMBER 31, 2025
+  | 117,451,251.30
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INVESTMENT RESULTS
+  | Ending
+  | Beginning
+  | Market Value
+  | Net Deposits
+  | (Withdrawals)
+  | Investment
+  | Results
+  | Market Value
+  | Dec 31 25
+  | 116,698,096.49
+  | 0.00
+  | 753,154.81
+  | 117,451,251.30
+  | CURRENT MONTH
+  | 43,838,953.02
+  | 60,401,218.54
+  | 13,211,079.74
+  | 117,451,251.30
+  | CURRENT YEAR
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Overview
+  | Statement Detail
+  | Page  11 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | 4 This asset class may include bank deposits which are FDIC-insured and money market funds which are not FDIC-insured, are subject to investment risk and may lose value.  Please refer to the Holdings and Bank Statement sections for further information
+
+--- Page 12 ---
+  Lines: 70
+  | REPORTABLE INCOME
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | DIVIDENDS AND DISTRIBUTIONS
+  | 9,228.35
+  | 9,228.35
+  | 35,396.93
+  | Non-Qualified US Dividends
+  | 0.00
+  | 0.00
+  | 3,727.86
+  | Non-Qualified Foreign Dividends
+  | (2,768.51)
+  | (2,768.51)
+  | (10,619.08)
+  | Dividend Tax Withheld
+  | 6,459.84
+  | 6,459.84
+  | 28,505.71
+  | TOTAL DIVIDENDS AND DISTRIBUTIONS
+  | REPORTABLE INTEREST
+  | 272.53
+  | 1,051.77
+  | 53,481.97
+  | Bank Interest
+  | 272.53
+  | 1,051.77
+  | 53,481.97
+  | TOTAL REPORTABLE INTEREST
+  | 6,732.37
+  | 7,511.61
+  | 81,987.68
+  | TOTAL REPORTABLE INCOME
+  | NON-REPORTABLE ITEMS
+  | INTEREST/DIVIDENDS CHARGED
+  | 0.00
+  | 0.00
+  | (391.22)
+  | Interest Charged on Bank Deposit
+  | 0.00
+  | 0.00
+  | (391.22)
+  | TOTAL INTEREST/DIVIDENDS CHARGED
+  | 0.00
+  | 0.00
+  | (391.22)
+  | TOTAL NON-REPORTABLE ITEMS
+  | REALIZED CAPITAL GAINS
+  | 0.00
+  | 0.00
+  | 180,964.08
+  | LONG TERM REALIZED GAIN (LOSS)
+  | 0.00
+  | 0.00
+  | 1,419,537.28
+  | SHORT TERM REALIZED GAIN (LOSS)
+  | 0.00
+  | 0.00
+  | 1,600,501.36
+  | TOTAL REALIZED CAPITAL GAINS
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | US Tax Summary
+  | Statement Detail
+  | Page  12 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+
+--- Page 13 ---
+  Lines: 15
+  | UNREALIZED GAIN (LOSS)
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | 11,289,803.67
+  | CURRENT UNREALIZED GAIN (LOSS)
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | US Tax Summary (Continued)
+  | Statement Detail
+  | Page  13 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+
+--- Page 14 ---
+  Lines: 143
+  | PERFORMANCE ANALYSIS
+  | Market Value
+  | as of Dec 31 25
+  | Percentage
+  | of Portfolio
+  | Current
+  | Month (%)
+  | Year to
+  | Date (%)
+  | Inception to
+  | Date (%)
+  | Inception
+  | Date
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | DEPOSITS & MONEY MARKET FUNDS
+  | DEPOSITS
+  | 89,145.91
+  | 0.08
+  | 0.30
+  | 4.04
+  | 3.93
+  | JAN 11 22
+  | TOTAL DEPOSITS & MONEY MARKET FUNDS
+  | 89,145.91
+  | 0.08
+  | 0.30
+  | 14.13
+  | 6.60
+  | JAN 11 22
+  | FIXED INCOME
+  | INVESTMENT GRADE FIXED INCOME
+  | GS US MORTGAGE BACKED SECURITIES PORTFOLIO
+  | 6,558,899.09
+  | 5.58
+  | 0.17
+  | 7.52
+  | 6.14
+  | OCT 11 22
+  | Bloomberg Barclays Capital US Securitized TR Index in USD
+  | 0.21
+  | 7.60
+  | 6.05
+  | ISHARES GLOBAL AGGREGATE BOND UCITS ETF
+  | 3,289,622.00
+  | 2.80
+  | 0.02
+  | 4.72
+  | 5.18
+  | MAY 20 24
+  | TOTAL INVESTMENT GRADE FIXED INCOME
+  | 9,848,521.09
+  | 8.39
+  | 0.12
+  | 6.69
+  | 4.30
+  | SEP 12 22
+  | OTHER FIXED INCOME
+  | BLUEBAY GLOBAL HIGH YIELD BOND FUND
+  | 7,953,785.68
+  | 6.77
+  | 0.86
+  | 6.05
+  | 4.25
+  | JAN 11 22
+  | ICE BofA Merrill Lynch Global High Yield Constrained TR Index 100% Hedged in
+  | USD
+  | 0.66
+  | 6.86
+  | 4.61
+  | PGIM US BROAD MARKET HIGH YIELD
+  | 8,017,063.10
+  | 6.83
+  | 0.63
+  | 8.66
+  | 7.20
+  | OCT 09 24
+  | Bloomberg Barclays US High Yield 1% Issuer Cap in USD
+  | 0.57
+  | 8.62
+  | 7.55
+  | TOTAL OTHER FIXED INCOME
+  | 15,970,848.78
+  | 13.60
+  | 0.74
+  | 8.02
+  | 4.46
+  | JAN 11 22
+  | TOTAL FIXED INCOME
+  | 25,819,369.87
+  | 21.98
+  | 0.51
+  | 7.49
+  | 3.07
+  | JAN 11 22
+  | PUBLIC EQUITY
+  | US EQUITY
+  | HEALTH CARE SELECT SECTOR INDEX FUND (SPDR)
+  | 2,174,940.00
+  | 1.85
+  | (1.39)
+  | 14.50
+  | 2.95
+  | JAN 09 22
+  | S&P 500 INDEX FUND (ISHARES)
+  | 31,996,812.25
+  | 27.24
+  | 0.88
+  | 14.96
+  | 13.19
+  | JAN 09 22
+  | US EQUITY LARGE CAP
+  | 25,709,343.00
+  | 21.89
+  | 0.87
+  | 14.38
+  | 22.62
+  | JAN 16 23
+  | S&P MIDCAP 400 INDEX FUND (SPDR)
+  | 6,891,023.75
+  | 5.87
+  | 0.90
+  | 7.35
+  | 6.26
+  | OCT 22 24
+  | GS US SMALL CAP CORE EQUITY PORTFOLIO
+  | 1,271,006.35
+  | 1.08
+  | 0.73
+  | 21.73
+  | 21.73
+  | MAR 24 25
+  | Russell 2000 NTR Index in USD
+  | (0.63)
+  | 18.57
+  | 18.57
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Performance
+  | Statement Detail
+  | Page  14 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | Inception to Date (ITD) reflects annualized returns if the ITD is 12 months or greater. Otherwise ITD reflects cumulative returns.
+
+--- Page 15 ---
+  Lines: 160
+  | PERFORMANCE ANALYSIS
+  | Market Value
+  | as of Dec 31 25
+  | Percentage
+  | of Portfolio
+  | Current
+  | Month (%)
+  | Year to
+  | Date (%)
+  | Inception to
+  | Date (%)
+  | Inception
+  | Date
+  | PUBLIC EQUITY
+  | US EQUITY
+  | RUSSELL 2000 INDEX FUND (SPDR)
+  | 3,149,025.00
+  | 2.68
+  | 0.11
+  | 12.25
+  | 5.05
+  | DEC 10 24
+  | TOTAL US EQUITY
+  | 71,192,150.35
+  | 60.61
+  | 0.77
+  | 16.57
+  | 11.52
+  | JAN 09 22
+  | GLOBAL EQUITY
+  | GQG PARTNERS GLOBAL EQUITY FUND
+  | 8,269,727.87
+  | 7.04
+  | (1.10)
+  | (10.05)
+  | 6.19
+  | JAN 11 22
+  | MSCI All Countries World Net Total Return Index in USD
+  | 1.04
+  | 16.54
+  | 9.82
+  | TOTAL GLOBAL EQUITY
+  | 8,269,727.87
+  | 7.04
+  | (1.10)
+  | (6.62)
+  | 5.02
+  | JAN 11 22
+  | NON-US EQUITY
+  | MSCI EUROPE INDEX FUND (ISHARES)
+  | 2,692,058.81
+  | 2.29
+  | 3.83
+  | 24.04
+  | 8.43
+  | JAN 10 22
+  | XTRACKERS MSCI EUROPE USD HEDGED UCITS ETF
+  | 2,702,466.94
+  | 2.30
+  | 2.35
+  | 12.27
+  | 6.18
+  | JAN 09 22
+  | MDAX NET RETURN FUND (INVESCO)
+  | 1,121,552.89
+  | 0.95
+  | 3.67
+  | 0.17
+  | 0.17
+  | JUL 02 25
+  | EUROPEAN EQUITY
+  | 1,236,825.41
+  | 1.05
+  | 1.86
+  | 13.12
+  | 13.12
+  | JUN 22 25
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO(SNAP)
+  | 1,115,632.72
+  | 0.95
+  | (2.52)
+  | 12.23
+  | 3.32
+  | JAN 11 22
+  | TOPIX Net Total Return Index in USD
+  | 0.56
+  | 25.32
+  | 8.36
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO (USD HEDGED)(SNAP)
+  | 1,201,223.80
+  | 1.02
+  | (1.83)
+  | 15.80
+  | 9.19
+  | JAN 11 22
+  | TOPIX Net Total Return 100% Hedged Index in USD
+  | 1.36
+  | 29.37
+  | 16.48
+  | MSCI PACIFIC EX-JAPAN INDEX FUND (ISHARES)
+  | 901,720.48
+  | 0.77
+  | 2.35
+  | 19.55
+  | 6.37
+  | JAN 09 22
+  | MSCI INDIA TOTAL RETURN INDEX FUND (ISHARES)
+  | 1,109,376.25
+  | 0.94
+  | (1.21)
+  | 5.36
+  | 5.36
+  | MAR 27 25
+  | TOTAL NON-US EQUITY
+  | 12,080,857.30
+  | 10.29
+  | 1.51
+  | 22.74
+  | 8.11
+  | JAN 09 22
+  | TOTAL PUBLIC EQUITY
+  | 91,542,735.52
+  | 77.94
+  | 0.70
+  | 14.82
+  | 10.45
+  | JAN 09 22
+  | TOTAL PORTFOLIO░Á
+  | 117,451,251.30
+  | 100.00
+  | 0.63
+  | 13.72
+  | 8.82
+  | JAN 09 22
+  | COMPARATIVE INDICES
+  | BLOOMBERG BARCLAYS CAPITAL 1-10 YEAR BLEND MUNICIPAL BOND TR
+  | INDEX IN USD
+  | 0.28
+  | 5.14
+  | 1.52
+  | JAN 09 22
+  | MSCI EAFE UNHEDGED CURRENCY TR INDEX IN USD
+  | 3.01
+  | 31.89
+  | 9.03
+  | JAN 09 22
+  | S&P 500 TR INDEX IN USD
+  | 0.06
+  | 17.88
+  | 11.69
+  | JAN 09 22
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Performance (Continued)
+  | Statement Detail
+  | Page  15 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | Inception to Date (ITD) reflects annualized returns if the ITD is 12 months or greater. Otherwise ITD reflects cumulative returns.
+  | 57Performance displayed at the investment, asset class and total portfolio levels excludes Private Equity positions. However, private equity position values are included in total market values.
+
+--- Page 16 ---
+  Lines: 128
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity /
+  | Current Yield
+  | Estimated
+  | Annual Income
+  | DEPOSITS & MONEY MARKET FUNDS
+  | DEPOSITS
+  | 89,137.73
+  | 1.0000
+  | 89,137.73
+  | 8.18
+  | 1.0000
+  | 89,137.73
+  | 0.00
+  | 3.4076
+  | 3,037.48
+  | GOLDMAN SACHS BANK USA DEPOSIT (BDA)▓░¬▓À
+  | FIXED INCOME
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | INVESTMENT GRADE FIXED INCOME
+  | GS US MORTGAGE BACKED SECURITIES PORTFOLIO
+  | 559,633.028
+  | 11.7200
+  | 6,558,899.09
+  | 10.9000
+  | 6,100,000.00
+  | 458,899.09
+  | 651,663.67
+  | GS US MORTGAGE BACKED SECURITIES PORTFOLIO CLASS I
+  | SHARES (ACC)
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | ISHARES GLOBAL AGGREGATE BOND UCITS ETF
+  | 566,200.00
+  | 5.8100
+  | 3,289,622.00
+  | 5.3808
+  | 3,046,606.21
+  | 243,015.79
+  | ISHARES III PLC-ISHARES CORE G ETF ON BLOOMBERG
+  | GLOBAL-AGGREG STAMP EXEMPT Not Rated
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | 9,848,521.09
+  | 9,146,606.21
+  | 701,914.88
+  | TOTAL INVESTMENT GRADE FIXED INCOME
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | OTHER FIXED INCOME
+  | BLUEBAY GLOBAL HIGH YIELD BOND FUND
+  | 36,331.928
+  | 218.9200
+  | 7,953,785.68
+  | 206.4300
+  | 7,500,000.00
+  | 453,785.68
+  | BLUEBAY GLOBAL HIGH YIELD BOND I USD ACC
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Holdings
+  | Statement Detail
+  | Page  16 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | 28Securities and investments, other than deposit products, are not offered by and are not deposits or obligations of Goldman Sachs Bank USA, are not FDIC insured, and are subject to investment risks, including possible loss of the principal amount invested.
+  | 25This is a bank deposit with Goldman Sachs Bank USA, member FDIC, reflected here for your convenience and is not cash held in your account(s). For additional information, terms and conditions concerning this deposit, see Additional Disclosures Regarding GS Bank
+  | at the end of this Statement and your Bank Deposit Agreement.
+
+--- Page 17 ---
+  Lines: 129
+  | FIXED INCOME (Continued)
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | OTHER FIXED INCOME
+  | PGIM US BROAD MARKET HIGH YIELD
+  | 54,438.226
+  | 147.2690
+  | 8,017,063.10
+  | 136.6220
+  | 7,437,459.25
+  | 579,603.85
+  | PGIM INVESTMENTS US BROAD MARKET HIGH YIELD FUND P
+  | USD ACCUMULATION
+  | 15,970,848.78
+  | 14,937,459.25
+  | 1,033,389.53
+  | TOTAL OTHER FIXED INCOME
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | 25,819,369.87
+  | 24,084,065.46
+  | 1,735,304.41
+  | TOTAL FIXED INCOME
+  | PUBLIC EQUITY
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | US EQUITY
+  | HEALTH CARE SELECT SECTOR INDEX FUND (SPDR)
+  | 14,050.00
+  | 154.8000
+  | 2,174,940.00
+  | 153.4727
+  | 2,156,290.91
+  | 18,649.09
+  | 1.5999
+  | 34,796.38
+  | STATE STREET HEALTH CARE SELEC CMN (XLV)
+  | S&P 500 INDEX FUND (ISHARES)
+  | 43,325.00
+  | 738.5300
+  | 31,996,812.25
+  | 638.2407
+  | 27,651,776.39
+  | 4,345,035.86
+  | ISHARES CORE S&P 500 UCITS ETF ON S&P 500 NTR IDX
+  | (*CSPXLN)
+  | US EQUITY LARGE CAP
+  | 194,150.00
+  | 132.4200
+  | 25,709,343.00
+  | 114.8664
+  | 22,301,308.72
+  | 3,408,034.28
+  | VANGUARD FUNDS PLC- VANGUARD S CMN CLASS ETF ETF
+  | ON S&P 500 NET TOTAL (*VUAALN)
+  | S&P MIDCAP 400 INDEX FUND (SPDR)
+  | 66,625.00
+  | 103.4300
+  | 6,891,023.75
+  | 98.4425
+  | 6,558,728.36
+  | 332,295.39
+  | SSGA SPDR ETFS EUROPE I PLC-SP ETF ON S&P 400 NET TR
+  | (*SPDETUK)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | GS US SMALL CAP CORE EQUITY PORTFOLIO
+  | 28,008.073
+  | 45.3800
+  | 1,271,006.35
+  | 37.2800
+  | 1,044,140.95
+  | 226,865.40
+  | 241,006.35
+  | GS US SMALL CAP CORE EQUITY PORTFOLIO CLASS I (ACC.)
+  | (SNAP) (*GSSMCIA)
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Holdings (Continued)
+  | Statement Detail
+  | Page  17 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 18 ---
+  Lines: 108
+  | PUBLIC EQUITY (Continued)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | US EQUITY
+  | RUSSELL 2000 INDEX FUND (SPDR)
+  | 43,375.00
+  | 72.6000
+  | 3,149,025.00
+  | 66.4846
+  | 2,883,771.02
+  | 265,253.98
+  | SSGA SPDR ETFS EURP II PLC- SPDR RUSL 2000 US SM CP
+  | UCITS ETF ON RUSSELL 2000 NET 30% RE (*R2USLN)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | 71,192,150.35
+  | 62,596,016.35
+  | 8,596,134.00
+  | 1.5999
+  | 34,796.38
+  | TOTAL US EQUITY
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | GLOBAL EQUITY
+  | GQG PARTNERS GLOBAL EQUITY FUND
+  | 368,198.035
+  | 22.4600
+  | 8,269,727.87
+  | 24.7829
+  | 9,125,000.00
+  | (855,272.13)
+  | GQG PARTNERS GLOBAL EQUITY FUND I USD ACCUMULATING
+  | SHARE CLASS (*GQGGEIU)
+  | NON-US EQUITY
+  | MSCI EUROPE INDEX FUND (ISHARES)
+  | 24,437.00
+  | 110.1632
+  | 2,692,058.81
+  | 89.2107
+  | 2,180,040.91
+  | 512,017.90
+  | ISHARES III PLC - ISHARES MSCI EUROPE ETF ON MSCI DAILY
+  | NET TR EUROPE EURO (*IMAENA)
+  | XTRACKERS MSCI EUROPE USD HEDGED UCITS ETF
+  | 129,475.00
+  | 20.8725
+  | 2,702,466.94
+  | 18.5554
+  | 2,402,462.06
+  | 300,004.88
+  | DB X-TRACKERS MSCI EUROPE INDEX UCITS ETF CMN CLASS
+  | ETF ON MSCI EURPE US DLR HDGD IDX (*XEUL)
+  | MDAX NET RETURN FUND (INVESCO)
+  | 18,850.00
+  | 59.4988
+  | 1,121,552.89
+  | 59.1423
+  | 1,114,832.17
+  | 6,720.72
+  | INVESCO MARKETS II PLC - INVES CMN CLASS ETF ETF ON
+  | MDAX NET RETURN (*DEAMGR)
+  | EUROPEAN EQUITY
+  | 4,700.00
+  | 263.1543
+  | 1,236,825.41
+  | 233.5550
+  | 1,097,708.69
+  | 139,116.72
+  | SSGA SPDR ETFS EUR II PLC-SPDR ETF ON THE MSCI
+  | EUROPE/HEALTH STAMP DUTY EXEMPTED (*HLTHLN1)
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Holdings (Continued)
+  | Statement Detail
+  | Page  18 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 19 ---
+  Lines: 106
+  | PUBLIC EQUITY (Continued)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | NON-US EQUITY
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO(SNAP)
+  | 5,667.313
+  | 196.8539
+  | 1,115,632.72
+  | 137.2151
+  | 777,641.02
+  | 337,991.70
+  | 204,281.10
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS I SHARES
+  | (ACC.) (SNAP) (*GSJEPIJ)
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO (USD HEDGED)(SNAP)
+  | 28,411.159
+  | 42.2800
+  | 1,201,223.80
+  | 32.7241
+  | 929,730.84
+  | 271,492.96
+  | 225,228.65
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS I SHARES
+  | (ACC.) (USD-HED (GSJEPIU)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | MSCI PACIFIC EX-JAPAN INDEX FUND (ISHARES)
+  | 4,112.00
+  | 219.2900
+  | 901,720.48
+  | 173.1265
+  | 711,896.35
+  | 189,824.13
+  | ISHARES VII PLC-ISHARES CORE MSCI PACIFIC EX JAPAN
+  | UCITS ET (*CPXJLN)
+  | MSCI INDIA TOTAL RETURN INDEX FUND (ISHARES)
+  | 20,525.00
+  | 54.0500
+  | 1,109,376.25
+  | 51.2988
+  | 1,052,907.87
+  | 56,468.38
+  | ISHARES MSCI INDIA ETF CMN (INDA)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized /
+  | Economic
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | 12,080,857.30
+  | 10,267,219.91
+  | 1,813,637.39
+  | TOTAL NON-US EQUITY
+  | 91,542,735.52
+  | 81,988,236.26
+  | 9,554,499.26
+  | 1.5999
+  | 34,796.38
+  | TOTAL PUBLIC EQUITY
+  | Market Value
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Estimated
+  | Annual Income
+  | 117,451,251.30
+  | 106,161,439.45
+  | 11,289,803.67
+  | 37,833.86
+  | TOTAL PORTFOLIO
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Holdings (Continued)
+  | Statement Detail
+  | Page  19 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 20 ---
+  Lines: 43
+  | Type of
+  | Activity
+  | Settlement
+  | Effective Date
+  | Net Settlement
+  | Amount /
+  | Accrued Interest
+  | End of Day
+  | Money Balance ╣║
+  | TRANSACTIONS AFFECTING CASH ╗
+  | 82,405.36
+  | CLOSING BALANCE AS OF NOV 30 25
+  | Div Recv
+  | Dec 24 25
+  | (2,768.51)
+  | 30.0000% NRA WITHHOLDING Gross Dividend On 14,050 Shs @ 0.65682200 STATE STREET HEALTH CARE SEL
+  | Div Recv
+  | Dec 24 25
+  | 9,228.35
+  | 88,865.20
+  | STATE STREET HEALTH CARE SELEC CMN Non-Qualified Gross Dividend On 14,050 Shs @ 0.65682200 STATE STREET
+  | HEALTH CARE SEL
+  | Intr Recv
+  | Dec 31 25
+  | 272.50
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Intr Recv
+  | Dec 31 25
+  | 0.03
+  | 89,137.73
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | 89,137.73
+  | CLOSING BALANCE AS OF DEC 31 25
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Cash Activity
+  | Statement Detail
+  | Page  20 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+  | 10Securities and investments, other than deposit products, are not offered by and are not deposits or obligations of Goldman Sachs Bank USA, are not FDIC insured, and are subject to investment risks, including possible loss of the principal amount invested.
+  | 9 This may include cash held in your account and deposits held at Goldman Sachs Bank USA, member FDIC, reflected here for your convenience. For more information about Goldman Sachs Bank USA, please see Additional Disclosures Regarding GS Bank at the end
+  | of this Statement and your Bank Deposit Agreement and/or Deposit Account Agreement, as applicable.
+
+--- Page 21 ---
+  Lines: 46
+  | GOLDMAN SACHS BANK USA DEPOSIT (BDA)
+  | Summary for December 2025 Interest Accrual Period
+  | Current Period
+  | Year to Date
+  | AVERAGE DAILY BALANCE
+  | 83,384.12
+  | 1,271,649.05
+  | ANNUAL PERCENTAGE YIELD (APY) EARNED
+  | 3.68 %
+  | 4.22 %
+  | INTEREST EARNED ON BANK DEPOSIT
+  | 272.54
+  | 53,468.18
+  | CURRENCY: USD
+  | INTEREST POSTED ON: December 31, 2025 based on Interest Period from November 28, 2025 to December 30, 2025
+  | NUMBER OF DAYS USED TO CALCULATE THE CURRENT PERIOD
+  | 33
+  | 364
+  | BANK DEPOSIT ACCOUNT TRANSFER ACTIVITY
+  | Date
+  | Transfer
+  | To/(From) Bank Deposit
+  | Net Daily Transfer
+  | To/(From) Bank Deposit
+  | End of Day
+  | Bank Deposit Balance
+  | CLOSE OF NOV-27
+  | 82,159.67
+  | NOV-28
+  | 0.29
+  | REINVESTMENT
+  | NOV-28
+  | 245.40
+  | REINVESTMENT
+  | DEC-26
+  | 6,459.84
+  | 6,459.84
+  | 88,865.20
+  | CLOSE OF DEC-30
+  | 88,865.20
+  | BOATVIEW LTD ADVISORY
+  | Bank Statement
+  | Statement Detail
+  | Page  21 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 22 ---
+  Lines: 230
+  | YEAR TO DATE GAINS AND LOSSES
+  | Date Acquired
+  | or Sold Short
+  | Date Sold
+  | or Covered
+  | Quantity
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | Holding
+  | Period
+  | Nov 28 2022
+  | Feb 13 2025
+  | 977.13
+  | 176,879.46
+  | 136,309.81
+  | 0.00
+  | 40,569.65
+  | 40,569.65
+  | LT
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS
+  | I SHARES (ACC.) (SNAP)
+  | Feb 29 2024
+  | Feb 13 2025
+  | 8,826.73
+  | 325,000.01
+  | 288,633.91
+  | 0.00
+  | 36,366.10
+  | 36,366.10
+  | ST
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS
+  | I SHARES (ACC.) (USD-HED
+  | Dec 12 2024
+  | Feb 13 2025
+  | 483,775.00
+  | 2,494,211.88
+  | 2,523,735.91
+  | 0.00
+  | (29,524.03)
+  | (29,524.03)
+  | ST
+  | ISHARES IV PLC-ISHARES US MORT ETF ON BBG
+  | Jan 23 2025
+  | Feb 13 2025
+  | 704,675.00
+  | 3,633,112.00
+  | 3,676,117.21
+  | 0.00
+  | (43,005.21)
+  | (43,005.21)
+  | ST
+  | BARCLAYS US MORTGAG STAMP DUTY
+  | EXEMPTED
+  | Dec 12 2024
+  | Feb 13 2025
+  | 132,800.00
+  | 880,114.20
+  | 876,625.62
+  | 0.00
+  | 3,488.58
+  | 3,488.58
+  | ST
+  | ISHARES IV PLC-ISHARES USD SHT DURA HG YLD
+  | Dec 18 2024
+  | Feb 13 2025
+  | 129,325.00
+  | 857,084.11
+  | 852,158.21
+  | 0.00
+  | 4,925.90
+  | 4,925.90
+  | ST
+  | CORP BD UCITS ETF ETF ON MARKIT IBOXX USD
+  | Jan 23 2025
+  | Feb 13 2025
+  | 384,400.00
+  | 2,547,559.49
+  | 2,537,461.50
+  | 0.00
+  | 10,097.99
+  | 10,097.99
+  | ST
+  | LIQUID HIGH YIELD 0-5 CAPPED IND TRI
+  | Dec 12 2024
+  | Feb 13 2025
+  | 38,450.00
+  | 3,565,054.05
+  | 3,530,545.52
+  | 0.00
+  | 34,508.53
+  | 34,508.53
+  | ST
+  | ISHARES V PLC - ISHARES MSCI ACWI ETF ON
+  | Jan 23 2025
+  | Feb 13 2025
+  | 55,000.00
+  | 5,099,557.15
+  | 5,050,195.15
+  | 0.00
+  | 49,362.00
+  | 49,362.00
+  | ST
+  | MSCI ALL COUNTRY WORLD INDEX NET USD
+  | Jan 10 2022
+  | Feb 13 2025
+  | 780.00
+  | 148,503.75
+  | 134,330.96
+  | 0.00
+  | 14,172.79
+  | 14,172.79
+  | LT
+  | ISHARES VII PLC-ISHARES CORE MSCI PACIFIC EX
+  | Jan 21 2022
+  | Feb 13 2025
+  | 725.00
+  | 138,032.33
+  | 125,018.36
+  | 0.00
+  | 13,013.97
+  | 13,013.97
+  | LT
+  | JAPAN UCITS ET
+  | Jun 28 2022
+  | Feb 13 2025
+  | 100.00
+  | 19,038.94
+  | 15,945.93
+  | 0.00
+  | 3,093.01
+  | 3,093.01
+  | LT
+  | Aug 06 2024
+  | Feb 13 2025
+  | 450.00
+  | 85,675.24
+  | 76,022.45
+  | 0.00
+  | 9,652.79
+  | 9,652.79
+  | ST
+  | Oct 08 2024
+  | Feb 13 2025
+  | 52.00
+  | 9,900.25
+  | 10,063.21
+  | 0.00
+  | (162.96)
+  | (162.96)
+  | ST
+  | Oct 09 2024
+  | Feb 13 2025
+  | 6,877.31
+  | 946,985.25
+  | 930,005.14
+  | 0.00
+  | 16,980.11
+  | 16,980.11
+  | ST
+  | PGIM INVESTMENTS US BROAD MARKET HIGH
+  | Dec 11 2024
+  | Feb 13 2025
+  | 15,999.00
+  | 2,203,014.75
+  | 2,185,815.75
+  | 0.00
+  | 17,199.00
+  | 17,199.00
+  | ST
+  | YIELD FUND P USD ACCUMULATION
+  | Dec 11 2024
+  | Feb 13 2025
+  | 10,545.00
+  | 12,589,773.85
+  | 12,634,670.70
+  | 0.00
+  | (44,896.85)
+  | (44,896.85)
+  | ST
+  | SOURCE MARKETS PLC- ETF ON S&P 500 NET TR
+  | Jan 23 2025
+  | Feb 13 2025
+  | 15,100.00
+  | 18,028,030.83
+  | 18,092,321.25
+  | 0.00
+  | (64,290.42)
+  | (64,290.42)
+  | ST
+  | Dec 11 2024
+  | Feb 13 2025
+  | 1,550.00
+  | 100,680.22
+  | 106,730.50
+  | 0.00
+  | (6,050.28)
+  | (6,050.28)
+  | ST
+  | SSGA SPDR ETFS EURP II PLC- SPDR RUSL 2000
+  | US SM CP UCITS ETF ON RUSSELL 2000 NET 30%
+  | RE
+  | Dec 11 2024
+  | Feb 13 2025
+  | 18,750.00
+  | 10,470,777.65
+  | 10,488,937.50
+  | 0.00
+  | (18,159.85)
+  | (18,159.85)
+  | ST
+  | VANGUARD S&P 500 ETF
+  | Jan 23 2025
+  | Feb 13 2025
+  | 27,250.00
+  | 15,217,530.18
+  | 15,243,922.50
+  | 0.00
+  | (26,392.32)
+  | (26,392.32)
+  | ST
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Realized Gains and Losses
+  | Statement Detail
+  | Page  22 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 23 ---
+  Lines: 220
+  | Date Acquired
+  | or Sold Short
+  | Date Sold
+  | or Covered
+  | Quantity
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | Holding
+  | Period
+  | Dec 12 2024
+  | Feb 13 2025
+  | 33,625.00
+  | 1,648,722.40
+  | 1,511,443.75
+  | 0.00
+  | 137,278.65
+  | 137,278.65
+  | ST
+  | WISDOMTREE EUR HDGD EQ FD CMN
+  | Jan 23 2025
+  | Feb 13 2025
+  | 47,875.00
+  | 2,347,437.48
+  | 2,151,981.25
+  | 0.00
+  | 195,456.23
+  | 195,456.23
+  | ST
+  | Dec 11 2024
+  | Feb 13 2025
+  | 15,725.00
+  | 1,601,644.04
+  | 1,515,373.79
+  | 0.00
+  | 86,270.25
+  | 86,270.25
+  | ST
+  | XTRACKERS - MSCI EUROPE UCITS ETF
+  | Jan 23 2025
+  | Feb 13 2025
+  | 22,725.00
+  | 2,314,617.53
+  | 2,189,944.01
+  | 0.00
+  | 124,673.52
+  | 124,673.52
+  | ST
+  | Feb 13 2025
+  | Feb 20 2025
+  | 32,325.00
+  | 598,770.78
+  | 600,357.81
+  | 0.00
+  | (1,587.03)
+  | (1,587.03)
+  | ST
+  | DB X-TRACKERS MSCI EUROPE INDEX UCITS ETF
+  | CMN CLASS ETF ON MSCI EURPE US DLR HDGD
+  | IDX
+  | Feb 13 2025
+  | Feb 20 2025
+  | 5,950.00
+  | 3,850,436.71
+  | 3,831,035.82
+  | 0.00
+  | 19,400.89
+  | 19,400.89
+  | ST
+  | ISHARES CORE S&P 500 UCITS ETF ON S&P 500
+  | NTR IDX
+  | Feb 13 2025
+  | Feb 20 2025
+  | 6,700.00
+  | 600,660.54
+  | 597,134.31
+  | 0.00
+  | 3,526.23
+  | 3,526.23
+  | ST
+  | ISHARES III PLC - ISHARES MSCI EUROPE ETF ON
+  | MSCI DAILY NET TR EUROPE EURO
+  | Oct 08 2024
+  | Feb 20 2025
+  | 523.00
+  | 99,537.10
+  | 101,212.70
+  | 0.00
+  | (1,675.60)
+  | (1,675.60)
+  | ST
+  | ISHARES VII PLC-ISHARES CORE MSCI PACIFIC EX
+  | Oct 18 2024
+  | Feb 20 2025
+  | 53.00
+  | 10,086.93
+  | 10,332.07
+  | 0.00
+  | (245.14)
+  | (245.14)
+  | ST
+  | JAPAN UCITS ET
+  | Dec 11 2024
+  | Feb 20 2025
+  | 6,475.00
+  | 419,807.27
+  | 445,858.04
+  | 0.00
+  | (26,050.77)
+  | (26,050.77)
+  | ST
+  | SSGA SPDR ETFS EURP II PLC- SPDR RUSL 2000
+  | US SM CP UCITS ETF ON RUSSELL 2000 NET 30%
+  | RE
+  | Feb 13 2025
+  | Feb 20 2025
+  | 26,650.00
+  | 3,090,970.94
+  | 3,091,967.71
+  | 0.00
+  | (996.77)
+  | (996.77)
+  | ST
+  | VANGUARD FUNDS PLC- VANGUARD S CMN
+  | CLASS ETF ETF ON S&P 500 NET TOTAL
+  | Oct 18 2024
+  | Feb 24 2025
+  | 537.00
+  | 101,514.89
+  | 104,685.33
+  | 0.00
+  | (3,170.44)
+  | (3,170.44)
+  | ST
+  | ISHARES VII PLC-ISHARES CORE MSCI PACIFIC EX
+  | Jan 23 2025
+  | Feb 24 2025
+  | 63.00
+  | 11,909.57
+  | 10,806.42
+  | 0.00
+  | 1,103.15
+  | 1,103.15
+  | ST
+  | JAPAN UCITS ET
+  | Apr 04 2025
+  | May 19 2025
+  | 3,725.00
+  | 2,209,811.18
+  | 1,902,536.67
+  | 0.00
+  | 307,274.51
+  | 307,274.51
+  | ST
+  | SPDR S&P 500 ETF TRUST
+  | May 21 2024
+  | Jul 03 2025
+  | 35,250.00
+  | 200,090.21
+  | 188,619.21
+  | 0.00
+  | 11,471.00
+  | 11,471.00
+  | LT
+  | ISHARES III PLC-ISHARES CORE G ETF ON
+  | BLOOMBERG GLOBAL-AGGREG STAMP EXEMPT
+  | Feb 13 2025
+  | Sep 15 2025
+  | 7,675.00
+  | 149,574.18
+  | 142,544.35
+  | 0.00
+  | 7,029.83
+  | 7,029.83
+  | ST
+  | DB X-TRACKERS MSCI EUROPE INDEX UCITS ETF
+  | CMN CLASS ETF ON MSCI EURPE US DLR HDGD
+  | IDX
+  | Feb 13 2025
+  | Sep 15 2025
+  | 3,900.00
+  | 2,754,581.66
+  | 2,511,099.11
+  | 0.00
+  | 243,482.55
+  | 243,482.55
+  | ST
+  | ISHARES CORE S&P 500 UCITS ETF ON S&P 500
+  | NTR IDX
+  | Feb 13 2025
+  | Sep 15 2025
+  | 3,375.00
+  | 349,386.15
+  | 300,795.27
+  | 0.00
+  | 48,590.88
+  | 48,590.88
+  | ST
+  | ISHARES III PLC - ISHARES MSCI EUROPE ETF ON
+  | MSCI DAILY NET TR EUROPE EURO
+  | Jan 23 2025
+  | Sep 15 2025
+  | 900.00
+  | 200,355.44
+  | 154,377.43
+  | 0.00
+  | 45,978.01
+  | 45,978.01
+  | ST
+  | ISHARES VII PLC-ISHARES CORE MSCI PACIFIC EX
+  | JAPAN UCITS ET
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Realized Gains and Losses (Continued)
+  | Statement Detail
+  | Page  23 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 24 ---
+  Lines: 166
+  | Date Acquired
+  | or Sold Short
+  | Date Sold
+  | or Covered
+  | Quantity
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | Holding
+  | Period
+  | Dec 11 2024
+  | Sep 15 2025
+  | 3,925.00
+  | 399,322.28
+  | 399,019.96
+  | 0.00
+  | 302.32
+  | 302.32
+  | ST
+  | SSGA SPDR ETFS EUROPE I PLC-SP ETF ON S&P
+  | 400 NET TR
+  | Dec 11 2024
+  | Sep 15 2025
+  | 5,725.00
+  | 399,319.78
+  | 394,214.25
+  | 0.00
+  | 5,105.53
+  | 5,105.53
+  | ST
+  | SSGA SPDR ETFS EURP II PLC- SPDR RUSL 2000
+  | US SM CP UCITS ETF ON RUSSELL 2000 NET 30%
+  | RE
+  | Feb 13 2025
+  | Sep 15 2025
+  | 21,700.00
+  | 2,747,569.53
+  | 2,517,662.26
+  | 0.00
+  | 229,907.27
+  | 229,907.27
+  | ST
+  | VANGUARD FUNDS PLC- VANGUARD S CMN
+  | CLASS ETF ETF ON S&P 500 NET TOTAL
+  | Nov 28 2022
+  | Sep 16 2025
+  | 958.28
+  | 196,252.85
+  | 133,679.55
+  | 0.00
+  | 62,573.30
+  | 62,573.30
+  | LT
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS
+  | Aug 07 2024
+  | Sep 16 2025
+  | 262.76
+  | 53,813.33
+  | 43,680.72
+  | 0.00
+  | 10,132.61
+  | 10,132.61
+  | LT
+  | I SHARES (ACC.) (SNAP)
+  | Oct 09 2024
+  | Sep 16 2025
+  | 498.94
+  | 102,181.93
+  | 91,400.23
+  | 0.00
+  | 10,781.70
+  | 10,781.70
+  | ST
+  | Feb 29 2024
+  | Sep 16 2025
+  | 430.00
+  | 17,483.76
+  | 14,060.97
+  | 0.00
+  | 3,422.79
+  | 3,422.79
+  | LT
+  | GS JAPAN EQUITY PARTNERS PORTFOLIO CLASS
+  | Aug 07 2024
+  | Sep 16 2025
+  | 2,521.27
+  | 102,514.96
+  | 80,000.00
+  | 0.00
+  | 22,514.96
+  | 22,514.96
+  | LT
+  | I SHARES (ACC.) (USD-HED
+  | Oct 09 2024
+  | Sep 16 2025
+  | 3,349.15
+  | 136,176.39
+  | 120,000.00
+  | 0.00
+  | 16,176.39
+  | 16,176.39
+  | ST
+  | Oct 21 2024
+  | Sep 16 2025
+  | 1,323.78
+  | 53,824.90
+  | 47,139.81
+  | 0.00
+  | 6,685.09
+  | 6,685.09
+  | ST
+  | Mar 24 2025
+  | Sep 16 2025
+  | 2,303.09
+  | 100,000.00
+  | 85,859.05
+  | 0.00
+  | 14,140.95
+  | 14,140.95
+  | ST
+  | GS US SMALL CAP CORE EQUITY PORTFOLIO
+  | CLASS I (ACC.) (SNAP)
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | 38,487,575.94
+  | 36,801,830.99
+  | 0.00
+  | 1,685,744.95
+  | 1,685,744.95
+  | SHORT TERM GAINS
+  | 66,864,704.77
+  | 67,130,912.44
+  | 0.00
+  | (266,207.67)
+  | (266,207.67)
+  | SHORT TERM LOSSES
+  | 105,352,280.71
+  | 103,932,743.43
+  | 0.00
+  | 1,419,537.28
+  | 1,419,537.28
+  | NET SHORT TERM GAINS (LOSSES)
+  | 1,052,609.59
+  | 871,645.51
+  | 0.00
+  | 180,964.08
+  | 180,964.08
+  | LONG TERM GAINS
+  | 1,052,609.59
+  | 871,645.51
+  | 0.00
+  | 180,964.08
+  | 180,964.08
+  | NET LONG TERM GAINS (LOSSES)
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Realized Gains and Losses (Continued)
+  | Statement Detail
+  | Page  24 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 25 ---
+  Lines: 152
+  | YEAR TO DATE DIVIDENDS RECEIVED (In Settlement Currency)
+  | Pay Date
+  | Ex. Date
+  | Type
+  | Dividend
+  | Rate
+  | Quantity
+  | Amount
+  | Received at
+  | Goldman Sachs
+  | Foreign Tax
+  | Withheld
+  | 39,124.79
+  | 28,505.71
+  | 10,619.08
+  | TOTAL DIVIDENDS RECEIVED IN US DOLLAR
+  | Jan 02 25
+  | CASH
+  | 940.34
+  | 940.34
+  | GS US$ LIQUID RESERVES FUND INSTITUTIONAL CLASS
+  | Feb 03 25
+  | CASH
+  | 909.31
+  | 909.31
+  | Mar 03 25
+  | CASH
+  | 812.13
+  | 812.13
+  | Apr 01 25
+  | CASH
+  | 893.26
+  | 893.26
+  | May 01 25
+  | CASH
+  | 172.82
+  | 172.82
+  | 3,727.86
+  | 3,727.86
+  | SECURITY TOTAL
+  | Mar 26 25
+  | Mar 24 25
+  | CASH
+  | 0.564539
+  | 14,050.00
+  | 7,931.77
+  | 5,552.24
+  | 2,379.53
+  | STATE STREET HEALTH CARE SELEC CMN
+  | Jun 25 25
+  | Jun 23 25
+  | CASH
+  | 0.630382
+  | 14,050.00
+  | 8,856.87
+  | 6,199.81
+  | 2,657.06
+  | Sep 24 25
+  | Sep 22 25
+  | CASH
+  | 0.624868
+  | 14,050.00
+  | 8,779.40
+  | 6,145.58
+  | 2,633.82
+  | Dec 24 25
+  | Dec 22 25
+  | CASH
+  | 0.656822
+  | 14,050.00
+  | 9,228.35
+  | 6,459.84
+  | 2,768.51
+  | 34,796.39
+  | 24,357.47
+  | 10,438.92
+  | SECURITY TOTAL
+  | Jan 03 25
+  | Dec 31 24
+  | CASH
+  | 0.017860
+  | 33,625.00
+  | 600.54
+  | 420.38
+  | 180.16
+  | WISDOMTREE EUR HDGD EQ FD CMN
+  | YEAR TO DATE MISCELLANEOUS INCOME AND EXPENSE (In Settlement Currency)
+  | Date
+  | Transaction Type
+  | Quantity
+  | Amount
+  | EURO (EUR)
+  | Feb 28 25
+  | DB BAL INT
+  | (376.00)
+  | INTEREST CHARGED ON DEBIT BALANCES
+  | (376.00)
+  | TOTAL EXPENSE
+  | (376.00)
+  | TOTAL
+  | US DOLLAR (USD)
+  | Jan 31 25
+  | BANK DEPOSIT INTEREST
+  | 1,793.80
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jan 31 25
+  | BANK DEPOSIT INTEREST
+  | 0.57
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Feb 28 25
+  | BANK DEPOSIT INTEREST
+  | 21,719.09
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Feb 28 25
+  | BANK DEPOSIT INTEREST
+  | 5.69
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Mar 31 25
+  | BANK DEPOSIT INTEREST
+  | 25.31
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Mar 31 25
+  | BANK DEPOSIT INTEREST
+  | 13,840.12
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Apr 30 25
+  | BANK DEPOSIT INTEREST
+  | 5.33
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Apr 30 25
+  | BANK DEPOSIT INTEREST
+  | 1,218.35
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | May 30 25
+  | BANK DEPOSIT INTEREST
+  | 2,489.70
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | May 30 25
+  | BANK DEPOSIT INTEREST
+  | 0.01
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jun 30 25
+  | BANK DEPOSIT INTEREST
+  | 7,247.73
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Income and Expenses
+  | Statement Detail
+  | Page  25 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 26 ---
+  Lines: 87
+  | YEAR TO DATE MISCELLANEOUS INCOME AND EXPENSE (In Settlement Currency)
+  | Date
+  | Transaction Type
+  | Quantity
+  | Amount
+  | US DOLLAR (USD)
+  | Jul 31 25
+  | BANK DEPOSIT INTEREST
+  | 1,479.87
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jul 31 25
+  | BANK DEPOSIT INTEREST
+  | 1.59
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Aug 29 25
+  | BANK DEPOSIT INTEREST
+  | 0.16
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Aug 29 25
+  | BANK DEPOSIT INTEREST
+  | 469.33
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Sep 30 25
+  | BANK DEPOSIT INTEREST
+  | 0.51
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Sep 30 25
+  | BANK DEPOSIT INTEREST
+  | 2,133.04
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Oct 31 25
+  | BANK DEPOSIT INTEREST
+  | 533.00
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Oct 31 25
+  | BANK DEPOSIT INTEREST
+  | 0.55
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Nov 28 25
+  | BANK DEPOSIT INTEREST
+  | 0.29
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Nov 28 25
+  | BANK DEPOSIT INTEREST
+  | 245.40
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Dec 31 25
+  | BANK DEPOSIT INTEREST
+  | 272.50
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Dec 31 25
+  | BANK DEPOSIT INTEREST
+  | 0.03
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | 53,481.97
+  | TOTAL INCOME
+  | Jan 29 25
+  | OTHER EXPENSE
+  | (27,102.29)
+  | XXX-XX063-1 Qtr 4 Inv Mgmt Fee 31-Dec-24
+  | Apr 28 25
+  | OTHER EXPENSE
+  | (61,608.14)
+  | XXX-XX063-1 Qtr 1 Inv Mgmt Fee 31-Mar-25
+  | Jul 29 25
+  | OTHER EXPENSE
+  | (66,507.74)
+  | XXX-XX063-1 Qtr 2 Inv Mgmt Fee 30-Jun-25
+  | Oct 29 25
+  | OTHER EXPENSE
+  | (73,628.60)
+  | XXX-XX063-1 Qtr 3 Inv Mgmt Fee 30-Sep-25
+  | (228,846.77)
+  | TOTAL EXPENSE
+  | (175,364.80)
+  | TOTAL
+  | (229,236.58)
+  | TOTAL EXPENSE IN US DOLLAR
+  | (175,754.61)
+  | NET YEAR TO DATE MISCELLANEOUS INCOME / EXPENSE IN US DOLLAR
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Income and Expenses (Continued)
+  | Statement Detail
+  | Page  26 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 27 ---
+  Lines: 130
+  | YEAR TO DATE DEPOSITS AND WITHDRAWALS (In Settlement Currency)
+  | Date
+  | Process Date
+  | Transaction Type
+  | Cost Basis
+  | Quantity
+  | Deposit
+  | Withdrawals
+  | CANADIAN DOLLAR (CAD)
+  | Jan 31 25
+  | Feb 03 25
+  | CASH DEPOSIT
+  | 0.00
+  | 13,064.66
+  | 0.00
+  | Trfr From Acct BOATVIEW LTD HARDING LOEVNER
+  | 0.00
+  | 9,003.78
+  | 0.00
+  | TOTAL IN BASE CURRENCY
+  | JAPANESE YEN (JPY)
+  | Jan 23 25
+  | Jan 24 25
+  | SECURITY DEPOSIT
+  | 100,298,321.87
+  | 4,925.59
+  | 137,201,086.55
+  | 0.00
+  | GS JAPAN EQUITY TRANS FROM ACCT 5625 TELMAR COMMERCIAL
+  | BUSINESS
+  | 100,298,321.87
+  | 4,925.59
+  | 880,611.84
+  | 0.00
+  | TOTAL IN BASE CURRENCY
+  | US DOLLAR (USD)
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 776,175.40
+  | 4,525.00
+  | 842,057.25
+  | 0.00
+  | ISHARES VII PLC-ISHARES CORE TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | Jan 24 25
+  | SECURITY DEPOSIT
+  | 855,870.64
+  | 26,337.02
+  | 972,626.04
+  | 0.00
+  | GS JAPAN EQUITY TRANS FROM ACCT 5625 TELMAR COMMERCIAL
+  | BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 1,268,100.90
+  | 8,250.00
+  | 1,188,660.00
+  | 0.00
+  | STATE STREET HEALTH CARE SELEC TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 1,331,760.89
+  | 13,100.00
+  | 1,319,039.00
+  | 0.00
+  | SSGA SPDR ETFS EUROPE I PLC-SP TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | CASH DEPOSIT
+  | 0.00
+  | 1,521,702.36
+  | 0.00
+  | TRANS FROM ACCT 5625 TELMAR COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 1,867,783.68
+  | 27,125.00
+  | 1,803,541.25
+  | 0.00
+  | SSGA SPDR ETFS EURP II PLC- TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 1,904,920.24
+  | 356,000.00
+  | 1,967,256.00
+  | 0.00
+  | ISHARES III PLC-ISHARES CORE G TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 2,189,944.01
+  | 22,725.00
+  | 2,217,732.75
+  | 0.00
+  | XTRACKERS - MSCI EUROPE UCITS TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 2,151,981.25
+  | 47,875.00
+  | 2,235,762.50
+  | 0.00
+  | WISDOMTREE EUR HDGD EQ FD TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 2,537,461.50
+  | 384,400.00
+  | 2,545,112.40
+  | 0.00
+  | ISHARES IV PLC-ISHARES USD SHT TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 3,676,117.21
+  | 704,675.00
+  | 3,614,278.08
+  | 0.00
+  | ISHARES IV PLC-ISHARES US MORT TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Deposits and Withdrawals
+  | Statement Detail
+  | Page  27 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 28 ---
+  Lines: 140
+  | YEAR TO DATE DEPOSITS AND WITHDRAWALS (In Settlement Currency)
+  | Date
+  | Process Date
+  | Transaction Type
+  | Cost Basis
+  | Quantity
+  | Deposit
+  | Withdrawals
+  | Jan 23 25
+  | SECURITY DEPOSIT
+  | 5,050,195.15
+  | 55,000.00
+  | 5,053,950.00
+  | 0.00
+  | ISHARES V PLC - ISHARES MSCI TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 23 25
+  | Jan 24 25
+  | SECURITY DEPOSIT
+  | 6,250,000.00
+  | 45,746.66
+  | 6,271,546.72
+  | 0.00
+  | PGIM INVESTMENTS TRANS FROM ACCT 5625 TELMAR COMMERCIAL
+  | BUSINESS
+  | Jan 23 25
+  | Jan 24 25
+  | SECURITY DEPOSIT
+  | 15,243,922.50
+  | 27,250.00
+  | 15,279,075.00
+  | 0.00
+  | VANGUARD S&P 500 TRANS FROM ACCT 5625 TELMAR COMMERCIAL
+  | BUSINESS
+  | Jan 23 25
+  | Jan 24 25
+  | SECURITY DEPOSIT
+  | 18,092,321.25
+  | 15,100.00
+  | 18,162,280.00
+  | 0.00
+  | SOURCE MARKETS PLC- ETF ON TRANS FROM ACCT 5625 TELMAR
+  | COMMERCIAL BUSINESS
+  | Jan 28 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (391.05)
+  | TRANS TO ACCT 0722 BOATVIEW LIMITED
+  | Jan 29 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (45,000.00)
+  | TRANS TO ACCT 5625 TELMAR COMMERCIAL BUSINESS
+  | Feb 03 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (9,074.46)
+  | Trfr To Acct BOATVIEW LTD HARDING LOEVNER
+  | Feb 26 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (2,500,000.00)
+  | Trfr To Acct BOATVIEW LTD WELLINGTON NON US
+  | Mar 10 25
+  | CASH DEPOSIT
+  | 0.00
+  | 2,367,067.92
+  | 0.00
+  | Trfr From Acct BOATVIEW LTD WELLINGTON NON US
+  | Mar 21 25
+  | CASH DEPOSIT
+  | 0.00
+  | 1,121,346.78
+  | 0.00
+  | From Acct BOATVIEW EASTERN SHORE SCC
+  | Mar 24 25
+  | CASH DEPOSIT
+  | 0.00
+  | 221,911.06
+  | 0.00
+  | TRANS FROM ACCT 0722 BOATVIEW LIMITED
+  | Mar 31 25
+  | Apr 01 25
+  | CASH DEPOSIT
+  | 0.00
+  | 1,055,000.00
+  | 0.00
+  | From Acct BOATVIEW LTD CORP FI
+  | Apr 07 25
+  | CASH DEPOSIT
+  | 0.00
+  | 10,000.00
+  | 0.00
+  | TRANS FROM ACCT 0664 BOATVIEW LIMITED
+  | Apr 25 25
+  | CASH DEPOSIT
+  | 0.00
+  | 57,000.00
+  | 0.00
+  | TRANS FROM ACCT 0664 BOATVIEW LIMITED
+  | Jul 24 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (5,076.86)
+  | Trfr To Acct BOATVIEW LTD WELLINGTON NON US
+  | Sep 15 25
+  | CASH DEPOSIT
+  | 0.00
+  | 0.18
+  | 0.00
+  | TRANS FROM ACCT 0656 BOATVIEW LIMITED
+  | Sep 19 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (7,750,000.00)
+  | To Acct BOATVIEW LTD CORP FI
+  | Oct 24 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (5,800.00)
+  | Trfr To Acct BOATVIEW LTD WELLINGTON NON US
+  | 63,196,554.62
+  | 1,738,108.68
+  | 69,826,945.29
+  | (10,315,342.37)
+  | TOTAL US DOLLAR
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Deposits and Withdrawals (Continued)
+  | Statement Detail
+  | Page  28 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 29 ---
+  Lines: 19
+  | TOTAL DEPOSITS AND WITHDRAWALS
+  | Deposit
+  | Withdrawals
+  | 6,363,032.08
+  | (10,315,342.37)
+  | YTD TOTAL CASH
+  | 64,353,528.83
+  | 0.00
+  | YTD TOTAL SECURITY
+  | 70,716,560.91
+  | (10,315,342.37)
+  | YEAR TO DATE
+  | Period Ended December 31, 2025
+  | BOATVIEW LTD ADVISORY
+  | Deposits and Withdrawals (Continued)
+  | Statement Detail
+  | Page  29 of  222
+  | Portfolio No: XXX-XX063-1
+  | A
+
+--- Page 30 ---
+  Lines: 3
+  | Page  30 of  222
+  | THIS PAGE INTENTIONALLY LEFT BLANK
+  | A

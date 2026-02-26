@@ -65,6 +65,9 @@ class ParseResult:
     # Datos cualitativos (asset allocation, etc.)
     qualitative_data: dict[str, Any] = field(default_factory=dict)
 
+    # Datos estructurados (balances, totales, sub-portfolios)
+    balances: dict[str, Any] = field(default_factory=dict)
+
     # Errores y warnings
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)

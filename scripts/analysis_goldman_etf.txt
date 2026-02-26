@@ -1,0 +1,1279 @@
+﻿=== GOLDMAN SACHS ETF === Pages: 21
+
+--- Page 1 ---
+  Lines: 52
+  | BOATVIEW BROKERAGE ETF STATEMENT
+  | GROUP
+  | Page
+  | BOATVIEW BROKERAGE ETF STATEMENT
+  | GROUP
+  | 1
+  | General Information
+  | 2
+  | Overview
+  | 3
+  | US Tax Summary
+  | 4
+  | Asset Strategy Analysis
+  | 5
+  | STATEMENT DETAIL
+  | 7
+  | Report Disclosures
+  | 18
+  | D
+  | DEMETRIO ZANARTU
+  | APOQUINDO 3846 P19
+  | LAS CONDES, SANTIAGO
+  | CHILE
+  | Your Goldman Sachs team:
+  | Felipe Medina, 305-755-1061
+  | Roberto Awad, 305-755-1066
+  | Allan Gubbins, 305-755-1197
+  | Marcelo Ratafia, 305-755-1196
+  | Alejandro Hines, 305-755-1016
+  | Ivanna Ortega, 305-755-1056
+  | Andrea Rodriguez, 305-755-1555
+  | Maria Garzon, 305-755-1020
+  | Gilberto Ibarra, 305-755-1689
+  | Faustino Villanueva, 305-755-1169
+  | Esteban Jaramillo, 305-755-1025
+  | Marcela Cure, 305-755-1655
+  | Nicolas Gutierrez, 305-755-1652
+  | Goldman Sachs & Co. LLC
+  | Southeast Financial Center
+  | 200 S. Biscayne Blvd.
+  | Suite 5300
+  | Miami, FL 33131
+  | Robert T. Barlick, Jr., Region Head
+  | 305-755-1095
+  | www.goldman.com
+  | Please Direct Inquiries To: 305-755-1000
+  | Period Covering December 01, 2025 to December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Investment Summary
+  | Page  1 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 2 ---
+  Lines: 19
+  | PORTFOLIO INFORMATION
+  | PORTFOLIO NUMBER :
+  | XXX-XX452-2
+  | BASE CURRENCY :
+  | US DOLLAR (USD)
+  | INDIVIDUAL PORTFOLIOS
+  | PORTFOLIO NAME
+  | PORTFOLIO NUMBER
+  | PAGE
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | XXX-XX062-3
+  | 7
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | General Information
+  | Investment Summary
+  | Page  2 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 3 ---
+  Lines: 71
+  | TOTAL PORTFOLIO
+  | 45,553,310.46
+  | PORTFOLIO ASSET ALLOCATION (INCLUDES ACCRUALS)
+  | Market Value
+  | Percentage
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | 84,425.96
+  | 0.19
+  | DEPOSITS & MONEY MARKET FUNDS
+  | 84,425.96
+  | 0.19
+  | FIXED INCOME
+  | 26,619,368.62
+  | 58.44
+  | INVESTMENT GRADE FIXED INCOME
+  | 22,210,239.70
+  | 48.76
+  | OTHER FIXED INCOME
+  | 4,409,128.92
+  | 9.68
+  | PUBLIC EQUITY
+  | 18,849,515.88
+  | 41.38
+  | GLOBAL EQUITY
+  | 16,823,772.98
+  | 36.93
+  | NON-US EQUITY
+  | 2,025,742.90
+  | 4.45
+  | TOTAL PORTFOLIO
+  | 45,553,310.46
+  | 100.00
+  | DEPOSITS & MONEY MARKET FUNDS
+  | INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | GLOBAL EQUITY
+  | NON-US EQUITY
+  | PORTFOLIO ACTIVITY
+  | Market Value
+  | MARKET VALUE AS OF DECEMBER 01, 2025
+  | 45,191,237.41
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INTEREST RECEIVED
+  | 275.30
+  | CHANGE IN MARKET VALUE
+  | 361,797.75
+  | MARKET VALUE AS OF DECEMBER 31, 2025
+  | 45,553,310.46
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INVESTMENT RESULTS
+  | Ending
+  | Beginning
+  | Market Value
+  | Net Deposits
+  | (Withdrawals)
+  | Investment
+  | Results
+  | Market Value
+  | Dec 31 25
+  | 45,191,237.41
+  | 0.00
+  | 362,073.05
+  | 45,553,310.46
+  | CURRENT MONTH
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Overview
+  | Investment Summary
+  | Page  3 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 4 ---
+  Lines: 38
+  | REPORTABLE INCOME
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | REPORTABLE INTEREST
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | Bank Interest
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | TOTAL REPORTABLE INTEREST
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | TOTAL REPORTABLE INCOME
+  | REALIZED CAPITAL GAINS
+  | 0.00
+  | 0.00
+  | 84,488.87
+  | SHORT TERM REALIZED GAIN (LOSS)
+  | 0.00
+  | 0.00
+  | 84,488.87
+  | TOTAL REALIZED CAPITAL GAINS
+  | UNREALIZED GAIN (LOSS)
+  | 4,989,168.58
+  | CURRENT UNREALIZED GAIN (LOSS)
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | US Tax Summary
+  | Investment Summary
+  | Page  4 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+
+--- Page 5 ---
+  Lines: 48
+  | Market Value
+  | as of Dec 31 25
+  | Percentage
+  | of Portfolio
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | 84,425.96
+  | 0.19 %
+  | DEPOSITS
+  | FIXED INCOME
+  | INVESTMENT GRADE FIXED INCOME
+  | 10,161,010.85
+  | 22.31 %
+  | USD CORPORATE BOND UCITS ETF (VUCP)
+  | 12,049,228.85
+  | 26.45 %
+  | VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF
+  | 22,210,239.70
+  | 48.76 %
+  | TOTAL INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | 4,409,128.92
+  | 9.68 %
+  | MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)
+  | 26,619,368.62
+  | 58.44 %
+  | TOTAL FIXED INCOME
+  | PUBLIC EQUITY
+  | GLOBAL EQUITY
+  | 16,823,772.98
+  | 36.93 %
+  | MSCI WORLD INDEX FUND (ISHARES)
+  | NON-US EQUITY
+  | 2,025,742.90
+  | 4.45 %
+  | MSCI EMERGING MARKETS INDEX FUND (ISHARES)
+  | 18,849,515.88
+  | 41.38 %
+  | TOTAL PUBLIC EQUITY
+  | 45,553,310.46
+  | 100.00 %
+  | TOTAL PORTFOLIO
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Asset Strategy Analysis
+  | Investment Summary
+  | Page  5 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 6 ---
+  Lines: 3
+  | Page  6 of  21
+  | THIS PAGE INTENTIONALLY LEFT BLANK
+  | A
+
+--- Page 7 ---
+  Lines: 53
+  | BOATVIEW LIMITED
+  | Page
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | 7
+  | General Information
+  | 8
+  | Overview
+  | 9
+  | US Tax Summary
+  | 10
+  | Holdings
+  | 11
+  | Cash Activity
+  | 13
+  | Bank Statement
+  | 14
+  | Realized Gains and Losses
+  | 15
+  | Income and Expenses
+  | 16
+  | Deposits and Withdrawals
+  | 17
+  | Report Disclosures
+  | 18
+  | Your Goldman Sachs team:
+  | Felipe Medina, 305-755-1061
+  | Roberto Awad, 305-755-1066
+  | Allan Gubbins, 305-755-1197
+  | Marcelo Ratafia, 305-755-1196
+  | Alejandro Hines, 305-755-1016
+  | Ivanna Ortega, 305-755-1056
+  | Andrea Rodriguez, 305-755-1555
+  | Maria Garzon, 305-755-1020
+  | Gilberto Ibarra, 305-755-1689
+  | Faustino Villanueva, 305-755-1169
+  | Esteban Jaramillo, 305-755-1025
+  | Marcela Cure, 305-755-1655
+  | Nicolas Gutierrez, 305-755-1652
+  | Goldman Sachs & Co. LLC
+  | Southeast Financial Center
+  | 200 S. Biscayne Blvd.
+  | Suite 5300
+  | Miami, FL 33131
+  | Robert T. Barlick, Jr., Region Head
+  | 305-755-1095
+  | www.goldman.com
+  | Please Direct Inquiries To: 305-755-1000
+  | Period Covering December 01, 2025 to December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Statement Detail
+  | Page  7 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 8 ---
+  Lines: 12
+  | PORTFOLIO INFORMATION
+  | PORTFOLIO NUMBER :
+  | XXX-XX062-3
+  | BASE CURRENCY :
+  | US DOLLAR (USD)
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | General Information
+  | Statement Detail
+  | Page  8 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 9 ---
+  Lines: 72
+  | TOTAL PORTFOLIO
+  | 45,553,310.46
+  | PORTFOLIO ASSET ALLOCATION (INCLUDES ACCRUALS)
+  | Market Value
+  | Percentage
+  | CASH, DEPOSITS & MONEY MARKET FUNDS»
+  | 84,425.96
+  | 0.19
+  | DEPOSITS & MONEY MARKET FUNDS
+  | 84,425.96
+  | 0.19
+  | FIXED INCOME
+  | 26,619,368.62
+  | 58.44
+  | INVESTMENT GRADE FIXED INCOME
+  | 22,210,239.70
+  | 48.76
+  | OTHER FIXED INCOME
+  | 4,409,128.92
+  | 9.68
+  | PUBLIC EQUITY
+  | 18,849,515.88
+  | 41.38
+  | GLOBAL EQUITY
+  | 16,823,772.98
+  | 36.93
+  | NON-US EQUITY
+  | 2,025,742.90
+  | 4.45
+  | TOTAL PORTFOLIO
+  | 45,553,310.46
+  | 100.00
+  | DEPOSITS & MONEY MARKET FUNDS
+  | INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | GLOBAL EQUITY
+  | NON-US EQUITY
+  | PORTFOLIO ACTIVITY
+  | Market Value
+  | MARKET VALUE AS OF DECEMBER 01, 2025
+  | 45,191,237.41
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INTEREST RECEIVED
+  | 275.30
+  | CHANGE IN MARKET VALUE
+  | 361,797.75
+  | MARKET VALUE AS OF DECEMBER 31, 2025
+  | 45,553,310.46
+  | (INCLUDING ESTIMATED ACCRUALS)
+  | INVESTMENT RESULTS
+  | Ending
+  | Beginning
+  | Market Value
+  | Net Deposits
+  | (Withdrawals)
+  | Investment
+  | Results
+  | Market Value
+  | Dec 31 25
+  | 45,191,237.41
+  | 0.00
+  | 362,073.05
+  | 45,553,310.46
+  | CURRENT MONTH
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Overview
+  | Statement Detail
+  | Page  9 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+  | 4 This asset class may include bank deposits which are FDIC-insured and money market funds which are not FDIC-insured, are subject to investment risk and may lose value.  Please refer to the Holdings and Bank Statement sections for further information
+
+--- Page 10 ---
+  Lines: 38
+  | REPORTABLE INCOME
+  | Current Month
+  | Quarter to Date
+  | Year to date
+  | REPORTABLE INTEREST
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | Bank Interest
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | TOTAL REPORTABLE INTEREST
+  | 275.30
+  | 814.05
+  | 12,889.71
+  | TOTAL REPORTABLE INCOME
+  | REALIZED CAPITAL GAINS
+  | 0.00
+  | 0.00
+  | 84,488.87
+  | SHORT TERM REALIZED GAIN (LOSS)
+  | 0.00
+  | 0.00
+  | 84,488.87
+  | TOTAL REALIZED CAPITAL GAINS
+  | UNREALIZED GAIN (LOSS)
+  | 4,989,168.58
+  | CURRENT UNREALIZED GAIN (LOSS)
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | US Tax Summary
+  | Statement Detail
+  | Page  10 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+  | Certain dividends set forth herein are characterized as "qualified" based on the prior tax classification of such dividends. The ultimate tax characterization of dividends as "qualified" cannot be determined with certainty until after the end of the taxable year. As a
+  | result, the characterization of dividends set forth herein may change. This statement should not be used for tax reporting and is not a substitute for applicable tax documents, including IRS Form 1099. You should discuss with your tax advisor.
+
+--- Page 11 ---
+  Lines: 113
+  | CASH, DEPOSITS & MONEY MARKET FUNDS
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity /
+  | Current Yield
+  | Estimated
+  | Annual Income
+  | DEPOSITS & MONEY MARKET FUNDS
+  | DEPOSITS
+  | 84,418.21
+  | 1.0000
+  | 84,418.21
+  | 7.75
+  | 1.0000
+  | 84,418.21
+  | 0.00
+  | 3.4076
+  | 2,876.65
+  | GOLDMAN SACHS BANK USA DEPOSIT (BDA)▓░¬▓À
+  | FIXED INCOME
+  | Quantity /
+  | Current Face
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Yield to Maturity
+  | in Percentage
+  | Estimated
+  | Annual Income
+  | INVESTMENT GRADE FIXED INCOME
+  | USD CORPORATE BOND UCITS ETF (VUCP)
+  | 165,652.00
+  | 61.3395
+  | 10,161,010.85
+  | 57.0117
+  | 9,444,107.98
+  | 716,902.87
+  | VANGUARD FUNDS PLC-VANGUARD US CMN CLASS ETF
+  | SERIES , STAMP EXEMPT ETF ON BLOOMBERG BARCLAYS
+  | GLOB Not Rated
+  | VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF
+  | 196,915.00
+  | 61.1900
+  | 12,049,228.85
+  | 58.0039
+  | 11,421,833.65
+  | 627,395.20
+  | VANGUARD FUNDS PLC - VANGUARD CMN CLASS ETF STAMP
+  | EXEMPT ETF ON BLOOMBERG BARCLAYS GBL Not Rated
+  | 22,210,239.70
+  | 20,865,941.63
+  | 1,344,298.07
+  | TOTAL INVESTMENT GRADE FIXED INCOME
+  | OTHER FIXED INCOME
+  | MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)
+  | 597,362.00
+  | 7.3810
+  | 4,409,128.92
+  | 6.7490
+  | 4,031,571.04
+  | 377,557.88
+  | ISHARES II PLC-ISHARES $ HIGH YIELD CORP BOND UCITS ETF
+  | ETF ON MARKIT IBOXX USD LIQUID HIGH YIELD CAPPED INDEX
+  | Not Rated
+  | 26,619,368.62
+  | 24,897,512.67
+  | 1,721,855.95
+  | TOTAL FIXED INCOME
+  | PUBLIC EQUITY
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | GLOBAL EQUITY
+  | MSCI WORLD INDEX FUND (ISHARES)
+  | 128,318.00
+  | 131.1100
+  | 16,823,772.98
+  | 109.0291
+  | 13,990,395.16
+  | 2,833,377.82
+  | ISHARES III PUBLIC LIMITED COM CMN CLASS ETF SERIES .
+  | (*IWDALN)
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Holdings
+  | Statement Detail
+  | Page  11 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+  | 28Securities and investments, other than deposit products, are not offered by and are not deposits or obligations of Goldman Sachs Bank USA, are not FDIC insured, and are subject to investment risks, including possible loss of the principal amount invested.
+  | 25This is a bank deposit with Goldman Sachs Bank USA, member FDIC, reflected here for your convenience and is not cash held in your account(s). For additional information, terms and conditions concerning this deposit, see Additional Disclosures Regarding GS Bank
+  | at the end of this Statement and your Bank Deposit Agreement.
+
+--- Page 12 ---
+  Lines: 46
+  | PUBLIC EQUITY (Continued)
+  | Quantity
+  | Market Price
+  | Market Value /
+  | Accrued Income
+  | Unit Cost
+  | Cost Basis
+  | Unrealized
+  | Gain (Loss)
+  | Dividend
+  | Yield
+  | Estimated
+  | Annual Income
+  | NON-US EQUITY
+  | MSCI EMERGING MARKETS INDEX FUND (ISHARES)
+  | 38,615.00
+  | 52.4600
+  | 2,025,742.90
+  | 41.2225
+  | 1,591,808.09
+  | 433,934.81
+  | ISHARES III PLC-ISHARES MSCI EMERGING MARKETS ETF
+  | (*IEMALN)
+  | 18,849,515.88
+  | 15,582,203.25
+  | 3,267,312.63
+  | TOTAL PUBLIC EQUITY
+  | Market Value
+  | Adjusted Cost /
+  | Original Cost
+  | Unrealized
+  | Gain (Loss)
+  | Estimated
+  | Annual Income
+  | 45,553,310.46
+  | 40,564,134.13
+  | 4,989,168.58
+  | 2,876.65
+  | TOTAL PORTFOLIO
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Holdings (Continued)
+  | Statement Detail
+  | Page  12 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 13 ---
+  Lines: 29
+  | Type of
+  | Activity
+  | Settlement
+  | Effective Date
+  | Net Settlement
+  | Amount /
+  | Accrued Interest
+  | End of Day
+  | Money Balance ╣║
+  | TRANSACTIONS AFFECTING CASH ╗
+  | 84,142.91
+  | CLOSING BALANCE AS OF NOV 30 25
+  | Intr Recv
+  | Dec 31 25
+  | 275.30
+  | 84,418.21
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | 84,418.21
+  | CLOSING BALANCE AS OF DEC 31 25
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Cash Activity
+  | Statement Detail
+  | Page  13 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+  | 10Securities and investments, other than deposit products, are not offered by and are not deposits or obligations of Goldman Sachs Bank USA, are not FDIC insured, and are subject to investment risks, including possible loss of the principal amount invested.
+  | 9 This may include cash held in your account and deposits held at Goldman Sachs Bank USA, member FDIC, reflected here for your convenience. For more information about Goldman Sachs Bank USA, please see Additional Disclosures Regarding GS Bank at the end
+  | of this Statement and your Bank Deposit Agreement and/or Deposit Account Agreement, as applicable.
+
+--- Page 14 ---
+  Lines: 39
+  | GOLDMAN SACHS BANK USA DEPOSIT (BDA)
+  | Summary for December 2025 Interest Accrual Period
+  | Current Period
+  | Year to Date
+  | AVERAGE DAILY BALANCE
+  | 84,142.91
+  | 192,119.30
+  | ANNUAL PERCENTAGE YIELD (APY) EARNED
+  | 3.68 %
+  | 4.29 %
+  | INTEREST EARNED ON BANK DEPOSIT
+  | 275.30
+  | 8,214.87
+  | CURRENCY: USD
+  | INTEREST POSTED ON: December 31, 2025 based on Interest Period from November 28, 2025 to December 30, 2025
+  | NUMBER OF DAYS USED TO CALCULATE THE CURRENT PERIOD
+  | 33
+  | 364
+  | BANK DEPOSIT ACCOUNT TRANSFER ACTIVITY
+  | Date
+  | Transfer
+  | To/(From) Bank Deposit
+  | Net Daily Transfer
+  | To/(From) Bank Deposit
+  | End of Day
+  | Bank Deposit Balance
+  | CLOSE OF NOV-27
+  | 83,892.05
+  | NOV-28
+  | 250.86
+  | REINVESTMENT
+  | CLOSE OF DEC-30
+  | 84,142.91
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Bank Statement
+  | Statement Detail
+  | Page  14 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 15 ---
+  Lines: 143
+  | YEAR TO DATE GAINS AND LOSSES
+  | Date Acquired
+  | or Sold Short
+  | Date Sold
+  | or Covered
+  | Quantity
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | Holding
+  | Period
+  | Dec 30 2024
+  | Jan 03 2025
+  | 10.00
+  | 566.23
+  | 568.53
+  | 0.00
+  | (2.30)
+  | (2.30)
+  | ST
+  | VANGUARD FUNDS PLC-VANGUARD US CMN
+  | Dec 30 2024
+  | Jan 03 2025
+  | 23,800.00
+  | 1,347,900.10
+  | 1,353,106.17
+  | 0.00
+  | (5,206.07)
+  | (5,206.07)
+  | ST
+  | CLASS ETF SERIES , STAMP EXEMPT ETF ON
+  | BLOOMBERG BARCLAYS GLOB
+  | Dec 30 2024
+  | Feb 27 2025
+  | 9,158.00
+  | 533,560.65
+  | 529,522.43
+  | 0.00
+  | 4,038.22
+  | 4,038.22
+  | ST
+  | VANGUARD FUNDS PLC - VANGUARD CMN
+  | CLASS ETF STAMP EXEMPT ETF ON BLOOMBERG
+  | BARCLAYS GBL
+  | Oct 09 2024
+  | Apr 07 2025
+  | 17,083.00
+  | 112,754.51
+  | 115,109.31
+  | 0.00
+  | (2,354.80)
+  | (2,354.80)
+  | ST
+  | ISHARES II PLC-ISHARES $ HIGH YIELD CORP
+  | BOND UCITS ETF ETF ON MARKIT IBOXX USD
+  | LIQUID HIGH YIELD CAPPED INDEX
+  | Dec 30 2024
+  | Apr 07 2025
+  | 1,285.00
+  | 75,020.30
+  | 74,299.66
+  | 0.00
+  | 720.64
+  | 720.64
+  | ST
+  | VANGUARD FUNDS PLC - VANGUARD CMN
+  | CLASS ETF STAMP EXEMPT ETF ON BLOOMBERG
+  | BARCLAYS GBL
+  | Dec 30 2024
+  | Apr 07 2025
+  | 19,375.00
+  | 1,111,462.07
+  | 1,101,530.76
+  | 0.00
+  | 9,931.31
+  | 9,931.31
+  | ST
+  | VANGUARD FUNDS PLC-VANGUARD US CMN
+  | CLASS ETF SERIES , STAMP EXEMPT ETF ON
+  | BLOOMBERG BARCLAYS GLOB
+  | Oct 09 2024
+  | May 20 2025
+  | 3,116.00
+  | 133,947.41
+  | 130,095.70
+  | 0.00
+  | 3,851.71
+  | 3,851.71
+  | ST
+  | ISHARES III PLC-ISHARES MSCI EMERGING
+  | MARKETS ETF
+  | Dec 18 2024
+  | May 20 2025
+  | 11,837.00
+  | 1,336,361.67
+  | 1,312,815.59
+  | 0.00
+  | 23,546.08
+  | 23,546.08
+  | ST
+  | ISHARES III PUBLIC LIMITED COM CMN CLASS
+  | Dec 18 2024
+  | Sep 09 2025
+  | 3,969.00
+  | 490,157.13
+  | 440,193.05
+  | 0.00
+  | 49,964.08
+  | 49,964.08
+  | ST
+  | ETF SERIES .
+  | Sale Proceeds
+  | Cost Basis
+  | Ordinary / FX Gain
+  | Market Gain (Loss)
+  | Total Gain (Loss)
+  | 3,680,509.23
+  | 3,588,457.19
+  | 0.00
+  | 92,052.04
+  | 92,052.04
+  | SHORT TERM GAINS
+  | 1,461,220.84
+  | 1,468,784.01
+  | 0.00
+  | (7,563.17)
+  | (7,563.17)
+  | SHORT TERM LOSSES
+  | 5,141,730.07
+  | 5,057,241.20
+  | 0.00
+  | 84,488.87
+  | 84,488.87
+  | NET SHORT TERM GAINS (LOSSES)
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Realized Gains and Losses
+  | Statement Detail
+  | Page  15 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 16 ---
+  Lines: 68
+  | YEAR TO DATE MISCELLANEOUS INCOME AND EXPENSE (In Settlement Currency)
+  | Date
+  | Transaction Type
+  | Quantity
+  | Amount
+  | Jan 31 25
+  | BANK DEPOSIT INTEREST
+  | 11,268.59
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jan 31 25
+  | BANK DEPOSIT INTEREST
+  | 0.10
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Feb 28 25
+  | BANK DEPOSIT INTEREST
+  | 52.82
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Mar 31 25
+  | BANK DEPOSIT INTEREST
+  | 59.54
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Apr 30 25
+  | BANK DEPOSIT INTEREST
+  | 200.96
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | May 30 25
+  | BANK DEPOSIT INTEREST
+  | 202.19
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jun 30 25
+  | BANK DEPOSIT INTEREST
+  | 33.74
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Jul 31 25
+  | BANK DEPOSIT INTEREST
+  | 33.96
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Aug 29 25
+  | BANK DEPOSIT INTEREST
+  | 31.73
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Sep 30 25
+  | BANK DEPOSIT INTEREST
+  | 192.03
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Oct 31 25
+  | BANK DEPOSIT INTEREST
+  | 287.89
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Nov 28 25
+  | BANK DEPOSIT INTEREST
+  | 250.86
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | Dec 31 25
+  | BANK DEPOSIT INTEREST
+  | 275.30
+  | Interest Earned on Bank Deposit Intended for Reinvestment
+  | 12,889.71
+  | TOTAL INCOME
+  | 12,889.71
+  | NET YEAR TO DATE MISCELLANEOUS INCOME / EXPENSE IN US DOLLAR
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Income and Expenses
+  | Statement Detail
+  | Page  16 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 17 ---
+  Lines: 37
+  | YEAR TO DATE DEPOSITS AND WITHDRAWALS (In Settlement Currency)
+  | Date
+  | Process Date
+  | Transaction Type
+  | Cost Basis
+  | Quantity
+  | Deposit
+  | Withdrawals
+  | Jan 02 25
+  | CASH WITHDRAWAL
+  | 0.00
+  | 0.00
+  | (37,100,000.00)
+  | JPMORGAN CHASE BANK, NA B99719001 BOATVIEW LIMITED
+  | Transferencia entre cuentas FED FUNDS
+  | Jan 23 25
+  | CASH DEPOSIT
+  | 0.00
+  | 1,115,034.59
+  | 0.00
+  | TRANS FROM ACCT 5956 TELMAR COMMERCIAL BUSINESS
+  | TOTAL DEPOSITS AND WITHDRAWALS
+  | Deposit
+  | Withdrawals
+  | 1,115,034.59
+  | (37,100,000.00)
+  | YTD TOTAL CASH
+  | 1,115,034.59
+  | (37,100,000.00)
+  | YEAR TO DATE
+  | Period Ended December 31, 2025
+  | BOATVIEW LIMITED BROKERAGE ETF
+  | Deposits and Withdrawals
+  | Statement Detail
+  | Page  17 of  21
+  | Portfolio No: XXX-XX062-3
+  | A
+
+--- Page 18 ---
+  Lines: 84
+  | IMPORTANT INFORMATION REGARDING YOUR STATEMENT
+  | For informational purposes, your statement may include positions custodied at Goldman Sachs & Co. LLC ("GS&Co."), Goldman
+  | Sachs Bank USA ("GS Bank") or, if applicable, a third party custodian. If you have requested that statements for multiple individuals
+  | or entities be combined, the assets shown may belong to multiple owners. The information below applies to all activity included in
+  | this statement unless otherwise indicated.
+  | SERVICES PROVIDED BY AFFILIATES OF THE GOLDMAN SACHS GROUP, INC. ("GOLDMAN SACHS")
+  | Investment advisory services may be provided by GS&Co., another Goldman Sachs affiliate or an external manager under the wrap
+  | program sponsored by GS&Co. Brokerage services, payment services (including check-writing, debit cards, direct debit, direct
+  | deposit, electronic bill pay, overdraft protection and Bank to Bank Transfers via ACH), custody, margin loans and strategic wealth
+  | advisory services are provided by GS&Co. Financial counseling services are provided by The Ayco Company, L.P. Over-The-Counter
+  | ("OTC") derivatives, foreign exchange forwards and related financing are offered by GS&Co. Deposit products, bank loans and
+  | mortgages are offered by GS Bank. For further information about GS Bank, see the GS Bank section of these disclosures. GS&Co. is
+  | a member of the Financial Industry Regulatory Authority ("FINRA"), the New York Stock Exchange ("NYSE") and the Securities
+  | Investor Protection Corporation ("SIPC"), and is registered with the Securities and Exchange Commission and the Municipal
+  | Securities Rulemaking Board ("MSRB"). For additional information regarding the functions performed by GS&Co. or its affiliates,
+  | please refer to your Account Agreements.
+  | ASSET CLASSIFICATION
+  | Holdings, market value and performance are displayed by asset class. In most cases, the value of all assets held in a separately
+  | managed account is displayed in the asset class corresponding to the investment strategy of the account. In those instances, the
+  | market value and performance displayed for each asset class may also include cash that is not separately reflected under Cash,
+  | Deposits and Money Market Funds. A description of our asset classification schema is available upon request and in the "Important
+  | Information" section of Goldman.com.
+  | PRICING AND VALUATION
+  | Generally, prices for investments are as of the close of the last business day of the statement period and do not necessarily reflect
+  | realizable values. Unless otherwise indicated, prices are obtained from third parties, including market data providers, and are based
+  | on information considered to be reliable, but are not guaranteed for accuracy.
+  | If a current market price is unavailable and / or a security is not actively traded, for a period of time established by our stale pricing
+  | policy, which varies by asset class, the price displayed may be the last available market price or the cost basis for the position. At
+  | the expiration of that time period, if a current market price is still unavailable, the price will be marked as "N/A" or "No Price."
+  | Positions appearing with a price of "N/A" or "No Price" are not reflected in the overall market value of your portfolio. Further
+  | information about our pricing and valuation practices is available upon request and in the "Important Information" section of
+  | Goldman.com.
+  | For instruments issued in a currency that differs from the account's base currency, activity is converted to base currency using trade
+  | date end of day foreign exchange rates. Market values of positions held in the account are converted to base currency using foreign
+  | exchange rates from the last day of the current statement period.
+  | Valuations for structured investments (including notes issued and underwritten by Goldman Sachs or its affiliates and notes issued
+  | and underwritten by third parties) represent the price at which the underwriter, or one of its affiliates, was prepared to execute a
+  | transaction up to an indicative bid size (generally USD 500,000 for U.S. structured notes and USD 100,000, or the foreign currency
+  | equivalent, for non-U.S. structured notes), as of the close of the last business day of the statement period. It does not represent the
+  | price at which Goldman Sachs, its affiliates, or a third party underwriter (if applicable) would currently execute such a transaction. If
+  | the underwriter price is unavailable, an alternative valuation (which is not necessarily realizable) may be substituted. The price
+  | displayed herein may change due to market conditions, the issuer's creditworthiness and other factors and, for U.S. registered
+  | notes, may exceed the underwriter's estimated value of your structured investments for a limited period as described in the relevant
+  | offering documents.
+  | Valuations for private equity, private real estate, hedge funds, and other alternative investments structured as private investment
+  | funds reflect an estimate of the value of your investment in the fund as provided by the fund administrator. Pricing for other
+  | alternative investments offered by Goldman Sachs (e.g., private placements of equity securities) may be provided by Goldman Sachs
+  | or a third party. These investments are generally illiquid, and the estimated value provided may not be realized if you were to seek
+  | to liquidate the investments at any point in time. If a value is not provided for an investment, valuation information may not be
+  | available. A partnership capital value statement is generally available upon request from your Private Wealth Management ("PWM")
+  | team.
+  | For OTC derivative positions, positive values reflect the amount Goldman Sachs owes to you and negative values reflect the amount
+  | you owe to Goldman Sachs. Generally, the market value displayed for an OTC derivative position is a "Mid Price", which represents
+  | either (1) Goldman Sachs' good faith estimate of the mid-market value of the position as of the date of this statement based on
+  | estimated or actual prices and offers for the position or (2) a "mid-market price" generated by proprietary valuation models used by
+  | Goldman Sachs as of the last business day of the statement period. It does not represent a price at which Goldman Sachs would
+  | currently transact. Consistent with market practice, valuations for equity options and swaps, interest rates and credit are calculated
+  | to reflect the underlying funding curve that is associated with the collateral pledged on a single currency basis. The transaction
+  | price may include execution charges, such as spreads and / or other charges, incurred in connection with hedging the transaction.
+  | The difference between the valuation displayed herein and the actual price upon execution is based upon a number of factors,
+  | which may include (but may not be limited to) the creditworthiness of the parties, funding implications (including funding costs and /
+  | or benefits associated with any credit support or margin arrangement), portfolio-level adjustments, liquidity adjustments based on
+  | size and market disruption events. The valuation methodologies are subject to change without notice and the value displayed herein
+  | may not reflect valuations you would receive from other dealers, affiliates or business units of Goldman Sachs, or by using pricing
+  | models available from Goldman Sachs or valuations included in the books and records of Goldman Sachs.
+  | UNREALIZED GAIN (LOSS)
+  | Unrealized Gain (Loss) represents the increase or decrease in the value of a position since its purchase, including any accrued
+  | income. If your cost basis is unavailable, Unrealized Gain (Loss) may be calculated based on the position's Original Cost or may not
+  | appear.
+  | Generally, Original Cost is the price paid by the purchaser. Original Cost may be adjusted for a variety of factors, including original
+  | issue discount inclusions, returns of capital and wash sales. This is reported as Adjusted Cost. For fixed income securities, Adjusted
+  | Cost may reflect accruals of market discount (i.e., difference between the purchase price and the issuer-stated redemption price)
+  | and / or premium amortization, as applicable. For alternative investments, Adjusted Cost is generally equal to total contributions
+  | plus income allocated to the investor less total distributions and losses allocated to the investor.
+  | ESTIMATED INCOME
+  | If displayed, estimated income figures are estimates of future activity obtained from third party sources. Actual income received
+  | may vary substantially.
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Report Disclosures
+  | Investment Summary
+  | Page  18 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 19 ---
+  Lines: 101
+  | ACCRUED INCOME AND CORPORATE ENTITLEMENTS
+  | Accrued income reflects pending dividends or interest not yet paid, which may change at the discretion of the issuer, and therefore
+  | are not included in market value totals. If shares are registered in your name, dividends will be sent to you directly and may not be
+  | reflected in your account.
+  | TRANSACTIONS
+  | Because we report transactions on a trade-date basis, positions may reflect trades that have been executed, but have not yet
+  | settled as of the date of your statement. When this occurs, trades are reflected in the Investment Activity section for the month in
+  | which the trade date occurs and in the Cash Activity section for the month in which the trade is settled.
+  | OPEN ORDERS
+  | Generally, orders placed on a good until cancelled basis for listed equities (other than in Europe and Japan) remain open up to a
+  | maximum of 90 days from the date entered, and orders placed on a good until cancelled basis for European and Japanese listed
+  | equities remain open up to a maximum of 30 days from the date entered. Orders placed on a good-until-cancelled basis for foreign
+  | exchange transactions remain open indefinitely and are reconfirmed on a periodic basis. Please contact your PWM team if you have
+  | questions regarding your open orders.
+  | RATINGS
+  | Ratings are subject to change at the discretion of the applicable rating agency. The description of methodology employed in
+  | assigning ratings may be found on the applicable rating agency's website. If an applicable rating agency assigns more than one
+  | rating type (e.g., short term, long term, enhanced or underlier) to a security, Goldman Sachs chooses which to display on statements
+  | based on a number of factors it deems reasonable in its sole discretion. Asset classification for fixed income securities is
+  | determined by the lowest rating displayed on the statement. Further information about ratings is available upon request.
+  | FEES AND EXECUTION CHARGES
+  | If you maintain brokerage accounts, you are charged commissions, commission equivalents, mark-ups, mark-downs, spreads and
+  | other charges ("Execution Charges"), which may vary depending upon the nature of the accounts and your investments. If you
+  | maintain advisory accounts, you are charged investment management fees and you may also pay Execution Charges to Goldman
+  | Sachs or a third party broker-dealer.
+  | Investment management fees are detailed in the Investment Management Fee section and are generally debited quarterly from the
+  | account in which the fee is accrued or another account in the same name. Fees are charged based on the number of calendar days
+  | in the quarter. For funds that do not price monthly, fees are charged on the most recent billable asset value provided by the fund.
+  | These figures are generally available on a quarterly basis with a time lag. Most often, billable asset value is equal to the market
+  | value (including accruals) of a specific product. However, for certain private investment funds and option strategies, the billable
+  | asset value represents committed capital (actual or discounted), invested capital, or notional market values, rather than market
+  | values. Additional information on the fee calculation methodology is available upon request.
+  | The Cash Activity section displays applicable fees directly billed to your account, which may include fees for investment
+  | management, custody, administrative services, consolidated reporting and other fees. This statement does not display Execution
+  | Charges or fees embedded in the products you hold, including underlying mutual fund, ETF and private investment fund fees and
+  | expenses. Please refer to your Account Agreements, fee schedules and trade confirmations for more information.
+  | PERFORMANCE
+  | Investments in securities involve risk, and the value of investments and income derived from such investments may fluctuate. Past
+  | performance is not a guide of future results. If performance is shown, it may include investments no longer owned in current or
+  | closed accounts. The performance report presents the relevant time weighted performance, which is a combination of daily returns
+  | compounded over a specified time period with the removal of the deposit and withdrawal impacts. If requested, certain illiquid
+  | investments may show internal rate of return calculations. Aggregate performance may not equal the sum of returns at an
+  | investment or asset class level. Generally, performance for advisory accounts is currently calculated net of management fees, if any,
+  | and might include investments for which actual market prices are not available as of the date of this statement. If requested,
+  | performance results may be provided gross of management fees and will be accompanied by net of management fee results. Private
+  | equity positions may be included in total performance calculations. Performance for alternative investments is calculated using the
+  | value of the last available partnership capital statement or NAV.
+  | Over time, GS&Co. has adjusted how it calculates performance for certain asset classes or strategies and may again do so from
+  | time to time in the future. Information on historical performance calculations is available upon request. Performance of net cash
+  | (i.e., cash less margin debit) is generally included in the total performance calculation but not displayed separately. Option
+  | performance is included in the performance of the asset class of the underlier. Margin loans are generally excluded from advisory
+  | performance, but included in brokerage performance calculations.
+  | References to market or composite indices, benchmarks or other measures of relative market performance over a specified period of
+  | time ("benchmarks") are provided for informational purposes only. In addition to the benchmark assigned to a specific investment
+  | strategy, other benchmarks ("Comparative Benchmarks") may be displayed. Managers may not review the performance of your
+  | account against the performance of the Comparative Benchmarks. There is no guarantee that performance will equal or exceed any
+  | benchmark displayed. Where a benchmark for a strategy has changed, the historical benchmark(s) are available upon request.
+  | Inception to date ("ITD") returns for accounts or asset classes only reflect performance during periods in which your account(s) held
+  | assets and / or were invested in the asset class. The benchmark or reference portfolio returns shown reflect the benchmark /
+  | portfolio performance from the date of inception of your account or your initial investment in the asset class.
+  | TAX INFORMATION
+  | The information provided in this statement, including in the Tax Summary section, has not been audited, should not be used for tax
+  | reporting and is not a substitute for the applicable tax documents, including your Form 1099 and Schedule K-1 for private
+  | investments, which are provided to you annually. The cost basis included in this statement may differ from your cost basis for tax
+  | purposes. For fixed income securities, cost basis may be adjusted from time to time. Information regarding your alternative
+  | investments and transactions for retirement accounts are not included in the Tax Summary section. Goldman Sachs and its affiliates
+  | do not provide tax advice, unless explicitly agreed between you and Goldman Sachs.
+  | ALTERNATIVE INVESTMENTS
+  | Private equity, private real estate, hedge funds and other alternative investments structured as private investment funds are subject
+  | to less regulation than other types of pooled vehicles and may involve a substantial degree of risk, including the risk of total loss of
+  | an investor's capital, limited liquidity and leverage. Alternative investments may not be appropriate for all investors. Terms and
+  | conditions governing private investments are contained in the applicable offering documents, which also include information
+  | regarding the liquidity of such investments. Investors in private investment funds should review the Offering Memorandum, the
+  | Subscription Agreement and any other applicable disclosures for risks and potential conflicts of interest.
+  | CASH SWEEP; MONEY MARKET FUNDS
+  | Eligible clients may elect to automatically sweep excess available cash from their GS&Co. brokerage account to a GS Bank deposit
+  | account or money market fund. If cash held in your account is swept into a bank deposit account or money market fund, the balance
+  | in the bank deposit account or shares of the money market fund can be liquidated at your instruction and the proceeds returned to
+  | your account or remitted to you, subject to any notice requirements imposed by GS Bank on bank deposit account withdrawals as
+  | described in the GS Bank section of these disclosures. Money market funds seek to maintain a stable net asset value of $1 per
+  | share. There is no guarantee that they will be able to maintain this value.
+  | MUNICIPAL SECURITIES
+  | An investor brochure describing the protections provided by MSRB rules and how to file a complaint with an appropriate regulatory
+  | authority is available at www.msrb.org. For additional important information about municipal securities, including official
+  | statements, disclosures and real-time trade data, visit the Municipal Securities Rulemaking Board's Electronic Municipal Market
+  | Access website at www.emma.msrb.org.
+  | ASSET-SERVICING EVENTS
+  | Asset servicing events (e.g., stock splits, mergers) are generally reflected on your statement as of the effective date (i.e., the date
+  | from which the corporate action is effective) and will be reflected under Quantity prior to payment date. This may result in certain
+  | positions (or portions thereof) being reflected on your statement that have not yet been received by the firm. Asset servicing events
+  | such as stock dividends, which generally have payment dates extending beyond the normal settlement cycle, will only be reflected
+  | in your Quantity on payment date and will reflect as an accrual between effective date and payment date. Transactions with an
+  | "Unknown" Settlement Date are a result of asset servicing events with a payment date that is yet to be determined. Positions
+  | resulting from transactions with "Unknown" settlement dates generally are not available for trading.
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Report Disclosures (Continued)
+  | Investment Summary
+  | Page  19 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 20 ---
+  Lines: 87
+  | ASSETS HELD AT A THIRD PARTY CUSTODIAN
+  | Information (including valuation) regarding holdings and activity in accounts held by third party custodians may be included in this
+  | statement as a courtesy to you and has been supplied by third parties or by you. GS&Co. assumes no responsibility for the accuracy
+  | of such information. Information and performance may differ from those reflected by your custodian and is as of the date of the
+  | materials provided to us. You should compare the information contained in this statement with the statement you receive from your
+  | custodian. Certain products and services described in this statement backer will not be available to you if you chose to custody at a
+  | third party custodian.
+  | ACCOMMODATIVE REPORTING
+  | As an accommodation to you, your statement may reflect certain investments unrelated to services provided by Goldman Sachs. In
+  | those instances, GS&Co. does not perform any review or diligence on, verify the accuracy of information regarding or provide advice
+  | on those investments. Unless otherwise agreed in writing, GS&Co. has not assessed whether those investments fit within your
+  | investment objective and the asset classification shown for such investments may not be accurate.
+  | ASSET PROTECTION
+  | GS&Co. is a member of SIPC, which protects eligible assets in GS&Co. accounts held in the same title and capacity up to an
+  | aggregate maximum of $500,000, of which $250,000 may be in cash. For example, if you have an individual brokerage account and
+  | an individual advisory account, these accounts would be aggregated and jointly subject to the $500,000 SIPC limit. However, if you
+  | also held assets in a revocable trust account, these assets would not be aggregated with the individual accounts and would be
+  | eligible for an additional $500,000 of SIPC protection. SIPC does not protect against loss due to market fluctuation. GS&Co. also
+  | maintains excess SIPC insurance of up to $1,000,000,000 across all customers of GS&Co. Assets not held by GS&Co. (including
+  | interests in private funds and assets held at a third party custodian), and certain other assets, may not be covered by SIPC and are
+  | not eligible for supplemental insurance coverage. Client-specific market positions are not eligible for the protection provided by
+  | SIPC or the Customer Protection Rule (SEC Rule 15c3-3 under the Exchange Act of 1934, as amended) or to any similar U.S. law
+  | applicable to custodians in the United States. Certain customers may be excluded from SIPC coverage, including Goldman Sachs
+  | managing directors and certain types of financial institutions. You may obtain information about SIPC, including a brochure
+  | describing SIPC and information about which assets are eligible for SIPC protection, by contacting SIPC via telephone at 202-371-
+  | 8300 or accessing the SIPC website at www.sipc.org. Additional information is available upon request.
+  | Free credit balances (i.e., cash held in any of your securities accounts and not swept to bank deposit or money market funds) are not
+  | segregated and may be used by GS&Co. in the conduct of business. Free credit balances are payable to you on demand. You will not
+  | receive interest on your free credit balances if the applicable interest rate is zero or the interest credit is lower than USD 1 or
+  | equivalent in any other currency. If this occurs, a cash interest schedule will not be included in your monthly statement.
+  | MARGIN ACCOUNTS
+  | If you have a margin account, this is a combined statement of your general account and a statement of a special memorandum
+  | account maintained for you under section 220.5 of Regulation T. The permanent record of the separate account, as required by
+  | Regulation T, is available for your inspection upon request. Where an individual has multiple accounts with GS&Co., compliance
+  | with margin requirements will be computed on the basis of the combined margin transactions and collateral on deposit with
+  | GS&Co., as required by applicable regulation. Accounts combined for margin purposes may not be the same accounts included in
+  | this statement. Your borrowing capacity is determined by the margin-eligible assets held in your account or other accounts that hold
+  | assets as collateral for your loan and the applicable regulatory and Goldman Sachs' initial and margin maintenance requirements.
+  | Please contact your Private Wealth Advisor at the number listed on the cover of your statement for your current borrowing capacity.
+  | When you pledge securities in your margin account, some or all of the securities serving as collateral for that account may be used,
+  | lent or pledged by GS&Co., in accordance with U.S. Securities and Exchange Commission ("SEC") rules. When this occurs, certain
+  | rights of your ownership related to such securities may be transferred to GS&Co. or transferred by us to others. In certain
+  | circumstances, this may limit, in whole or in part, your ability to exercise voting rights with respect to such securities, and you may
+  | be offered the right to vote fewer shares than you own.
+  | Except as otherwise agreed in writing, if you trade OTC derivatives, your counterparty may re-pledge or otherwise use the collateral
+  | you post. In the event of the counterparty's failure, you will likely be considered an unsecured creditor as to that collateral and will
+  | not benefit from SEA Rule 15c3-3 or SIPC insurance.
+  | If you transact in certain swap transactions regulated by the Commodity Futures Trading Commission, further information and
+  | disclosures may be found at https://www.goldman.com/gs/p/markets/doddfrank.
+  | GS&CO. FINANCIAL STATEMENTS
+  | GS&Co.'s consolidated statement of financial condition is available at www.gs.com. The most recent audited statement filed is
+  | available for inspection at the principal office of GS&Co. and at the New York regional office of the SEC. GS&Co. is required to hold
+  | tentative net capital in excess of $1 billion and net capital in excess of $500 million in accordance with the market and credit risk
+  | standards of Appendix E of Rule 15c3-1. GS&Co. is also required to notify the SEC in the event that its tentative net capital is less
+  | than $5 billion.
+  | FINRA BROKERCHECK PROGRAM
+  | Information on brokers and brokerage firms is available by calling 1-800-289-9999 or visiting www.finra.org. This information is
+  | offered through FINRA's BrokerCheck Program. FINRA also provides an investor brochure that includes information describing FINRA
+  | BrokerCheck.
+  | GLOBAL INDUSTRY CLASSIFICATION STANDARD ("GICS")
+  | GICS was developed by, and is the exclusive property and a service mark of, Morgan Stanley Capital International Inc. ("MSCI") and
+  | Standard & Poor's, a division of The McGraw-Hill Companies, Inc. ("S&P") and is licensed for use by Goldman Sachs. None of MSCI,
+  | S&P or any other party involved in making or compiling the GICS or any GICS classifications makes any express or implied
+  | warranties or representations with respect to such standard or classification (or the results to be obtained by the use thereof), and
+  | all such parties hereby expressly disclaim all warranties of originality, accuracy, completeness, merchantability or fitness for a
+  | particular purpose with respect to any such standard or classification. Without limiting any of the foregoing, in no event shall MSCI,
+  | S&P, any of their affiliates or any third party involved in making or compiling the GICS or any GICS classifications have any liability
+  | for any direct, indirect, special, punitive, consequential or any other damages (including lost profits), even if notified of the
+  | possibility of such damages.
+  | CHANGES TO YOUR ACCOUNT INFORMATION OR CIRCUMSTANCES
+  | Please advise your PWM team if there are changes to your contact information, persons authorized on the account, your financial
+  | situation and / or investment objectives or if you wish to impose any reasonable restrictions on the management of your account(s).
+  | QUESTIONS REGARDING YOUR STATEMENT
+  | It is important that you review your statement and understand its contents. In order to protect your rights, including under the
+  | Securities Investor Protection Act, you should promptly report any inaccuracy or discrepancy you find on your statement by calling
+  | your PWM team at the telephone number listed on the cover page of this statement and reconfirming in writing to GS&Co. Attn:
+  | PWM Service, P.O. Box 581500, Salt Lake City, UT 84158-1500
+  | COMPLAINTS
+  | If you have a complaint, please call 1-800-324-2895, email gs-americas@gs.com, contact your PWM team or write to Goldman
+  | Sachs & Co. LLC, Attn: SLC-Compliance, 222 South Main Street, Salt Lake City, UT 84101.
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Report Disclosures (Continued)
+  | Investment Summary
+  | Page  20 of  21
+  | Portfolio No: XXX-XX452-2
+  | A
+
+--- Page 21 ---
+  Lines: 62
+  | IN CASE OF ERRORS OR QUESTIONS ABOUT YOUR ELECTRONIC TRANSFERS
+  | In case of errors or questions regarding your debit card transactions or electronic funds transfers, please notify your PWM team
+  | immediately at the phone number(s) or address on your statement cover. You must notify your PWM team within 60 days of the date
+  | that the FIRST statement on which the error or problem appeared was sent. When you contact your PWM team, you will be asked to
+  | provide the following information: (1) your name and account number as they appear on your statement, (2) description of the error
+  | or transaction in question you are unsure about, and an explanation of why you believe it is in error or why you need more
+  | information and (3) the dollar amount of the transaction in question. GS&Co. will investigate your complaint and will correct any
+  | error(s) promptly. If it takes more than 10 business days to correct any errors, your account will be credited for the amount you
+  | believe to be in error, so that you may make use of the money during the time it takes to complete the investigation and resolve the
+  | discrepancy. Please retain the statement for your future reference.
+  | ADDITIONAL DISCLOSURES FOR GOLDMAN SACHS BANK USA
+  | Goldman Sachs Bank USA ("GS Bank") is a New York state-chartered bank and a wholly-owned subsidiary of The Goldman Sachs
+  | Group, Inc. GS Bank is a member of the Federal Reserve System and Member FDIC. GS Bank is an Equal Housing Lender.
+  | Investment products are: NOT FDIC INSURED . NOT A DEPOSIT OR OTHER OBLIGATION OF, OR GUARANTEED BY, GOLDMAN
+  | SACHS BANK USA - SUBJECT TO INVESTMENT RISKS, INCLUDING POSSIBLE LOSS OF THE PRINCIPAL AMOUNT INVESTED.
+  | TAX INFORMATION
+  | The information provided in this statement, including in the Tax Summary section, has not been audited, should not be used for tax
+  | reporting and is not a substitute for the applicable tax documents, including your Form 1099, which are provided to you annually.
+  | The cost basis included in this statement may differ from your cost basis for tax purposes. Goldman Sachs and its affiliates do not
+  | provide tax advice, unless explicitly agreed between you and Goldman Sachs.
+  | CHANGES TO YOUR ACCOUNT INFORMATION OR CIRCUMSTANCES
+  | Please advise a Deposit Specialist if there are changes to your contact information, persons authorized on the account, or your
+  | financial situation.
+  | QUESTIONS REGARDING YOUR STATEMENT
+  | It is important that you review your statement and understand its contents. For questions regarding your statements, or if you have a
+  | complaint, please call a Goldman Sachs Deposit Specialist: 1-833-306-2076-Business Days, 9:00 AM to 8:00 PM ET, or write to:
+  | Goldman Sachs Bank USA, 111 S Main St. Salt Lake City, Utah 84111.
+  | IN CASE OF ERRORS OR QUESTIONS ABOUT YOUR ELECTRONIC TRANSFERS
+  | If you think your statement or receipt is wrong or if you need more information about a transfer on the statement or receipt, please
+  | telephone us at 1-833-306-2076 or write us at: Goldman Sachs Bank USA, 111 S. Main Street Salt Lake City, UT 84111. We must
+  | hear from you no later than sixty (60) days after we sent you the FIRST statement on which the error or problem appears.
+  | Give us the following information:
+  | 1. Tell us your name and account number
+  | 2. Describe the error or the transfer you are unsure about and explain as clearly as you can why you believe it to be an error or why
+  | you need more information
+  | 3. Tell us the dollar amount of the suspected error.
+  | We will investigate your complaint and will correct any error promptly. If we take more than 10 business days to do this, we will
+  | credit your account for the amount you think is in error, so that you will have the use of the money during the time it takes us to
+  | complete our investigation.
+  | If you have arranged to have direct deposits made to your Account at least once every 60 days from the same person or company,
+  | you may call a Deposit Specialist to find out if the deposit was made as scheduled. You may also verify posting of an Electronic
+  | Fund Transfer on the next Business Day after the Electronic Fund Transfer is scheduled to be made by calling us or logging onto our
+  | Website.
+  | BANK LOANS
+  | The balances of bank loans displayed in this statement are as of the last day of the statement period. The credit limit for clients
+  | with bank loans is generally your bank loan amount subject to sufficient collateral, and the interest you pay is calculated by applying
+  | the applicable interest rate against your daily outstanding loan balance. Interest rates on loans may change periodically, according
+  | to the terms set forth in your loan agreements.
+  | DEPOSIT AND LOAN COMPLAINTS AND INQUIRIES
+  | For deposit account complaints and inquiries, please call a Goldman Sachs Deposit Specialist:1-833-306-2076-Business Days, 9:00
+  | AM to 8:00 PM ET, or write to: Goldman Sachs Bank USA, 111 S Main St. Salt Lake City, Utah 84111. Loan related complaints and
+  | inquiries may be directed to: GS Bank, Compliance Officer, 200 West Street, New York, NY 10282.
+  | ® 2025 Goldman Sachs. All rights reserved.
+  | Period Ended December 31, 2025
+  | BOATVIEW BROKERAGE ETF STATEMENT GROUP
+  | Report Disclosures (Continued)
+  | Investment Summary
+  | Page  21 of  21
+  | 2908300_PC5_PROD_2026-01-14_17:19:34_V2025May15_CR3454_ODBC_LINUX
+  | Portfolio No: XXX-XX452-2
+  | ┤(($T5ãã\49,?.¿
+  | A
