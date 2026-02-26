@@ -1,0 +1,529 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: JPMorgan Mandato Bonos
+FILE: 202512 Ect Intl JPM NY BO (1100) - Mandato Bonos - JPMorgan.pdf
+==========================================================================================
+Total pages: 44
+
+--- Page 1 ---
+  Lines: 32, Tables: 0
+  | Important information regarding a change to your J.P. Morgan Account Agreements
+  | Enclosed, please find amendments to your Combined Terms and Conditions (ÔÇ£Combined Terms and
+  | ConditionsÔÇØ) and/or International General Terms for Accounts and Services Account Agreements
+  | (ÔÇ£International Combined Terms and ConditionsÔÇØ). The amendments, summarized below, go into
+  | effect on February 15, 2026.
+  | ÔÇó Your Representations and Warranties. We removed the representation that you do not have
+  | an entity affiliate of a Canadian Person, as defined in the Ontario Securities CommissionÔÇÖs rule
+  | on Trade Repositories and Derivative Data Reporting, who is responsible generally for all or
+  | substantially all of your liabilities.
+  | ÔÇó Affiliations. We removed the representation that you do not have an entity affiliate of a
+  | Canadian Person, as defined in the Ontario Securities CommissionÔÇÖs Rule 91-507, who is
+  | responsible generally for all or substantially all of your liabilities.
+  | ÔÇó Inactive and Unclaimed Accounts. We note that for CD accounts, the account is considered
+  | inactive from the day it is funded until the CD matures or you initiate an early withdrawal
+  | and closure.
+  | ÔÇó Statements. We note that you are required to keep your mailing address up-to-date with us.
+  | ÔÇó Limitations on Transfers, Amounts, and Frequency of Transactions. We note that we may
+  | limit your ability to make electronic funds transfers if you do not use a trusted device to access
+  | these services or complete certain tasks related to your account, digital profile or payments.
+  | Not applicable to non-U.S. phone carriers.
+  | ÔÇó Using Trusted Devices. We note that we may require that you use a trusted device to manage
+  | your account or digital profile, access certain account services, make specific payments and
+  | transfers, or authorize and approve transactions. Not applicable to non-U.S. phone carriers.
+  | ÔÇó Special Rules for CDs. We updated the date on which deposited check amounts over $6,725
+  | will be available to no later than the tenth business day.
+  | Definitions for all capitalized terms not provided above can be found in the Combined Terms and
+  | Conditions or International Combined Terms and Conditions, as applicable.
+  | Please review the amendments carefully and retain them for your records.
+  | For more information
+  | If you have any questions or need additional information, please contact your J.P. Morgan team.
+  | If you are a person with a disability and need additional support, please contact your J.P. Morgan team or email us at
+  | accessibility.support@jpmorgan.com for assistance.
+
+--- Page 2 ---
+  Lines: 72, Tables: 0
+  | Effective February 15, 2026, the following are amendments to your Combined Terms and Conditions
+  | (ÔÇ£Combined Terms and ConditionsÔÇØ) and/or International General Terms for Accounts and Services
+  | Account Agreements (ÔÇ£International Combined Terms and ConditionsÔÇØ), and may contain additional
+  | information about the features of your accounts.
+  | Unless indicated below, all other terms and conditions of your Combined Terms and Conditions and/or
+  | International Combined Terms and Conditions still apply. Please contact your J.P. Morgan team if you
+  | have any questions about these changes or would like additional information.
+  | Amendment applicable to the Combined Terms and Accountholder is an entity, you must provide us with
+  | Conditions and the International Combined Terms information related to the Accountholder that includes, but
+  | is not limited to, a current version of the AccountholderÔÇÖs
+  | and Conditions:
+  | Articles of Incorporation and a certified copy of the
+  | YOUR REPRESENTATIONS AND WARRANTIES AccountholderÔÇÖs Shareholder Register. You agree that you
+  | will immediately inform us if there are changes to: (i) the
+  | The second-to-last paragraph of the section entitled Your
+  | AccountholderÔÇÖs share capital; (ii) the ownership of the
+  | Representations and Warranties in the General Terms for
+  | AccountholderÔÇÖs shares; (iii) the beneficial ownership of,
+  | Accounts and Services in your Combined Terms and Conditions
+  | and control over, the Accountholder; and (iv) if the
+  | and/or International Combined Terms and Conditions is
+  | Accountholder contemplates issuing bearer shares.
+  | removed. Such section shall now read as follows:
+  | All information provided in the Application or otherwise We may rely on these representations and warranties,
+  | given to us from time to time is accurate, true and complete. which are made as of the date of the Agreement and which
+  | will continue until the Agreement is terminated.
+  | For individual and joint accounts, the identified
+  | Accountholders are the beneficial owners. For entity accounts, AFFILIATIONS
+  | beneficial ownership is as you have told us. You will notify us
+  | The last paragraph of the section entitled Affiliations in
+  | immediately if the beneficial ownership of any Account
+  | the Brokerage Account Agreement in your Combined Terms
+  | changes.
+  | and Conditions and/or International Combined Terms and
+  | Conditions is removed. Such section shall now read as
+  | If you are a natural person, you represent and warrant that
+  | follows:
+  | you are of the age of majority according to the law of your
+  | place of residence and of the place of your Accounts. If the client is a natural person, the client represents that
+  | unless the client has notified J.P. Morgan to the contrary,
+  | If you establish the Account when acting in a fiduciary capacity, neither the client nor any member of the clientÔÇÖs immediate
+  | (i) all beneficial interests in the estate, trust or Account for family is: (i) an employee or member of any exchange,
+  | which you are a fiduciary are owned by individuals or by non- (ii) an employee or member of FINRA, (iii) an employee of
+  | profit organizations; and (ii) you are legally empowered to any corporation or firm engaged in the business of dealing,
+  | enter into and perform this Agreement in such capacity. as broker or principal, in securities, options or futures, or
+  | (iv) an employee of any bank, trust company or insurance
+  | If the Account is to be maintained in the name of a sole company. Persons signing on behalf of others should indicate
+  | proprietorship, (i) you are the sole owner of the sole the titles or capacities in which they are signing. If any of the
+  | proprietorship; (ii) the sole proprietorship is doing business foregoing information changes, the client agrees to notify
+  | under the name and style of, and at the location, given in the J.P. Morgan promptly. If the client is required to obtain his or
+  | Application; (iii) you will be personally responsible for any her employerÔÇÖs consent before opening a securities account,
+  | debts, deficiencies or overdrafts in the sole proprietorship the client has obtained such consent.
+  | Account; and (iv) checks drawn on the sole proprietorshipÔÇÖs
+  | Account may be debited against any Account you hold, in INACTIVE AND UNCLAIMED ACCOUNTS
+  | your individual name or jointly, with us.
+  | The second paragraph of the section entitled Inactive and
+  | Unclaimed Accounts in the Deposit Account Agreement in
+  | For Accounts opened other than by a natural person, (i) the
+  | your Combined Terms and Conditions and/or International
+  | Accountholder has the power to enter into and perform
+  | Combined Terms and Conditions shall be revised and read
+  | under the Agreement, (ii) all necessary actions have been
+  | as follows:
+  | taken and approvals received in accordance with its
+  | organizational documents and applicable law and Inactive Accounts. Accounts must have customer-initiated
+  | regulation, and (iii) the Accountholder is duly organized activity to remain in an active status. If your account doesnÔÇÖt
+  | and in good standing in the jurisdiction in which it is meet this criteria for a minimum of 24 months, the account
+  | organized. The persons signing the Application have the may become inactive. For Certificate of Deposit (CD) accounts,
+  | authority to bind the Accountholder to the Agreement. We the CD is considered inactive from the day the CD is funded
+  | will not open new accounts for companies that have issued until either the CD matures, or a customer initiated early
+  | shares in bearer form except if the shares are publicly withdrawal and closure occurs.
+  | traded on a recognized exchange. In the case that the
+
+--- Page 3 ---
+  Lines: 76, Tables: 0
+  | STATEMENTS A trusted device is an eligible device that has been
+  | successfully enrolled with us based on specific criteria we set
+  | The first paragraph of the section entitled Statements in
+  | and may modify from time to time in our sole discretion. This
+  | the Deposit Account Agreement in your Combined Terms
+  | criteria includes, but is not limited to, using an eligible device
+  | and Conditions and/or International Combined Terms and
+  | and establishing device trust by verifying your identity and
+  | Conditions shall be revised and read as follows:
+  | authenticating. Your eligible device may already be trusted if
+  | We will maintain appropriate records of your Account. An you meet our criteria and have used that device with us for a
+  | Account statement for checking and savings accounts will be certain period of time. If your eligible device is not already
+  | sent to you at your current address listed on our records on a trusted, you may be presented with the opportunity to
+  | monthly basis, unless there have been no deposits or establish device trust, or reestablish trust in a previously
+  | withdrawals made to your accounts within a 30-month (12 trusted device.
+  | months in Texas) period, in which case annual statements will
+  | be sent, unless otherwise specifically indicated in the personal Not all devices will be eligible to become a trusted device.
+  | accounts or business accounts sections of this Agreement. A mobile smartphone device with a current operating system
+  | Statements will be sent via ordinary U.S. mail, unless you and that we support (such as iOS or Android) is an eligible device;
+  | the Bank agree otherwise. We will send at least one statement currently, tablets, laptops and personal or desktop computers
+  | per Account, even if that Account has more than one owner. are not. We may add, remove, or modify the qualifying eligible
+  | Combined statements for linked accounts will be sent to the devices at any time.
+  | primary account holderÔÇÖs address, unless a new mailing address
+  | is designated for the account. You agree that sending the During the process of making your eligible device a trusted
+  | Account statement as described qualifies as sending the device, we may require you to verify your identity and
+  | Account statement to all owners of the Account, even if all authenticate by taking certain actions, which may include,
+  | owners do not have access to the mailing address of record for but are not limited to, one or more of the following:
+  | the Account. You agree you will keep your mailing address up- ÔÇó taking a photo with your mobile phone camera of your
+  | to-date with us. We may change your postal address of record if acceptable form of identification,
+  | we receive an address change notice from the U.S. Postal
+  | ÔÇó entering information from your Chase debit card (e.g.,
+  | Service or if we receive information from another party in the
+  | CVV), or
+  | business of providing correct address information that the
+  | address in our records no longer corresponds to your address. ÔÇó providing biometrics (e.g., selfie), or
+  | ÔÇó using a token where available.
+  | LIMITATIONS ON TRANSFERS, AMOUNTS, AND FREQUENCY
+  | OF TRANSACTIONS Valid driverÔÇÖs licenses and state identifications qualify as
+  | acceptable forms of identification; additional qualifying
+  | A new paragraph is added paragraph (6) of the section
+  | forms of identification may be added by us periodically.
+  | entitled Limitations on Transfers, Amounts, and Frequency
+  | The image of your identification will be stored or retained
+  | of Transactions in the Deposit Account Agreement in your
+  | only to the extent permitted by applicable law and will be
+  | Combined Terms and Conditions and/or International
+  | used as permitted under our privacy policy. You must
+  | Combined Terms and Conditions. The new paragraph shall
+  | agree to additional disclosures and specific terms that we
+  | read as follows:
+  | may present relating to trusted devices when you enroll in
+  | (7) We may also limit your ability to make electronic funds jpmorganonline.com or J.P. Morgan Online.
+  | transfers if you do not use a trusted device to access such
+  | services or complete certain tasks relating to your account, SPECIAL RULES FOR CDs
+  | digital profile, and/or payments. Refer to the section below
+  | The section entitled Special Rules for CDs in the Appendix:
+  | entitled Using Trusted Devices for more information.
+  | Asset Account and Deposit AccountÔÇöFunds Availability
+  | Policy Statement in your Combined Terms and Conditions
+  | USING TRUSTED DEVICES
+  | and/or International Combined Terms and Conditions shall
+  | A new section entitled Using Trusted Devices is added after
+  | be revised and read as follows:
+  | the section entitled Alerts and J.P. Morgan Mobile┬« Services
+  | in the Deposit Account Agreement in your Combined Terms Generally, funds you deposit will be available within one
+  | and Conditions and/or International Combined Terms and business day except when you deposit checks that total more
+  | Conditions. The new section shall read as follows: than $6,725 in a business day. The amount exceeding
+  | $6,725 will be available no later than the tenth business day
+  | To help protect your account, we may require that you use a after the day of your deposit. However, we are not required
+  | trusted device to: to let you withdraw principal from a CD before it matures.
+  | ÔÇó manage your account and/or digital profile,
+  | ÔÇó access certain account services,
+  | ÔÇó make certain payments and transfers, or
+  | ÔÇó authorize or approve payments and transfers.
+  | ┬® 2025 JPMorgan Chase & Co. All rights reserved. (10/2025)
+  | 1025-100-LE-OLNY
+
+--- Page 5 ---
+  Lines: 16, Tables: 0
+  | Account Number: 1531100 JPMorgan Chase Bank, N.A.
+  | 390 Madison Avenue, New York, New York 10017
+  | Statement of Account
+  | 01 December - 31 December 2025
+  | Table of Contents
+  | Page
+  | Portfolio Summary 2
+  | Cash, Deposits & Short Term 5
+  | Fixed Income 8
+  | Cash Account Transactions 28
+  | Security Transactions 33
+  | INVESTMENT PRODUCTS ARE: *NOT FDIC INSURED *NOT A DEPOSIT OR OTHER OBLIGATION OF, OR GUARANTEED BY, JPMORGAN CHASE BANK, N.A. OR ANY OF ITS AFFILIATES *SUBJECT TO
+  | INVESTMENT RISKS, INCLUDING POSSIBLE LOSS OF THE PRINCIPAL AMOUNT INVESTED
+  | This statement shall be considered to be approved if no written notice is received by JPMorgan Chase Bank, N.A. within 60 days. This statement shall be considered to be approved if no written notice is received by
+  | JPMorgan Chase Bank, N.A. within 60 days.
+  | ES-1 1C2VL
+
+--- Page 6 ---
+  Lines: 17, Tables: 1
+  | Account Number: 1531100 01 December - 31 December 2025 Page 2
+  | Account Summary
+  | Asset Allocation Values in Reference Currency - USD Portfolio Activity
+  | Beginning Market Value Ending Market Value as of
+  | as of 30 November 2025 31 December 2025 Change in Value Current Period Value Year-to-Date Value
+  | Cash, Deposits & Short Term 1,314,748.12 1,217,852.19 -96,895.93 Beginning Market Value 13,376,850.76 30,143,562.64
+  | Fixed Income 12,062,102.64 12,180,052.58 117,949.94 Net Cash Contributions / Withdrawals 0.00 -17,949,882.15
+  | Total Market Value* 13,376,850.76 13,397,904.77 21,054.01 Net Security Contributions / Withdrawals 0.00 0.00
+  | Income and Distributions 30,120.73 762,183.12
+  | Total Net Market Value* 13,376,850.76 13,397,904.77 21,054.01
+  | Change in Investment Value -9,066.70 442,041.18
+  | * Includes pending transactions based on exchange rates as of 31 December 2025
+  | Ending Market Value 13,397,904.79 13,397,904.79
+  | Diversification by Asset Class Diversification by Currency Includes Foreign Exchange Contracts
+  | 90.9% Fixed Income 100.0% USD U.S. Dollar
+  | 9.1% Cash, Deposits & Short Term
+  | 1C2VL
+  TABLE 0 (2 rows x 3 cols):
+    [0] ['90.9% Fixed Income\n9.1% Cash, Deposits & Short Term', '100.0% U', 'SD U.S. Dollar\n1C2VL']
+    [1] ['', '', None]
+
+--- Page 7 ---
+  Lines: 8, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 3
+  | Manager Allocation Summary
+  | Manager Allocation *
+  | 100.0% J.P. Morgan Separately Managed Account
+  | * J.P. Morgan Separately Managed Account includes fixed income, equity, alternative separately managed accounts managed
+  | by JPMC.
+  | See important information about investment principles and conflicts in the disclosures section.
+  | 1C2VL
+
+--- Page 8 ---
+  Lines: 7, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 4
+  | Account Summary
+  | Portfolio Diversification Exchange Rates
+  | Currency Cash, Deposits & S T h e o rm rt Fixed IncomeEquities & Convertibles Foreign E C x o c n h t a ra n c g t e s Private M In i v s e c s e t l m la e n n e t o s u & s Currency Diversification Currency vs USD Exchange Rate
+  | U.S. Dollar USD 9.09% 90.91% 100.00% USD 1.00000
+  | Total 9.09% 90.91% 100.00%
+  | 1C2VL
+
+--- Page 9 ---
+  Lines: 17, Tables: 1
+  | Account Number: 1531100 01 December - 31 December 2025 Page 5
+  | Cash, Deposits & Short Term
+  | Summary Summary by Currency
+  | Currency Current Market Value USD
+  | USD
+  | USD 1,217,852.19
+  | Total 1,217,852.19
+  | Current Market Value USD % of Portfolio
+  | Cash Holdings 640,891.47 4.78%
+  | Short Term Investments 576,960.72 4.31%
+  | Total Cash, Deposits & Short Term 1,217,852.19 9.09%
+  | Cash Holdings
+  | Description Ccy Balance Current Market Value USD % of Portfolio
+  | U.S. Dollar Current Account USD 363,265.02 363,265.02 2.71%
+  | U.S. Dollar Current Account USD 277,626.45 277,626.45 2.07%
+  | Total Cash Holdings 640,891.47 4.78%
+  | 1C2VL
+  TABLE 0 (4 rows x 1 cols):
+    [0] ['Currency\nUSD\nUSD\nTotal']
+    [1] ['Ccy Balance Current Market Value U']
+    [2] ['SD 363,265.02 363,265.\nSD 277,626.45 277,626.']
+    [3] ['640,891.']
+
+--- Page 10 ---
+  Lines: 31, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 6
+  | Short Term Investments (with maturity less than 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD : Estimated Annual
+  | Quantity Market Price USD Capital (C) Income USD
+  | Security Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM % of Portfolio
+  | Short Term -U.S. Dollar
+  | BOEING CO 63,000.00 95.70 99.88 60,291.58 62,926.01 2,634.43 (C) 1,732.50 0.48%
+  | 2.75% 02.11.2020-01.02.2026 31.12.2025 717.06 0.00 (F) 4.48
+  | US097023DA04
+  | PPG INDUSTRIES INC 70,000.00 96.81 99.42 67,768.40 69,595.12 1,826.72 (C) 840.00 0.52%
+  | 1.2% 04.03.2021-15.03.2026 31.12.2025 245.00 0.00 (F) 4.16
+  | US693506BU04
+  | TELEDYNE TECHNOLOGIES IN 65,000.00 90.73 99.35 58,973.20 64,579.31 5,606.11 (C) 1,040.00 0.48%
+  | 1.6% 22.03.2021-01.04.2026 31.12.2025 257.11 0.00 (F) 4.56
+  | US879360AC98
+  | EMERA US FINANCE LP 65,000.00 94.70 99.68 61,556.30 64,790.95 3,234.65 (C) 2,307.50 0.48%
+  | 3.55% 17.01.2017-15.06.2026 31.12.2025 96.15 0.00 (F) 4.47
+  | US29103DAJ54
+  | OLD REPUBLIC INTL CORP 69,000.00 95.33 99.88 65,780.46 68,920.13 3,139.67 (C) 2,673.75 0.52%
+  | 3.875% 26.08.2016-26.08.2026 31.12.2025 920.96 0.00 (F) 4.17
+  | US680223AK06
+  | WEC ENERGY GROUP INC 38,000.00 99.98 101.00 37,993.92 38,380.65 386.73 (C) 2,128.00 0.29%
+  | 5.6% 12.09.2023-12.09.2026 31.12.2025 638.40 0.00 (F) 4.25
+  | US92939UAM80
+  | SHIRE ACQ INV IRELAND DA 8,000.00 94.06 99.39 7,524.88 7,951.59 426.71 (C) 256.00 0.06%
+  | 3.2% 23.09.2016-23.09.2026 31.12.2025 68.98 0.00 (F) 4.09
+  | US82481LAD10
+  | DELL INT LLC / EMC CORP 70,000.00 99.85 100.47 69,897.80 70,328.33 430.53 (C) 3,430.00 0.53%
+  | 4.9% 15.06.2021-01.10.2026 31.12.2025 847.97 0.00 (F) 4.28
+  | US24703TAE64
+  | 1C2VL
+
+--- Page 11 ---
+  Lines: 17, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 7
+  | Short Term Investments (with maturity less than 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD : Estimated Annual
+  | Quantity Market Price USD Capital (C) Income USD
+  | Security Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM % of Portfolio
+  | Short Term -U.S. Dollar
+  | FORTIS INC 66,000.00 99.06 99.18 65,379.60 65,458.94 79.34 (C) 2,016.30 0.49%
+  | 3.055% 28.06.2017-04.10.2026 31.12.2025 481.67 0.00 (F) 4.26
+  | US349553AM97
+  | VIRGINIA ELEC & POWER CO 60,000.00 99.07 99.23 59,442.00 59,535.14 93.14 (C) 1,770.00 0.45%
+  | SERIES B 31.12.2025 221.25 0.00 (F) 4.04
+  | 2.95% 16.11.2016-15.11.2026
+  | US927804FV18
+  | Short Term -U.S. Dollar 554,608.14 572,466.17 17,858.03 (C) 4.31%
+  | 4,494.55 0.00 (F)
+  | Total Short Term Investments 554,608.14 576,960.72 17,858.03 4.31%
+  | 1C2VL
+
+--- Page 12 ---
+  Lines: 23, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 8
+  | Fixed Income
+  | Summary Summary by Currency
+  | Currency Current Market Value USD
+  | USD
+  | USD 12,180,052.58
+  | Total 12,180,052.58
+  | Current Market Value USD % of Portfolio
+  | Fixed Income 12,030,479.79 89.79%
+  | Accrued Interest 149,572.79 1.12%
+  | Total Market Value 12,180,052.58 90.91%
+  | Summary by Maturity
+  | Maturity Period Current Market Value USD % of Portfolio
+  | 0-6 months 0.00 0.00%
+  | 6-12 months 0.00 0.00%
+  | 1-2 years 403,234.45 3.01%
+  | 2-5 years 4,843,588.93 36.15%
+  | 5-10 years 6,496,129.70 48.49%
+  | 10-15 years 437,099.50 3.26%
+  | >15 years 0.00 0.00%
+  | Funds 0.00 0.00%
+  | 12,180,052.58 90.91%
+  | 1C2VL
+
+--- Page 13 ---
+  Lines: 30, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 9
+  | Fixed Income Holdings (with maturity over 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD :
+  | Nominal Market Price USD Capital (C) Estimated Annual
+  | Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM Income USD % of Portfolio
+  | U.S. Dollar
+  | ENTERPRISE PRODUCTS OPER 64,000.00 100.68 100.73 64,433.28 64,465.35 32.07 (C) 3.96 2,944.00 0.49%
+  | 4.6% 11.01.2024-11.01.2027 31.12.2025 1,382.04 0.00 (F)
+  | US29379VCE11
+  | CONSTELLATION BRANDS INC 59,000.00 97.66 100.40 57,618.81 59,233.05 1,614.24 (C) 4.12 2,566.50 0.44%
+  | 4.35% 09.05.2022-09.05.2027 31.12.2025 363.59 0.00 (F)
+  | US21036PBK30
+  | FIRSTENERGY CORP 70,000.00 97.86 99.62 68,504.10 69,732.55 1,228.45 (C) 4.18 2,730.00 0.53%
+  | SERIES B 31.12.2025 1,251.25 0.00 (F)
+  | 3.9% 21.06.2017-15.07.2027
+  | US337932AH00
+  | AMERICAN EXPRESS CO 68,000.00 100.00 100.77 68,000.00 68,526.62 526.62 (C) 4.48 3,664.52 0.52%
+  | FRN 31.12.2025 1,547.24 0.00 (F)
+  | 5.389% 28.07.2023-28.07.2027
+  | US025816DG18
+  | QUANTA SERVICES INC 70,000.00 99.45 101.23 69,617.80 70,860.80 1,243.00 (C) 3.99 3,325.00 0.54%
+  | 4.75% 09.08.2024-09.08.2027 31.12.2025 1,302.29 0.00 (F)
+  | US74762EAK82
+  | ITC HOLDINGS CORP 65,000.00 98.59 98.92 64,084.80 64,297.48 212.68 (C) 4.06 2,177.50 0.48%
+  | 3.35% 18.06.2018-15.11.2027 31.12.2025 272.19 0.00 (F)
+  | US465685AP08
+  | CVS HEALTH CORP 64,000.00 97.36 100.36 62,313.17 64,228.95 1,915.78 (C) 4.18 2,752.00 0.48%
+  | 4.3% 09.03.2018-25.03.2028 31.12.2025 726.22 0.00 (F)
+  | US126650CX62
+  | 1C2VL
+
+--- Page 14 ---
+  Lines: 31, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 10
+  | Fixed Income Holdings (with maturity over 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD :
+  | Nominal Market Price USD Capital (C) Estimated Annual
+  | Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM Income USD % of Portfolio
+  | U.S. Dollar
+  | TAKE-TWO INTERACTIVE SOF 70,000.00 100.11 101.96 70,076.30 71,369.10 1,292.80 (C) 4.09 3,465.00 0.54%
+  | 4.95% 14.04.2023-28.03.2028 31.12.2025 885.50 0.00 (F)
+  | US874054AK58
+  | MARRIOTT INTERNATIONAL 160,000.00 94.65 100.16 151,435.20 160,251.39 8,816.19 (C) 4.03 6,400.00 1.21%
+  | SERIES X 31.12.2025 1,333.33 0.00 (F)
+  | 4% 06.04.2018-15.04.2028
+  | US571903AY99
+  | PFIZER INVESTMENT ENTER 65,000.00 100.95 101.36 65,614.73 65,882.29 267.56 (C) 3.89 2,892.50 0.49%
+  | 4.45% 19.05.2023-19.05.2028 31.12.2025 329.42 0.00 (F)
+  | US716973AC67
+  | CANADIAN PACIFIC RAILWAY 69,000.00 96.00 100.06 66,237.93 69,042.45 2,804.52 (C) 4.03 2,760.00 0.52%
+  | 4% 16.05.2018-01.06.2028 31.12.2025 222.33 0.00 (F)
+  | US13645RAY09
+  | GOLDMAN SACHS GROUP INC 56,000.00 93.92 99.48 52,596.32 55,706.91 3,110.59 (C) 4.65 2,066.96 0.42%
+  | FRN 31.12.2025 143.54 0.00 (F)
+  | 3.691% 05.06.2017-05.06.2028
+  | US38141GWL49
+  | L3HARRIS TECH INC 70,000.00 98.17 100.77 68,720.40 70,540.30 1,819.90 (C) 4.13 3,080.00 0.53%
+  | SERIES * 31.12.2025 128.33 0.00 (F)
+  | 4.4% 01.05.2020-15.06.2028
+  | US502431AM16
+  | PACIFIC GAS & ELECTRIC 73,000.00 88.51 96.97 64,611.63 70,788.84 6,177.21 (C) 4.37 2,190.00 0.53%
+  | 3% 03.06.2021-15.06.2028 31.12.2025 91.25 0.00 (F)
+  | US694308JW85
+  | 1C2VL
+
+--- Page 15 ---
+  Lines: 29, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 11
+  | Fixed Income Holdings (with maturity over 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD :
+  | Nominal Market Price USD Capital (C) Estimated Annual
+  | Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM Income USD % of Portfolio
+  | U.S. Dollar
+  | GENERAL MOTORS FINL CO 130,000.00 99.80 103.65 129,743.90 134,749.68 5,005.78 (C) 4.29 7,540.00 1.01%
+  | 5.8% 23.06.2023-23.06.2028 31.12.2025 146.61 0.00 (F)
+  | US37045XEH52
+  | HEICO CORP 63,000.00 102.96 102.84 64,867.32 64,788.87 -78.45 (C) 4.15 3,307.50 0.49%
+  | 5.25% 27.07.2023-01.08.2028 31.12.2025 1,368.94 0.00 (F)
+  | US422806AA75
+  | CITIGROUP INC 218,000.00 92.98 99.12 202,702.94 216,085.48 13,382.54 (C) 4.42 7,673.60 1.62%
+  | FRN 31.12.2025 1,342.88 0.00 (F)
+  | 3.52% 27.10.2017-27.10.2028
+  | US172967LS86
+  | ZIMMER BIOMET HOLDINGS 62,000.00 103.37 103.39 64,086.92 64,100.91 13.99 (C) 4.15 3,317.00 0.48%
+  | 5.35% 01.12.2023-01.12.2028 31.12.2025 267.20 0.00 (F)
+  | US98956PAX06
+  | AMEREN CORP 124,000.00 99.09 102.28 122,875.32 126,826.33 3,951.01 (C) 4.26 6,200.00 0.97%
+  | 5% 21.12.2023-15.01.2029 31.12.2025 2,841.67 0.00 (F)
+  | US023608AQ57
+  | VENTAS REALTY LP 19,000.00 99.99 100.47 18,998.10 19,089.49 91.39 (C) 4.29 836.00 0.15%
+  | 4.4% 15.08.2018-15.01.2029 31.12.2025 383.17 0.00 (F)
+  | US92277GAN79
+  | WESTERN MIDSTREAM OPERAT 73,000.00 105.21 105.30 76,801.84 76,872.06 70.22 (C) 4.49 4,635.50 0.59%
+  | 6.35% 29.09.2023-15.01.2029 31.12.2025 2,124.60 0.00 (F)
+  | US958667AF48
+  | 1C2VL
+
+--- Page 16 ---
+  Lines: 30, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 12
+  | Fixed Income Holdings (with maturity over 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD :
+  | Nominal Market Price USD Capital (C) Estimated Annual
+  | Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM Income USD % of Portfolio
+  | U.S. Dollar
+  | ROYAL BANK OF CANADA 137,000.00 100.79 101.88 138,080.93 139,575.00 1,494.07 (C) 4.21 6,802.05 1.06%
+  | SERIES GMTN FRN 31.12.2025 2,947.56 0.00 (F)
+  | 4.965% 24.01.2025-24.01.2029
+  | US78017DAA63
+  | BANK OF NOVA SCOTIA 130,000.00 100.69 101.94 130,891.80 132,528.14 1,636.34 (C) 4.20 6,411.60 1.01%
+  | FRN 31.12.2025 2,422.16 0.00 (F)
+  | 4.932% 04.02.2025-14.02.2029
+  | US06418GAP28
+  | MARVELL TECHNOLOGY INC 66,000.00 99.87 104.34 65,911.56 68,862.91 2,951.35 (C) 4.30 3,795.00 0.52%
+  | 5.75% 18.09.2023-15.02.2029 31.12.2025 1,423.13 0.00 (F)
+  | US573874AP91
+  | AON NORTH AMERICA INC 135,000.00 100.12 102.92 135,160.65 138,946.39 3,785.74 (C) 4.22 6,952.50 1.05%
+  | 5.15% 01.03.2024-01.03.2029 31.12.2025 2,298.19 0.00 (F)
+  | US03740MAB63
+  | AT&T INC 30,000.00 95.93 100.57 28,778.70 30,170.55 1,391.85 (C) 4.19 1,305.00 0.23%
+  | 4.35% 19.02.2019-01.03.2029 31.12.2025 431.38 0.00 (F)
+  | US00206RHJ41
+  | MID-AMERICA APARTMENTS 142,000.00 94.71 99.46 134,491.04 141,230.06 6,739.02 (C) 4.19 5,609.00 1.07%
+  | 3.95% 07.03.2019-15.03.2029 31.12.2025 1,635.96 0.00 (F)
+  | US59523UAQ04
+  | WILLIAMS COMPANIES INC 69,000.00 99.55 102.15 68,688.81 70,482.73 1,793.92 (C) 4.22 3,381.00 0.53%
+  | 4.9% 05.01.2024-15.03.2029 31.12.2025 986.13 0.00 (F)
+  | US88339WAB28
+  | 1C2VL
+
+--- Page 17 ---
+  Lines: 29, Tables: 0
+  | Account Number: 1531100 01 December - 31 December 2025 Page 13
+  | Fixed Income Holdings (with maturity over 1 year) by Currency
+  | Market Value of Holdings Unrealised Gain/Loss USD :
+  | Nominal Market Price USD Capital (C) Estimated Annual
+  | Description Status Unit Cost Price Date Average Cost USD Accrued Interest Foreign Exchange (F) YTM Income USD % of Portfolio
+  | U.S. Dollar
+  | ENBRIDGE INC 68,000.00 101.51 103.15 69,028.16 70,144.82 1,116.66 (C) 4.32 3,604.00 0.53%
+  | 5.3% 05.04.2024-05.04.2029 31.12.2025 850.94 0.00 (F)
+  | US29250NCB91
+  | ENERGY TRANSFER LP 155,000.00 97.91 102.82 151,765.15 159,365.64 7,600.49 (C) 4.38 8,137.50 1.20%
+  | 5.25% 15.01.2019-15.04.2029 31.12.2025 1,695.31 0.00 (F)
+  | US29278NAG88
+  | CHARLES SCHWAB CORP 197,000.00 101.85 103.79 200,649.63 204,469.61 3,819.98 (C) 4.53 11,116.71 1.54%
+  | FRN 31.12.2025 1,266.07 0.00 (F)
+  | 5.643% 19.05.2023-19.05.2029
+  | US808513CD58
+  | AMCOR GROUP FINANCE 65,000.00 103.31 103.43 67,152.15 67,232.19 80.04 (C) 4.36 3,542.50 0.50%
+  | 5.45% 23.05.2024-23.05.2029 31.12.2025 364.09 0.00 (F)
+  | US02344BAA44
+  | WP CAREY INC 72,000.00 92.56 98.66 66,641.04 71,036.50 4,395.46 (C) 4.32 2,772.00 0.54%
+  | 3.85% 14.06.2019-15.07.2029 31.12.2025 1,270.50 0.00 (F)
+  | US92936UAF66
+  | EVERGY INC 64,000.00 87.73 95.36 56,147.20 61,032.90 4,885.70 (C) 4.33 1,856.00 0.46%
+  | 2.9% 09.09.2019-15.09.2029 31.12.2025 541.33 0.00 (F)
+  | US30034WAB28
+  | REGENCY CENTERS LP 74,000.00 86.61 95.98 64,091.40 71,022.11 6,930.71 (C) 4.21 2,183.00 0.53%
+  | 2.95% 20.08.2019-15.09.2029 31.12.2025 636.71 0.00 (F)
+  | US75884RAZ64
+  | 1C2VL
+
+  ... (27 more pages not analyzed)

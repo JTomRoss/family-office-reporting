@@ -1,10 +1,11 @@
 """
-Parser: JPMorgan – Cuenta Custodia / Mandato (Investment Management PDF).
+Parser: JPMorgan – Cuenta Bonos (Investment Management PDF).
 
-Formato:  "01 December - 31 December 2025", "Account Number: XXX"
-Páginas 1-4+: Texto legal (se salta)
-Página data: Account Summary con Asset Allocation y Portfolio Activity
-Páginas siguientes: Holdings por tipo (Cash, Fixed Income, Equities)
+Formato: "01 December - 31 December 2025", "Account Number: 1531100"
+Páginas 1-4: Texto legal
+Página 5: Table of Contents
+Página 6: Account Summary (asset allocation + portfolio activity)
+Páginas 9+: Holdings con formato 3-líneas (nombre, cupón/vencimiento, ISIN)
 
 AISLADO: No comparte lógica con otros parsers.
 """
@@ -50,7 +51,6 @@ def _parse_usd(text: str) -> Optional[Decimal]:
 
 
 def _parse_date_text(text: str) -> Optional[date]:
-    """Parse '01 December 2025' or '31 December 2025'."""
     m = re.search(r"(\d{1,2})\s+(\w+)\s+(\d{4})", text)
     if not m:
         return None
@@ -66,17 +66,16 @@ def _parse_date_text(text: str) -> Optional[date]:
 
 # ── Parser ───────────────────────────────────────────────────────
 
-class JPMorganCustodyParser(BaseParser):
+class JPMorganBondsParser(BaseParser):
     BANK_CODE = "jpmorgan"
-    ACCOUNT_TYPE = "custody"
+    ACCOUNT_TYPE = "bonds"
     VERSION = "2.0.0"
-    DESCRIPTION = "Parser para cartolas Mandato JPMorgan (Investment Management PDF)"
+    DESCRIPTION = "Parser para cartolas Mandato Bonos JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
     _DETECTION_MARKERS = [
         "JPMorgan Chase Bank",
         "Statement of Account",
-        "Investment Management",
     ]
 
     def parse(self, filepath: Path) -> ParseResult:
@@ -103,11 +102,10 @@ class JPMorganCustodyParser(BaseParser):
 
         result.raw_text_preview = pages[0][:500]
 
-        # 1) Find data pages (skip legal text)
         self._extract_period(pages, result)
         self._extract_account_number(pages, result)
         self._extract_account_summary(pages, result)
-        self._extract_asset_allocation(pages, result)
+        self._extract_fixed_income_summary(pages, result)
         self._extract_holdings(pages, result)
 
         if not result.account_number:
@@ -139,24 +137,23 @@ class JPMorganCustodyParser(BaseParser):
 
     def _extract_account_number(self, pages: list[str], result: ParseResult) -> None:
         for text in pages[:15]:
-            # "Account Number: MND-1483400" or "Account Number: 1179200"
             m = re.search(r"Account Number:\s*([A-Z0-9-]+)", text)
             if m:
                 result.account_number = m.group(1)
                 return
 
     def _extract_account_summary(self, pages: list[str], result: ParseResult) -> None:
-        """Extract from page with 'Account Summary' header."""
-        for text in pages[:20]:
+        """Extract from 'Account Summary' page with Asset Allocation and Portfolio Activity."""
+        for text in pages[:15]:
             if "Account Summary" not in text:
                 continue
-            if "Asset Allocation" not in text:
+            if "Asset Allocation" not in text and "Portfolio Activity" not in text:
                 continue
 
-            # Asset allocation lines: "Cash, Deposits & Short Term  9,404,989.43  5,633,705.15  -3,771,284.28"
+            # Asset allocation: "Cash, Deposits & Short Term 1,314,748.12 1,217,852.19 -96,895.93"
             alloc: dict[str, dict] = {}
             for m in re.finditer(
-                r"(Cash,?\s*Deposits\s*&?\s*Short\s*Term|Fixed Income|Equities)"
+                r"(Cash,?\s*Deposits?\s*&?\s*Short\s*Term|Fixed Income|Equities)"
                 r"\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
                 text,
             ):
@@ -165,7 +162,6 @@ class JPMorganCustodyParser(BaseParser):
                     "ending": str(_parse_usd(m.group(3))),
                     "change": str(_parse_usd(m.group(4))),
                 }
-
             if alloc:
                 result.qualitative_data["asset_allocation"] = alloc
 
@@ -209,84 +205,152 @@ class JPMorganCustodyParser(BaseParser):
 
             break
 
-    def _extract_asset_allocation(self, pages: list[str], result: ParseResult) -> None:
-        """Extract 'Portfolio Diversification' page."""
+    def _extract_fixed_income_summary(self, pages: list[str], result: ParseResult) -> None:
+        """Extract Fixed Income summary page with maturity breakdown."""
         for text in pages[:20]:
-            if "Portfolio Diversification" not in text:
+            if "Fixed Income" not in text or "Summary by Maturity" not in text:
                 continue
 
-            # Currency breakdown: "U.S. Dollar USD 1.67% 55.67% ..."
-            currencies: dict[str, str] = {}
+            maturity: dict[str, str] = {}
             for m in re.finditer(
-                r"(\w[\w\s.]+?)\s+(USD|EUR|JPY|GBP|CAD|CHF|ASI|AUD)\s+([\d.]+)%",
+                r"(0-6 months|6-12 months|1-2 years|2-5 years|5-10 years|10-15 years|>15 years|Funds)"
+                r"\s+([\d,]+\.\d{2})\s+([\d.]+)%",
                 text,
             ):
-                currencies[m.group(2)] = m.group(3) + "%"
-            if currencies:
-                result.qualitative_data["currency_allocation"] = currencies
+                maturity[m.group(1)] = str(_parse_usd(m.group(2)))
+            if maturity:
+                result.qualitative_data["fixed_income_maturity"] = maturity
+
+            # Total Fixed Income
+            total_m = re.search(
+                r"Total (?:Market Value|Fixed Income)\s+([\d,]+\.\d{2})\s+([\d.]+)%",
+                text,
+            )
+            if total_m:
+                result.qualitative_data["total_fixed_income"] = str(_parse_usd(total_m.group(1)))
+            break
 
     def _extract_holdings(self, pages: list[str], result: ParseResult) -> None:
-        """Extract holdings from detail pages."""
+        """Extract bond holdings from detail pages.
+
+        Each holding spans 2-3 lines:
+        Line 1: SECURITY_NAME  QUANTITY  UNIT_COST  MARKET_PRICE  AVG_COST_USD  MARKET_VALUE_USD  GAIN_LOSS  (C)  INCOME  %
+        Line 2: COUPON%  DATE_RANGE  DATE  ACCRUED_INT  0.00  (F)  YTM
+        Line 3: ISIN
+        """
         current_section = "unknown"
 
         for page_num, text in enumerate(pages):
-            if "Cash, Deposits & Short Term" in text and ("Detail" in text or "Cash Holdings" in text):
-                current_section = "cash"
-            elif "Fixed Income" in text and ("Detail" in text or "Summary" in text):
+            if "Short Term" in text and ("Investments" in text or "Holdings" in text):
+                current_section = "short_term"
+            elif "Fixed Income Holdings" in text:
                 current_section = "fixed_income"
-            elif "Equities" in text and ("Detail" in text or "Summary" in text):
-                current_section = "equities"
 
-            # Holdings: "Security Name  QTY  PRICE  DATE  COST  MARKET_VALUE  GAIN/LOSS"
-            # Pattern for IM format bonds:
-            # BOEING CO 63,000.00 95.70 99.88 60,291.58 62,926.01 2,634.43
+            # Pattern for bond holdings line 1:
+            # BOEING CO 63,000.00 95.70 99.88 60,291.58 62,926.01 2,634.43 (C) 1,732.50 0.48%
             for m in re.finditer(
-                r"^(.{10,50}?)\s+"
-                r"([\d,]+\.\d{2})\s+"    # quantity/face value
-                r"([\d.]+)\s+"            # cost price
-                r"([\d.]+)\s+"            # market price
-                r"([\d,]+\.\d{2})\s+"     # cost value
-                r"([\d,]+\.\d{2})\s+"     # market value
-                r"(-?[\d,]+\.\d{2})",     # gain/loss
+                r"^([A-Z][A-Z\s&/.'-]{3,40}?)\s+"
+                r"([\d,]+\.\d{2})\s+"       # quantity/face value
+                r"([\d.]+)\s+"               # unit cost price
+                r"([\d.]+)\s+"               # market price
+                r"([\d,]+\.\d{2})\s+"        # avg cost USD
+                r"([\d,]+\.\d{2})\s+"        # market value USD
+                r"(-?[\d,]+\.\d{2})\s+"      # gain/loss
+                r"\(C\)\s+"                  # capital gain marker
+                r"([\d,.]+)\s+"              # income
+                r"([\d.]+)%",                # % of portfolio
                 text,
                 re.MULTILINE,
             ):
                 name = m.group(1).strip()
                 if any(skip in name.lower() for skip in [
-                    "total", "summary", "account", "page", "currency",
+                    "total", "summary", "account", "page", "description",
+                    "security", "status", "nominal",
                 ]):
                     continue
 
-                market_value = _parse_usd(m.group(6))
+                quantity = _parse_usd(m.group(2))
                 cost_value = _parse_usd(m.group(5))
+                market_value = _parse_usd(m.group(6))
                 gain_loss = _parse_usd(m.group(7))
+                income = _parse_usd(m.group(8))
+                pct = m.group(9)
 
                 result.rows.append(ParsedRow(
                     data={
                         "instrument": name,
-                        "quantity": str(_parse_usd(m.group(2))),
-                        "cost_price": m.group(3),
+                        "asset_type": "bond",
+                        "quantity": str(quantity) if quantity else None,
+                        "unit_cost": m.group(3),
                         "market_price": m.group(4),
                         "cost_value": str(cost_value) if cost_value else None,
                         "market_value": str(market_value) if market_value else None,
                         "unrealized_gain_loss": str(gain_loss) if gain_loss else None,
+                        "estimated_annual_income": str(income) if income else None,
+                        "pct_of_portfolio": pct + "%",
                         "section": current_section,
                     },
                     row_number=page_num + 1,
-                    confidence=0.8,
+                    confidence=0.85,
                 ))
 
-            # Total lines
+            # Simpler fallback pattern for bonds without (C) marker
+            if not any("(C)" in (text or "") for text in [text]):
+                for m in re.finditer(
+                    r"^([A-Z][A-Z\s&/.'-]{3,40}?)\s+"
+                    r"([\d,]+\.\d{2})\s+"       # quantity
+                    r"([\d.]+)\s+"               # unit cost
+                    r"([\d.]+)\s+"               # market price
+                    r"([\d,]+\.\d{2})\s+"        # avg cost
+                    r"([\d,]+\.\d{2})\s+"        # market value
+                    r"(-?[\d,]+\.\d{2})",         # gain/loss
+                    text,
+                    re.MULTILINE,
+                ):
+                    name = m.group(1).strip()
+                    if any(skip in name.lower() for skip in [
+                        "total", "summary", "account", "page", "short term",
+                    ]):
+                        continue
+
+                    # Check if this holding already exists
+                    existing = [r for r in result.rows if r.data.get("instrument") == name]
+                    if existing:
+                        continue
+
+                    market_value = _parse_usd(m.group(6))
+                    cost_value = _parse_usd(m.group(5))
+                    gain_loss = _parse_usd(m.group(7))
+
+                    result.rows.append(ParsedRow(
+                        data={
+                            "instrument": name,
+                            "asset_type": "bond",
+                            "quantity": str(_parse_usd(m.group(2))),
+                            "cost_value": str(cost_value) if cost_value else None,
+                            "market_value": str(market_value) if market_value else None,
+                            "unrealized_gain_loss": str(gain_loss) if gain_loss else None,
+                            "section": current_section,
+                        },
+                        row_number=page_num + 1,
+                        confidence=0.7,
+                    ))
+
+            # Section totals
             for m in re.finditer(
-                r"Total\s+([\w\s&,]+?)\s+([\d,]+\.\d{2})\s+",
+                r"Total\s+([\w\s&,]+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})",
                 text,
             ):
                 section = m.group(1).strip()
-                value = _parse_usd(m.group(2))
+                if any(skip in section.lower() for skip in ["page", "account"]):
+                    continue
+                cost = _parse_usd(m.group(2))
+                value = _parse_usd(m.group(3))
                 if value and value > Decimal("0"):
                     result.rows.append(ParsedRow(
                         data={
                             "instrument": f"TOTAL: {section}",
+                            "cost_value": str(cost) if cost else None,
                             "market_value": str(value),
                             "is_total": True,
                         },
@@ -308,21 +372,22 @@ class JPMorganCustodyParser(BaseParser):
             with pdfplumber.open(filepath) as pdf:
                 if not pdf.pages:
                     return 0.0
-                # Check multiple pages (legal text on first pages)
                 for page in pdf.pages[:10]:
                     text = page.extract_text() or ""
                     if "Statement of Account" in text and "JPMorgan" in text:
-                        return 0.9
+                        # Check if it's bonds-specific
+                        if "Fixed Income" in text or "1531100" in text:
+                            return 0.9
+                        return 0.5
                     if "Account Number:" in text and "JPMorgan Chase Bank" in text:
-                        return 0.9
-                # Fallback: check first page markers
-                text = pdf.pages[0].extract_text() or ""
+                        return 0.7
+                # Filename bonus
+                fname = filepath.name.lower()
                 score = 0.0
-                for marker in self._DETECTION_MARKERS:
-                    if marker.lower() in text.lower():
-                        score += 0.2
-                if "mandato" in filepath.name.lower() or "custody" in filepath.name.lower():
-                    score += 0.2
+                if "jpmorgan" in fname or "jpm" in fname:
+                    score += 0.3
+                if "bono" in fname or "bond" in fname:
+                    score += 0.3
                 return min(score, 1.0)
         except Exception:
             return 0.0

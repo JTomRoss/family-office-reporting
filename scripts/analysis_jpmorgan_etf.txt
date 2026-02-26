@@ -1,0 +1,366 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: JPMorgan ETF
+FILE: 20251231-statements-0007-ETF - JPMorgan.pdf
+==========================================================================================
+Total pages: 40
+
+--- Page 1 ---
+  Lines: 23, Tables: 0
+  | For the Period 12/1/25 to 12/31/25
+  | Account Summary
+  | Account Beginning Net Ending Net Change Start on
+  | Number Market Value Market Value In Value Page
+  | Investment Account(s)
+  | B99719001┬╣ 21,542,506.53 18,885,468.69 (2,657,037.84) 4
+  | 36195870┬▓ 0.00 0.00 0.00 14
+  | E31070007┬╣ 10,806,593.39 13,130,284.90 2,323,691.51 15
+  | 36256137┬▓ 0.00 0.00 0.00 28
+  | Total Value $32,349,099.92 $32,015,753.59 ($333,346.33)
+  | This account summary is provided for informational purposes and includes assets at different entities.
+  | (1)Assets held at JPMorgan Chase Bank, N.A., except for exchange-listed options, which are held at J.P. Morgan Securities LLC
+  | ("JPMS"). The Asset Account Statement reflects brokerage transactions executed through JPMS, see "Portfolio Activity Detail."
+  | Equity securities, fixed income securities, and listed options transactions are generally cleared through JPMS. Please see
+  | "Additional Information About Your Accounts" at the end of the Asset Account Statement.
+  | (2)Assets held in Margin Account at J.P. Morgan Securities LLC ("JPMS"), member Financial Regulatory Authority ("FINRA") and
+  | Securities Insurance Protection Corporation ("SIPC"). The Margin Account Statement reflects brokerage transactions executed by
+  | JPMS, see "Portfolio Activity Detail." Such transactions are executed through and cleared by JPMS.
+  | Please see disclosures located at the end of this statement package for important information relating to each J.P. Morgan account
+  | INVESTMENT AND INSURANCE PRODUCTS ARE: * NOT FDIC INSURED * NOT INSURED BY ANY GOVERNMENT AGENCY
+  | * NOT A DEPOSIT OR OTHER OBLIGATION OF, OR GUARANTEED BY, JPMORGAN CHASE BANK, N.A. OR ANY OF ITS AFFILIATES
+  | * SUBJECT TO INVESTMENT RISKS, INCLUDING POSSIBLE LOSS OF THE PRINCIPAL AMOUNT INVESTED
+  | 0000002117.26.0.15.00001.W307762.20260105 Consolidated Statement Page 1
+
+--- Page 3 ---
+  Lines: 31, Tables: 0
+  | For the Period 12/1/25 to 12/31/25
+  | Consolidated Summary
+  | INVESTMENT ACCOUNTS
+  | Beginning Ending Change Estimated Current Asset Allocation
+  | Asset Allocation
+  | Market Value Market Value In Value Annual Income Allocation
+  | Equity 4,357,711.89 5,272,882.80 915,170.91 16%
+  | Cash & Fixed Income 27,940,786.95 26,692,167.55 (1,248,619.40) 130,667.10 84%
+  | Market Value $32,298,498.84 $31,965,050.35 ($333,448.49) $130,667.10 100%
+  | Equity
+  | Accruals 50,601.08 50,703.24 102.16
+  | Market Value with Accruals $32,349,099.92 $32,015,753.59 ($333,346.33)
+  | Cash &
+  | Fixed Income
+  | Current Year-to-Date
+  | Portfolio Activity
+  | Period Value Value
+  | Beginning Market Value 32,298,498.84 30,845,122.83
+  | Net Contributions/Withdrawals (500,000.00) (1,182,479.65)
+  | Income & Distributions 13,270.23 408,829.49
+  | Change in Investment Value 153,281.28 1,893,577.68
+  | Ending Market Value $31,965,050.35 $31,965,050.35
+  | Accruals 50,703.24 50,703.24
+  | Market Value with Accruals $32,015,753.59 $32,015,753.59
+  | The Consolidated Summary shows all of your investments at J.P. Morgan other than investments we hold in trust for you. These investments may be held in custody or investment
+  | management accounts at JPMorgan Chase Bank, N.A. (the "Bank") or in a brokerage or margin account at J.P. Morgan Securities LLC ("JPMS"). Brokerage, including Self-Directed
+  | Investing Accounts, or margin accounts are non-discretionary and all investment decisions are authorized or initiated by you. J.P. Morgan does not provide investment advice or
+  | investment recommendations or offer any opinion regarding the suitability of any security, order, transaction, or strategy in a Self-Directed Investing or Custody-Only Retirement Account.
+  | JPMS does not provide investment management advice on asset allocation or investment management services, nor do its personnel take discretion over any of your accounts. Such
+  | advice and services are provided exclusively by the Bank. The Bank and JPMS do not provide tax or legal advice.
+  | Consolidated Statement Page 2
+
+--- Page 4 ---
+  Lines: 17, Tables: 0
+  | For the Period 12/1/25 to 12/31/25
+  | Consolidated Summary
+  | CONTINUED
+  | INVESTMENT ACCOUNT(S) YEAR-TO-DATE
+  | Account Beginning Net Contributions/ Income & Change in Ending Market Value
+  | Portfolio Activity
+  | Number Market Value Withdrawals Distributions Investment Value with Accruals
+  | B99719001 13,389,560.81 4,422,799.12 406,188.90 617,688.71 18,885,468.69
+  | E31070007 17,455,562.02 (5,605,278.77) 2,640.59 1,275,888.97 13,130,284.90
+  | Total Value $30,845,122.83 ($1,182,479.65) $408,829.49 $1,893,577.68 $32,015,753.59
+  | Account Other Income Realized Gain/Loss Unrealized
+  | Income Summary Number Income Income & Receipts Short-term Long-term Gain/Loss┬╣
+  | B99719001 406,188.90 39,697.17 (512,804.62) 642,162.46
+  | E31070007 2,640.59 20,174.29 9,013.33 2,078,067.33
+  | Total Value $408,829.49 $59,871.46 ($503,791.29) $2,720,229.79
+  | ┬╣Unrealized Gain/Loss represents data from the time of account inception to the current statement period.
+  | Consolidated Statement Page 3
+
+--- Page 5 ---
+  Lines: 12, Tables: 0
+  | JPMorgan Chase Bank, N.A. ACCT. B99719001
+  | 270 Park Avenue, New York, NY 10017-2014 For the Period 12/1/25 to 12/31/25
+  | Asset Account
+  | J.P. Morgan Team Table of Contents Page
+  | Walter Gomez Client Service Team 212/623-4588 Account Summary 2
+  | Jeannette Bueno Client Service Team Holdings
+  | Juan Rubio Client Service Team Cash & Fixed Income 5
+  | Jorge Cabrera Client Service Team Holdings
+  | Portfolio Activity 8
+  | Online access www.jpmorganonline.com
+  | Please see disclosures located at the end of this statement package for important information relating to each J.P. Morgan account.
+  | Account B99719001 Page 1 of 10 Consolidated Statement Page 4
+
+--- Page 6 ---
+  Lines: 24, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Account Summary
+  | Beginning Ending Change Estimated Current
+  | Asset Allocation
+  | Market Value Market Value In Value Annual Income Allocation
+  | Cash & Fixed Income 21,492,139.81 18,836,237.54 (2,655,902.27) 130,380.74 100%
+  | Market Value $21,492,139.81 $18,836,237.54 ($2,655,902.27) $130,380.74 100%
+  | Accruals 50,366.72 49,231.15 (1,135.57)
+  | Market Value with Accruals $21,542,506.53 $18,885,468.69 ($2,657,037.84)
+  | Current Year-to-Date
+  | Portfolio Activity
+  | Period Value Value
+  | Beginning Market Value 21,492,139.81 13,389,560.81
+  | Contributions 45,200,000.00
+  | Withdrawals & Fees (2,728,400.00) (93,208,080.14)
+  | Securities Transferred In 52,430,879.26
+  | Net Contributions/Withdrawals ($2,728,400.00) $4,422,799.12
+  | Income & Distributions 13,035.87 406,188.90
+  | Change In Investment Value 59,461.86 617,688.71
+  | Ending Market Value $18,836,237.54 $18,836,237.54
+  | Accruals 49,231.15 49,231.15
+  | Market Value with Accruals $18,885,468.69 $18,885,468.69
+  | Account B99719001 Page 2 of 10 Consolidated Statement Page 5
+
+--- Page 7 ---
+  Lines: 18, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Account Summary
+  | CONTINUED
+  | Current Year-to-Date Current Year-to-Date
+  | Income Summary
+  | Period Value Value Period Value Value
+  | Foreign Dividends 8,207.60 109,283.44 ST Realized Gain/Loss 39,697.17
+  | Interest Income 4,828.27 319,506.06 LT Realized Gain/Loss (242,131.14) (512,804.62)
+  | Bond Premium Amortization (22,600.60) Realized Gain/Loss ($242,131.14) ($473,107.45)
+  | Income $13,035.87 $406,188.90
+  | To-Date Value
+  | Unrealized Gain/Loss $642,162.46
+  | Cost Summary
+  | Cost
+  | Cash & Fixed Income 21,264,997.21
+  | Total $21,264,997.21
+  | Account B99719001 Page 3 of 10 Consolidated Statement Page 6
+
+--- Page 8 ---
+  Lines: 15, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Account Summary
+  | CONTINUED
+  | Interest on USD Cash
+  | Balance Summary Total For This Period Total Year-To-Date*
+  | Interest Earned $0.00 $6.71
+  | Interest Earned for the given period is the combined total value of interest that has both been paid to the account
+  | and that has accrued but not yet been paid.
+  | Annual Percentage Yield Earned This Period 0.00%
+  | Annual Percentage Yield Earned is an annualized rate that reflects the relationship between the amount of interest
+  | actually earned on the account during this statement period and the average daily balance in this account for the
+  | same period.
+  | *Year-To-Date information is calculated on a calendar year basis
+  | Account B99719001 Page 4 of 10 Consolidated Statement Page 7
+
+--- Page 9 ---
+  Lines: 36, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Cash & Fixed Income Summary
+  | Beginning Ending Change Current Asset Categories
+  | Asset Categories
+  | Market Value Market Value In Value Allocation
+  | Cash 18,477,719.71 16,258,536.38 (2,219,183.33) 85%
+  | US Fixed Income 327.12 327.87 0.75 1%
+  | Non-US Fixed Income 3,014,092.98 2,577,373.29 (436,719.69) 14%
+  | Total Value $21,492,139.81 $18,836,237.54 ($2,655,902.27) 100% US Fixed Income
+  | Non-US Fixed Income
+  | Current
+  | Market Value/Cost
+  | Period Value
+  | Cash
+  | Market Value 18,836,237.54
+  | Cost 21,264,997.21
+  | Unrealized Gain/Loss 642,162.46
+  | Estimated Annual Income 130,380.74
+  | Accrued Interest 49,231.15
+  | Yield 0.83%
+  | Cash & Fixed Income as a percentage of your portfolio - 100%
+  | Pending Amortization (9,582.99)
+  | SUMMARY BY MATURITY SUMMARY BY TYPE
+  | Market % of Cash & Market % of Cash &
+  | Cash & Fixed Income Cash & Fixed Income
+  | Value Fixed Income Value Fixed Income
+  | 0-6 months┬╣ 16,258,536.38 87% Cash 16,258,536.38 86%
+  | 1-5 years┬╣ 2,577,701.16 13% Corporate Bonds 327.87 1%
+  | International Bonds 2,577,373.29 13%
+  | Total Value $18,836,237.54 100%
+  | Total Value $18,836,237.54 100%
+  | ┬╣ The years indicate the number of years until the bond is scheduled to mature
+  | based on the statement end date. Some bonds may be called, or paid in full,
+  | before their stated maturity.
+  | Account B99719001 Page 5 of 10 Consolidated Statement Page 8
+
+--- Page 10 ---
+  Lines: 24, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Note: A- Bonds purchased at a premium show amortization.
+  | ** Unrealized Gain/Loss is shown as "N/A" in cases where we do not have appropriate cost information for all tax lots comprising the position. Please contact your J.P. Morgan team for additional
+  | information.
+  | Cash & Fixed Income Detail
+  | Adjusted Cost Unrealized Est. Annual Income
+  | Price Quantity Value Original Cost Gain/Loss Accrued Interest Yield
+  | Cash
+  | JPM USD LIQUIDITY SWEEP C SHARE 1.00 445,951.86 445,951.86 445,951.86 16,972.92 3.81%
+  | FD #4703 1,347.54
+  | 628269-12-8
+  | JPM LI-LIQ LVNAV FD - USD - W - 12,140.73 1,302.44 15,812,584.52 15,399,947.71 412,636.81
+  | ACC ISIN LU1873131988 SEDOL
+  | 873131-91-6
+  | Total Cash $16,258,536.38 $15,845,899.57 $412,636.81 $16,972.92 0.10%
+  | $1,347.54
+  | US Fixed Income
+  | COMCAST CORP 98.46 333.00 327.87 N/A ** N/A 7.82 3.88%
+  | 2.350% 01/15/2027 DTD 07/19/2016 3.61
+  | FACTOR: 1.000000000
+  | 20030N-BW-0
+  | RATING S-P:A- MOODY'S:A3
+  | Account B99719001 Page 6 of 10 Consolidated Statement Page 9
+
+--- Page 11 ---
+  Lines: 22, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Adjusted Cost Unrealized Est. Annual Income
+  | Price Quantity Value Original Cost Gain/Loss Accrued Interest Yield
+  | Non-US Fixed Income
+  | A CORP GROUP BNKG SA unpriced 3,090,000.00 N/A 3,071,250.00 N/A N/A N/A
+  | SR NTS 0.0% 03/15/2023 DTD 3,086,812.50
+  | 02/05/2013
+  | FACTOR: 1.000000000
+  | PENDING AMORT (8,861.17)
+  | P31ESC-AA-7
+  | RATING S-P:NR MOODY'S:WR
+  | A CELULOSA ARAUCO CONSTITU 95.46 2,700,000.00 2,577,373.29 2,347,847.64 229,525.65 113,400.00 5.46%
+  | SR NTS 4.2% 01/29/2030 DTD 2,356,400.00 47,880.00
+  | 10/29/2019
+  | FACTOR: 1.000000000
+  | PENDING AMORT (721.82)
+  | P2195V-AR-6
+  | RATING S-P:BBB MOODY'S:BAA
+  | Total Non-US Fixed Income $2,577,373.29 $5,419,097.64 $229,525.65 $113,400.00 5.46%
+  | $5,443,212.50 $47,880.00
+  | Account B99719001 Page 7 of 10 Consolidated Statement Page 10
+
+--- Page 12 ---
+  Lines: 31, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Portfolio Activity Summary
+  | Current Year-To-Date Current Year-To-Date
+  | Transactions Securities Transferred In/Out
+  | Period Value Value* Period Value Value*
+  | Beginning Cash Balance 0.00 -- Securities Transferred In 52,430,879.26
+  | INFLOWS
+  | Income 13,035.87 428,789.50
+  | Contributions 45,200,000.00
+  | Total Inflows $13,035.87 $45,628,789.50 Current Year-To-Date
+  | Cost Adjustments
+  | Period Value Value*
+  | OUTFLOWS **
+  | Amortization (22,600.60)
+  | Withdrawals (90,181,670.94)
+  | Total Cost Adjustments $0.00 ($22,600.60)
+  | Payments and Transfers (2,728,400.00) (3,026,409.20)
+  | Total Outflows ($2,728,400.00) ($93,208,080.14)
+  | SWEEP ACCOUNT ACTIVITY
+  | Sweep Account Sales 2,728,400.00 93,207,926.14
+  | Sweep Account Purchases (454,149.47) (85,847,342.41)
+  | Total Sweep Account Activity $2,274,250.53 $7,360,583.73
+  | TRADE ACTIVITY
+  | Settled Sales/Maturities/Redemptions 441,113.60 40,218,706.91
+  | Total Trade Activity $441,113.60 $40,218,706.91
+  | Ending Cash Balance $0.00 --
+  | * Year to date information is calculated on a calendar year basis.
+  | ** Your account's standing instructions: use high cost method when selling assets
+  | from your position
+  | Account B99719001 Page 8 of 10 Consolidated Statement Page 11
+
+--- Page 13 ---
+  Lines: 22, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | Portfolio Activity Detail
+  | INFLOWS & OUTFLOWS
+  | Type Quantity Per Unit
+  | Settle Date Selection Method Description Cost Amount Amount
+  | 12/1 Foreign Dividend JPM USD LIQUIDITY SWEEP C SHARE FD #4703 FOR 8,207.60
+  | NOV @ VARIOUS RATES FROM 0.0106899% TO
+  | 0.0109592% (ID: 628269-12-8)
+  | 12/3 Misc Debit ONLINE TRANSFER TO CHK ...0007 TRANSACTION#: (2,280,000.00)
+  | 27187195421
+  | 12/3 Misc Debit ONLINE TRANSFER TO CHK ...0007 TRANSACTION#: (448,400.00)
+  | 27191014116
+  | 12/22 Foreign Interest FENIX PWR PERU SA SR NTS 4.317% 09/20/2027 DTD 800,000.000 0.006 4,828.27
+  | 09/20/2017 (ID: P40070-AB-3)
+  | Total Inflows & Outflows ($2,715,364.13)
+  | SWEEP ACCOUNT ACTIVITY
+  | Type
+  | Settle Date Selection Method Description Quantity Amount
+  | 12/31 Net Sweep JPM USD LIQUIDITY SWEEP C SHARE FD #4703 (2,274,250.530) 2,274,250.53
+  | (ID: 628269-12-8)
+  | Account B99719001 Page 9 of 10 Consolidated Statement Page 12
+
+--- Page 14 ---
+  Lines: 11, Tables: 0
+  | ACCT. B99719001
+  | For the Period 12/1/25 to 12/31/25
+  | TRADE ACTIVITY
+  | Note: L indicates Long Term Realized Gain/Loss
+  | Trade Date Type Per Unit Realized
+  | Settle Date Selection Method Description Quantity Amount Proceeds Cost Gain/Loss
+  | Settled Sales/Maturities/Redemptions
+  | 12/22 Redemption FENIX PWR PERU SA SR NTS 4.317% 09/20/2027 DTD (800,000.000) 55.139 441,113.60 (683,244.74) (242,131.14) L
+  | 12/22 Pro Rata 09/20/2017 ENTIRE ISSUE CALLED @ 55.13926
+  | (ID: P40070-AB-3)
+  | Account B99719001 Page 10 of 10 Consolidated Statement Page 13
+
+--- Page 15 ---
+  Lines: 14, Tables: 0
+  | J.P. Morgan Securities LLC ACCT. 36195870
+  | 383 Madison Avenue, New York, NY 10179 For the Period 12/1/25 to 12/31/25
+  | Margin Account
+  | J.P. Morgan Team
+  | Walter Gomez Client Service Team 212/623-4588
+  | Jeannette Bueno Client Service Team
+  | Juan Rubio Client Service Team
+  | Jorge Cabrera Client Service Team
+  | Online access www.jpmorganonline.com
+  | Transactions cleared and carried through J.P. Morgan Securities LLC ("JPMS") a member of FINRA and SIPC -
+  | 4 Chase Metrotech Center, Brooklyn, N.Y. 11245-0001, (347) 643-9953.
+  | No market value or activity to report during this period
+  | Please see disclosures located at the end of this statement package for important information relating to each J.P. Morgan account.
+  | Account 36195870 Page 1 of 1 Consolidated Statement Page 14
+
+--- Page 17 ---
+  Lines: 13, Tables: 0
+  | JPMorgan Chase Bank, N.A. ACCT. E31070007
+  | 270 Park Avenue, New York, NY 10017-2014 For the Period 12/1/25 to 12/31/25
+  | Asset Account
+  | J.P. Morgan Team Table of Contents Page
+  | Walter Gomez Client Service Team 212/623-4588 Account Summary 2
+  | Jeannette Bueno Client Service Team Holdings
+  | Juan Rubio Client Service Team Equity 5
+  | Jorge Cabrera Client Service Team Cash & Fixed Income 7
+  | Holdings
+  | Portfolio Activity 10
+  | Online access www.jpmorganonline.com
+  | Please see disclosures located at the end of this statement package for important information relating to each J.P. Morgan account.
+  | Account E31070007 Page 1 of 13 Consolidated Statement Page 15
+
+  ... (23 more pages not analyzed)

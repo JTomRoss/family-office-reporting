@@ -1,0 +1,736 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: UBS Miami Mandato
+FILE: 202512 Boatview UBS Miami (432) - Mandato.pdf
+==========================================================================================
+Total pages: 20
+
+--- Page 1 ---
+  Lines: 44, Tables: 0
+  | UBS Financial Services Inc.
+  | ab 550 Biltmore Way Portfolio Management Program
+  | Suite 1100
+  | Coral Gables FL 33134-5730
+  | December 2025
+  | ANQ70039198671225X1233J 0
+  | BOATVIEW LIMITED
+  | AV. APOQUINDO 3846
+  | PISO 19, LAS CONDES
+  | Account name: BOATVIEW LIMITED SANTIAGO CHILE
+  | Friendly account name: Boatview
+  | Account number: 3J 00432 P1
+  | Your Financial Advisor:
+  | ANDES WEALTH ADVISORS
+  | Branch: 786-394-2900
+  | Questions about your statement? Value of your account As a service to you, your portfolio value of
+  | $92,398,627.15 includes accrued interest.
+  | Call your Financial Advisor or the
+  | ResourceLine at 800-762-1000, on November 28 ($) on December 31 ($)
+  | account 526000432.
+  | Your assets 91,920,968.16 92,398,627.15
+  | Visit our website: Your liabilities 0.00 0.00
+  | www.ubs.com/financialservices
+  | Value of your account $91,920,968.16 $92,398,627.15
+  | Accrued interest in value above $115,085.63 $118,578.36
+  | Sources of your account growth
+  | Tracking the value of your account during 2025
+  | Value of your account
+  | $ Millions at year end 2024 $81,813,518.43
+  | Net deposits and
+  | 97.9
+  | 88.5 86.3 81.8 91.9 92.4 withdrawals -$187,030.84
+  | 76.9
+  | Your investment return:
+  | Dividend and
+  | interest income $488,453.82
+  | Change in value of
+  | accrued interest -$3,549.32
+  | Change in
+  | market value $10,287,235.06
+  | Dec 2020 Dec 2021 Dec 2022 Dec 2023 Dec 2024 Nov 2025 Dec 2025
+  | Value of your account
+  | on Dec 31, 2025 $92,398,627.15
+  | Member SIPC ANQ70009003919867 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 1 of 18
+
+--- Page 2 ---
+  Lines: 34, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your account balance sheet
+  | The value of your account includes assets held at UBS and certain assets held away from UBS. See page 1
+  | for more information.
+  | Summary of your assets
+  | Value on Percentage of
+  | December 31 ($) your account
+  | A Cash and money balances 29,462.21 0.03% Your current asset allocation
+  | B Cash alternatives 101,065.40 0.11% A
+  | B
+  | C Equities 35,797,428.39 38.74%
+  | D Fixed income 56,470,671.15 61.12%
+  | C
+  | E Non-traditional 0.00 0.00%
+  | F Commodities 0.00 0.00%
+  | D
+  | G Other 0.00 0.00%
+  | Total assets $92,398,627.15 100.00%
+  | Value of your account $92,398,627.15
+  | Eye on the markets
+  | Percentage change
+  | Index December 2025 Year to date
+  | S&P 500 0.06% 17.88%
+  | Russell 3000 -0.02% 17.15%
+  | MSCI - Europe, Australia & Far East 3.01% 31.89%
+  | Barclays Capital U.S. Aggregate Bond Index -0.15% 7.30%
+  | Interest rates on December 31, 2025
+  | 3-month Treasury bills: 3.67%
+  | One-month SOFR: 3.79%
+  | ANQ70009003919868 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 2 of 18
+
+--- Page 3 ---
+  Lines: 51, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Change in the value of your account Summary of gains and losses
+  | Values reported below exclude products for which gains and losses are not classified.
+  | December 2025 ($) Year to date ($)
+  | Realized gains and losses Unrealized
+  | Opening account value $91,920,968.16 $81,813,518.43
+  | December 2025 ($) Year to date ($) gains and losses ($)
+  | Withdrawals and fees,
+  | including investments transferred Short term 4,389.98 50,661.42 1,153,239.18
+  | out -3,636.01 -187,030.84
+  | Long term 26.56 77,245.29 7,426,878.06
+  | Dividend and interest income 45,274.94 488,453.82
+  | Total $4,416.54 $127,906.71 $8,580,117.24
+  | Change in value of accrued
+  | interest 3,492.73 -3,549.32
+  | Cash activity summary
+  | Change in market value 432,527.33 10,287,235.06
+  | See Account activitythis month for details. Balances in your Sweep Options are included in the opening and
+  | Closing account value $92,398,627.15 $92,398,627.15
+  | closing balances value. FDIC insurance applies to deposits at UBS Bank USA and all banks participating in the
+  | UBS FDIC-Insured Deposit Program and the UBS Insured Sweep Program, provided that the requirements for
+  | deposit insurance have been met. FDIC deposit insurance only covers the failure of an insured bank. UBS
+  | Dividend and interest income earned Financial Services Inc. is not an FDIC-insured bank. Bank deposits are not protected by SIPC. See Important
+  | Information about your statementat the end of this document.
+  | December 2025 ($) Year to date ($)
+  | Forpurposesofthisstatement,taxabilityofinterestanddividendincomehasbeendeterminedfromaUS
+  | taxreportingperspective.Basedupontheresidenceoftheaccountholder,accounttype,orproducttype, Opening balances $13,435.67 $38,101.61
+  | someinterestand/ordividendpaymentsmaynotbe subjecttoUnitedStates (US)and/orPuertoRico(PR)
+  | incometaxes.Theclientmonthlystatementisnotintendedtobeusedandcannotberelieduponfortax Additions
+  | purposes.ClientsshouldrefertotheapplicabletaxreportingformstheyreceivefromUBSannually,suchas
+  | the Forms 1099 and the Forms 480,for tax reporting information. It isthe practice of UBS to file the Dividend and interest income 45,274.94 488,453.82
+  | applicabletaxreportingformswiththe USInternalRevenue Service andPRTreasury Department,andin
+  | suchformsaccuratelyclassifydividendsand/orinterestastaxexemptortaxableincome.Pleaseconsultyour Proceeds from investment transactions 275,387.61 12,329,031.44
+  | individual tax preparer.
+  | Total additions $320,662.55 $12,817,485.26
+  | December 2025 ($) Year to date ($)
+  | Subtractions
+  | Taxable dividends 12,118.43 72,043.90
+  | Professional management fees and
+  | Taxable interest 33,156.51 416,409.92 related services 0.00 -172,607.87
+  | Total current year $45,274.94 $488,453.82 Other funds debited -3,636.01 -14,422.97
+  | Total dividend & interest $45,274.94 $488,453.82 Funds withdrawn for investments
+  | bought -301,000.00 -12,639,093.82
+  | Return of capital/principal 0.00 333.00
+  | Total subtractions -$304,636.01 -$12,826,124.66
+  | Net cash flow $16,026.54 -$8,639.40
+  | Closing balances $29,462.21 $29,462.21
+  | ANQ70009003919869 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 3 of 18
+
+--- Page 4 ---
+  Lines: 28, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Withholdings and tax summary
+  | December 2025 ($) Year to date ($)
+  | Non-resident alien tax withholding -3,635.53 -14,422.49
+  | Foreign taxes paid -0.48 -0.48
+  | Total withholdings and taxes -$3,636.01 -$14,422.97
+  | Your investment objectives:
+  | You have identified the following investment objectives for this account. Contact your Financial
+  | Advisor if you have any questions, if your financial situation, individual needs, risk tolerance or
+  | investment objectives for your advisory account(s) have changed, or if you would like to impose
+  | or change investment restrictions on your discretionary advisory accounts. You can find a full
+  | description of the alternative investment objectives in Important information about your
+  | statement at the end of this document.
+  | Your return objective:
+  | Current income & capital appreciation
+  | Your risk profile:
+  | Primary - Moderate
+  | Investment eligibility consideration - None selected
+  | Your account instructions
+  | Your account is managed by your Financial Advisor under the Portfolio Management
+  | = Program.
+  | Your account cost basis default closing method is FIFO, First In, First Out.
+  | =
+  | ANQ70009003919870 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 4 of 18
+
+--- Page 5 ---
+  Lines: 38, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets
+  | Some prices, income and current values shown may be approximate. As a result, gains and losses may not
+  | be accurately reflected. See Important information about your statement at the end of this document for
+  | more information.
+  | Cash
+  | Cash and money balances
+  | Opening balance Closing balance Price per share Average Dividend/Interest Days in
+  | Holding on Dec 1 ($) on Dec 31 ($) on Dec 31 ($) rate period period
+  | Cash 13,435.67 29,462.21
+  | Cash alternatives
+  | Money market funds
+  | Money market funds are neither insured nor guaranteed by the Federal Deposit Insurance Corporation or Unrealized (tax) gain or lossis the difference between the current value and the cost basis and would generally
+  | any other government agency. Institutional prime and institutional municipal funds must float their net be your taxable gain or loss if the security was sold on this date. The unrealized (tax) gain or loss may need to
+  | asset values (NAV) per share to the nearest 1/100th of a cent (e.g., $1.0000). Government and retail be adjusted for return of capital payments in order to determine the realized gain or loss for tax reporting
+  | money market funds will continue to transact at a stable $1.00 net asset value. Although money market purposes.
+  | funds seek to preserve the value of your investment at $1.00 per share, it is possible to lose money by
+  | investing in these funds. Investment returnis the current value minus the amount you invested. It does not include shares that are not
+  | reflected on your statement, including shares that have been realized as either a gain or a loss. It also does not
+  | Total reinvestedis the total of all reinvested dividends. It does not include any cash dividends. It is not a include cash dividends that were not reinvested.
+  | tax lot for purposes of determining holding periods or cost basis. The shares you receive each time you
+  | reinvest dividends become a separate tax lot. Estimated annual income (EAI)is for informational purposes only and is calculated by the annualized per share
+  | dividend/interest paid, multiplied by the quantity of the shares held.
+  | Cost basisis the total purchase cost of the security, including reinvested dividends. The cost basis may
+  | need to be adjusted for return of capital payments in order to determine the adjusted cost basis for tax Current yieldis estimated for informational purposes only and may not reflect changes in price. It is calculated
+  | reporting purposes. by dividing the total estimated annual income by the current market value displayed.
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) on Dec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | INVESCO US DOLLAR LIQDTY
+  | PORT INSTL (ACC)
+  | Trade date: Oct 9, 25 65.350 1,137.527 74,337.39 74,337.39 1,148.0400 75,024.41 687.02 ST
+  | Trade date: Dec 17, 25 22.683 1,146.232 26,000.00 26,000.00 1,148.0400 26,040.99 40.99 ST
+  | Security total 88.033 1,139.770 100,337.39 100,337.39 101,065.40 728.01 728.01
+  | ANQ70009003919871 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 5 of 18
+
+--- Page 6 ---
+  Lines: 46, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets
+  | (continued)
+  | Equities
+  | Common stock
+  | Purchase price/
+  | Trade Number Average price Price per share Value on Unrealized Holding
+  | Holding date of shares per share ($) Cost basis ($) on Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | BERKSHIRE HATHAWAY INC NEW
+  | CL B
+  | Symbol: BRK.B Exchange: NYSE Dec 6, 24 4,250.000 469.510 1,995,417.50 502.650 2,136,262.50 140,845.00 LT
+  | Apr 8, 25 3,450.000 513.030 1,769,953.50 502.650 1,734,142.50 -35,811.00 ST
+  | May 6, 25 464.000 511.130 237,164.32 502.650 233,229.60 -3,934.72 ST
+  | Jun 10, 25 491.000 492.506 241,820.79 502.650 246,801.15 4,980.36 ST
+  | Aug 7, 25 180.000 462.460 83,242.80 502.650 90,477.00 7,234.20 ST
+  | Sep 4, 25 23.000 505.846 11,634.46 502.650 11,560.95 -73.51 ST
+  | Oct 9, 25 242.000 497.590 120,416.78 502.650 121,641.30 1,224.52 ST
+  | Security total 9,100.000 490.071 4,459,650.15 4,574,115.00 114,464.85
+  | Closed end funds & Exchange traded products
+  | Total reinvested is the total of all reinvested dividends. It does not include any cash dividends. It is not a Unrealized (tax) gain or loss is the difference between the current value and the cost basis and would generally
+  | tax lot for the purposes of determining holding periods or cost basis. The shares you receive each time you be your taxable gain or loss if the security was sold on this date. The unrealized (tax) gain or loss may need to
+  | reinvest dividends become a separate tax lot. be adjusted for return of capital payments in order to determine the realized gain or loss for tax reporting
+  | purposes.
+  | Cost basis is the total purchase cost of the security, including reinvested dividends. The cost basis may
+  | need to be adjusted for return of capital payments in order to determine the adjusted cost basis for tax Investment returnis the current value minus the amount you invested. It does not include shares that are not
+  | reporting purposes. reflected on your statement, including shares that have been realized as either a gain or a loss. It also does not
+  | include cash dividends that were not reinvested.
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) onDec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | ISHARES S&P SMALL CAP 600
+  | UCITS ETF
+  | Trade date: Dec 6, 24 18,837.000 101.284 1,907,899.48 1,907,899.48 99.110 1,866,935.07 -40,964.41 -40,964.41 LT
+  | EAI: $21,689 Current yield: 1.16%
+  | ISHARES CORE MSCI JAPAN IMI
+  | UCITS ETF
+  | Trade date: Dec 9, 24 32,297.000 56.697 1,831,172.08 1,831,172.08 69.330 2,239,151.01 407,978.93 LT
+  | Trade date: Apr 8, 25 1,530.000 52.630 80,523.90 80,523.90 69.330 106,074.90 25,551.00 ST
+  | Security total 33,827.000 56.514 1,911,695.98 1,911,695.98 2,345,225.91 433,529.93 433,529.93
+  | ISHARES CORE S&P 500 UCITS ETF
+  | continued next page
+  | ANQ70009003919872 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 6 of 18
+
+--- Page 7 ---
+  Lines: 35, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Equities Closed end funds & Exchange traded products (continued)
+  | 4 4
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) onDec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | Trade date: Dec 6, 24 10,001.000 646.271 6,463,362.55 6,463,362.55 738.530 7,386,038.53 922,675.98 LT
+  | Trade date: Apr 8, 25 4,500.000 559.140 2,516,133.70 2,516,133.70 738.530 3,323,385.00 807,251.30 ST
+  | Security total 14,501.000 619.233 8,979,496.25 8,979,496.25 10,709,423.53 1,729,927.28 1,729,927.28
+  | ISHARES MSCI EMU UCITS ETF EUR
+  | Trade date: Dec 6, 24 20,268.000 189.199 3,834,686.08 3,834,686.08 254.678 5,161,813.70 1,327,127.62 1,327,127.62 LT
+  | EUR Exchange rate: 0.85146
+  | ISHARES CORE MSCI EM IMI UCITS
+  | ETF USD
+  | Trade date: Dec 6, 24 103,152.000 35.131 3,623,905.12 3,623,905.12 45.120 4,654,218.24 1,030,313.12 1,030,313.12 LT
+  | ISHARES CORE MSCI PAC EX-JAPAN
+  | UCITS ETF
+  | Trade date: Dec 6, 24 5,904.000 191.289 1,129,370.96 1,129,370.96 219.290 1,294,688.16 165,317.20 LT
+  | Trade date: Apr 8, 25 300.000 167.210 50,163.00 50,163.00 219.290 65,787.00 15,624.00 ST
+  | Security total 6,204.000 190.125 1,179,533.96 1,179,533.96 1,360,475.16 180,941.20 180,941.20
+  | SPDR S&P 400 US MID CAP UCITS
+  | ETF
+  | Trade date: Dec 6, 24 26,862.000 102.662 2,757,730.69 2,757,730.69 103.430 2,778,336.66 20,605.97 20,605.97 LT
+  | VANGUARD VALUE ETF
+  | Symbol: VTV
+  | Trade date: Dec 6, 24 11,803.000 178.566 2,107,616.16 2,107,616.16 190.990 2,254,254.97 146,638.81 LT
+  | Trade date: Apr 8, 25 485.000 153.580 74,486.30 74,486.30 190.990 92,630.15 18,143.85 ST
+  | EAI: $47,997 Current yield: 2.05%
+  | Security total 12,288.000 177.580 2,182,102.46 2,182,102.46 2,346,885.12 164,782.66 164,782.66
+  | Total $26,377,050.02 $26,377,050.02 $31,223,313.39 $4,846,263.37 $4,846,263.37
+  | Total estimated annual income: $69,686
+  | ANQ70009003919873 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 7 of 18
+
+--- Page 8 ---
+  Lines: 46, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets
+  | (continued)
+  | Fixed income
+  | Corporate bonds and notes
+  | Prices are obtained from independent quotation bureaus that use computerized valuation formulas to automatically adjusted for amortization of bond premium using the constant yield method. If you have
+  | calculate current values. Actual market values may vary and thus gains/losses may not be accurately made a tax election to deduct the premium amortization on taxable debt securities, you may request UBS
+  | reflected. Cost basis has been adjusted for accreted original issue discount (OID). Cost basis has been adjust cost basis for the bond premium amortization.
+  | Trade Total face value Purchase Adjusted Price on Value on Unrealized Holding
+  | Holding date at maturity ($) price ($) cost basis ($) Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | BANK OF AMER CORP
+  | MED TERM NTS
+  | RATE 04.450% MATURES 03/03/26
+  | ACCRUED INTEREST $11,668.88
+  | CUSIP 06051GFU8
+  | Moody: A3 S&P: BBB+
+  | EAI: $17,800 Current yield: 4.45% Mar 06, 19 800,000.000 102.345 818,760.00 100.072 800,576.00 -18,184.00 LT
+  | US BANCORP B/E
+  | 3.000% 073029 DTD072919
+  | FC013020
+  | ACCRUED INTEREST $12,500.00
+  | CUSIP 91159HHW3
+  | Moody: A3 S&P: A-
+  | EAI: $30,000 Current yield: 3.11% Sep 12, 23 1,000,000.000 85.096 850,960.00 96.347 963,470.00 112,510.00 LT
+  | CVS HEALTH CORP B/E
+  | CALL@MW+25BP
+  | RATE 03.250% MATURES 08/15/29
+  | CALLABLE
+  | ACCRUED INTEREST $6,138.90
+  | CUSIP 126650DG2
+  | Moody: Baa3 S&P: BBB
+  | EAI: $16,250 Current yield: 3.37% Oct 11, 23 500,000.000 87.689 438,445.00 96.577 482,885.00 44,440.00 LT
+  | AT&T INC NTS B/E
+  | CALL@MW+30BP
+  | RATE 04.300% MATURES 02/15/30
+  | CALLABLE
+  | ACCRUED INTEREST $8,122.20
+  | CUSIP 00206RGQ9
+  | Moody: Baa2 S&P: BBB
+  | EAI: $21,500 Current yield: 4.29% Oct 11, 23 500,000.000 90.987 454,935.00 100.208 501,040.00 46,105.00 LT
+  | continued next page
+  | ANQ70009003919874 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 8 of 18
+
+--- Page 9 ---
+  Lines: 41, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income Corporate bonds and notes (continued)
+  | 4 4
+  | Trade Total face value Purchase Adjusted Price on Value on Unrealized Holding
+  | Holding date at maturity ($) price ($) cost basis ($) Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | GOLDMAN SACHS GROUP INC
+  | 3.800% 031530 DTD031920
+  | FC091520 CALL@MW+45BP
+  | ACCRUED INTEREST $11,188.90
+  | CUSIP 38141GXH2
+  | Moody: A2 S&P: BBB+
+  | EAI: $38,000 Current yield: 3.86% Oct 11, 23 500,000.000 88.248 441,240.00 98.506 492,530.00 51,290.00 LT
+  | Oct 20, 23 500,000.000 86.185 430,925.00 98.506 492,530.00 61,605.00 LT
+  | Security total 1,000,000.000 872,165.00 985,060.00 112,895.00
+  | ORACLE CORP NTS B/E
+  | 2.950% 040130 DTD040120
+  | FC100120 CALL@MW+35BP
+  | ACCRUED INTEREST $7,375.00
+  | CUSIP 68389XBV6
+  | Moody: Baa2 S&P: BBB
+  | EAI: $29,500 Current yield: 3.19% Sep 27, 23 1,000,000.000 84.872 848,720.00 92.422 924,220.00 75,500.00 LT
+  | WELLS FARGO & CO B/E
+  | CALL@MW+20BP
+  | RATE 02.879% MATURES 10/30/30
+  | ACCRUED INTEREST $2,399.15
+  | CUSIP 95000U2G7
+  | Moody: A1 S&P: BBB+
+  | EAI: $14,395 Current yield: 3.02% Oct 11, 23 500,000.000 83.320 416,603.00 95.176 475,880.00 59,277.00 LT
+  | DOW CHEMICAL CO/THE B/E
+  | 5BP
+  | RATE 02.100% MATURES 11/15/30
+  | CALLABLE
+  | ACCRUED INTEREST $1,341.65
+  | CUSIP 260543DC4
+  | Moody: Baa2 S&P: BBB
+  | EAI: $10,500 Current yield: 2.37% Oct 11, 23 500,000.000 79.336 396,680.00 88.598 442,990.00 46,310.00 LT
+  | continued next page
+  | ANQ70009003919875 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 9 of 18
+
+--- Page 10 ---
+  Lines: 48, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income Corporate bonds and notes (continued)
+  | 4 4
+  | Trade Total face value Purchase Adjusted Price on Value on Unrealized Holding
+  | Holding date at maturity ($) price ($) cost basis ($) Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | BOEING CO B/E
+  | CALL@MW+45BP
+  | RATE 03.625% MATURES 02/01/31
+  | ACCRUED INTEREST $15,104.20
+  | CUSIP 097023DC6
+  | Moody: Baa3 S&P: BBB-
+  | EAI: $36,250 Current yield: 3.77% Sep 25, 23 1,000,000.000 86.973 869,730.00 96.149 961,490.00 91,760.00 LT
+  | ALTRIA GROUP INC B/E
+  | CALL@MW+20BP
+  | RATE 02.450% MATURES 02/04/32
+  | CALLABLE
+  | ACCRUED INTEREST $10,004.20
+  | CUSIP 02209SBL6
+  | Moody: A3 S&P: BBB+
+  | EAI: $24,500 Current yield: 2.77% Sep 12, 23 1,000,000.000 77.136 771,360.00 88.538 885,380.00 114,020.00 LT
+  | CITIGROUP INC
+  | RATE 06.625% MATURES 06/15/32
+  | ACCRUED INTEREST $2,944.40
+  | CUSIP 172967BL4
+  | Moody: Baa2 S&P: BBB
+  | EAI: $66,250 Current yield: 5.97% Sep 18, 23 1,000,000.000 102.805 1,028,050.00 110.963 1,109,630.00 81,580.00 LT
+  | DUKE ENERGY CORP B/E
+  | CALL@MW+30BP
+  | RATE 04.500% MATURES 08/15/32
+  | CALLABLE
+  | ACCRUED INTEREST $8,500.00
+  | CUSIP 26441CBT1
+  | Moody: Baa2 S&P: BBB
+  | EAI: $22,500 Current yield: 4.51% Oct 11, 23 500,000.000 89.762 448,810.00 99.818 499,090.00 50,280.00 LT
+  | MORGAN STANLEY B/E
+  | T CALL@MW+30BP
+  | RATE 04.889% MATURES 07/20/33
+  | CALLABLE
+  | ACCRUED INTEREST $10,932.35
+  | CUSIP 61747YEU5
+  | Moody: A1 S&P: A-
+  | EAI: $24,445 Current yield: 4.81% Oct 11, 23 500,000.000 91.072 455,360.00 101.607 508,035.00 52,675.00 LT
+  | continued next page
+  | ANQ70009003919876 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 10 of 18
+
+--- Page 11 ---
+  Lines: 45, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income Corporate bonds and notes (continued)
+  | 4 4
+  | Trade Total face value Purchase Adjusted Price on Value on Unrealized Holding
+  | Holding date at maturity ($) price ($) cost basis ($) Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | KREDITANSTALT FUR
+  | FOREIGN SECURITY
+  | RATE 02.600% MATURES 06/20/37
+  | WIEDERAUFBAU
+  | ACCRUED INTEREST $1.68
+  | CUSIP 500769CG7
+  | Moody: Aaa S&P: AAA
+  | EAI: $55 Current yield: 2.45%
+  | JPY Exchange rate: 156.74500 Nov 30, 16 333,333.000 1.281 4,273.09 0.676 2,253.33 -2,019.76 LT
+  | Total $10,133,333.000 $8,674,851.09 $9,541,999.33 $867,148.24
+  | Total accrued interest: $108,221.51
+  | Total estimated annual income: $351,945
+  | Closed end funds & Exchange traded products
+  | Total reinvested is the total of all reinvested dividends. It does not include any cash dividends. It is not a Unrealized (tax) gain or loss is the difference between the current value and the cost basis and would
+  | tax lot for the purposes of determining holding periods or cost basis. The shares you receive each time you generally be your taxable gain or loss if the security was sold on this date. The unrealized (tax) gain or loss may
+  | reinvest dividends become a separate tax lot. need to be adjusted for return of capital payments in order to determine the realized gain or loss for tax
+  | reporting purposes.
+  | Cost basis is the total purchase cost of the security, including reinvested dividends. The cost basis may
+  | need to be adjusted for return of capital payments in order to determine the adjusted cost basis for tax Investment returnis the current value minus the amount you invested. It does not include shares that are not
+  | reporting purposes. reflected on your statement, including shares that have been realized as either a gain or a loss. It also does not
+  | include cash dividends that were not reinvested.
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) onDec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | ISHARES USD CORP BOND USD A
+  | ETF
+  | Trade date: Dec 9, 24 1,370,150.000 6.029 8,261,182.41 8,261,182.41 6.331 8,674,419.65 413,237.24 LT
+  | Trade date: May 6, 25 47,471.000 5.900 280,126.37 280,126.37 6.331 300,538.90 20,412.53 ST
+  | Security total 1,417,621.000 6.025 8,541,308.78 8,541,308.78 8,974,958.55 433,649.77 433,649.77
+  | ISHARES USD SHORT DUR USD A
+  | ETF
+  | Trade date: Dec 6, 24 336,500.000 5.960 2,005,708.25 2,005,708.25 6.318 2,126,007.00 120,298.75 LT
+  | Trade date: May 6, 25 8,194.000 6.072 49,762.16 49,762.16 6.318 51,769.69 2,007.53 ST
+  | Security total 344,694.000 5.963 2,055,470.41 2,055,470.41 2,177,776.69 122,306.28 122,306.28
+  | ISHARES JPM USD EM BND USD A
+  | continued next page
+  | ANQ70009003919877 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 11 of 18
+
+--- Page 12 ---
+  Lines: 45, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income Closed end funds & Exchange traded products (continued)
+  | 4 4
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) onDec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | ETF
+  | Trade date: Dec 6, 24 358,300.000 5.862 2,100,390.43 2,100,390.43 6.491 2,325,725.30 225,334.87 LT
+  | Trade date: May 6, 25 2,229.000 5.806 12,943.80 12,943.80 6.491 14,468.44 1,524.64 ST
+  | Security total 360,529.000 5.862 2,113,334.23 2,113,334.23 2,340,193.73 226,859.51 226,859.51
+  | ISHARES JP MORGAN USD EM CORP
+  | BOND UCITS ETF
+  | Trade date: Dec 6, 24 332,000.000 6.233 2,069,555.20 2,069,555.20 6.690 2,221,080.00 151,524.80 LT
+  | Trade date: May 6, 25 2,086.000 6.261 13,062.53 13,062.53 6.690 13,955.34 892.81 ST
+  | Security total 334,086.000 6.234 2,082,617.73 2,082,617.73 2,235,035.34 152,417.61 152,417.61
+  | VANGUARD USD CORPORATE BOND
+  | UCITS ETF
+  | Trade date: Dec 6, 24 138,000.000 58.036 8,009,050.80 8,009,050.80 61.339 8,464,782.00 455,731.20 LT
+  | Trade date: May 6, 25 7,420.000 57.540 426,950.51 426,950.51 61.339 455,135.38 28,184.87 ST
+  | Security total 145,420.000 58.011 8,436,001.31 8,436,001.31 8,919,917.38 483,916.07 483,916.07
+  | VANGUARD USD CORPORATE 1-3
+  | YEAR BOND UCITS ETF
+  | Trade date: Dec 9, 24 34,750.000 57.784 2,008,007.90 2,008,007.90 61.190 2,126,352.50 118,344.60 LT
+  | Trade date: May 6, 25 913.000 58.941 53,813.50 53,813.50 61.190 55,866.47 2,052.97 ST
+  | Security total 35,663.000 57.814 2,061,821.40 2,061,821.40 2,182,218.97 120,397.57 120,397.57
+  | Total $25,290,553.86 $25,290,553.86 $26,830,100.66 $1,539,546.81 $1,539,546.80
+  | Mutual funds
+  | Total reinvested is the total of all reinvested dividends. It does not include any cash dividends. It is not a Unrealized (tax) gain or loss is the difference between the current value and the cost basis and would generally
+  | tax lot for the purposes of determining holding periods or cost basis. The shares you receive each time be your taxable gain or loss if the security was sold on this date. The unrealized (tax) gain or loss may need to be
+  | you reinvest dividends become a separate tax lot. adjusted for return of capital payments in order to determine the realized gain or loss for tax reporting purposes.
+  | Cost basis is the total purchase cost of the security, including reinvested dividends. The cost basis may Investment returnis the current value minus the amount you invested. It does not include shares that are not
+  | need to be adjusted for return of capital payments in order to determine the adjusted cost basis for tax reflected on your statement, including shares that have been realized as either a gain or a loss. It also does not
+  | reporting purposes. include cash dividends that were not reinvested.
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) on Dec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | BGF FIXED INCOME GLOBAL
+  | OPPORTUNITIES FUND CLASS
+  | D
+  | continued next page
+  | ANQ70009003919878 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 12 of 18
+
+--- Page 13 ---
+  Lines: 35, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income Mutual funds (continued)
+  | 4 4
+  | Purchase price/
+  | Number Average price Client Cost Price per share Value on Unrealized (tax) Investment Holding
+  | Holding of shares per share ($) investment ($) basis ($) on Dec 31 ($) Dec 31 ($) gain or loss ($) return ($) period
+  | Trade date: Dec 6, 24 118,282.870 17.429 2,061,670.42 2,061,670.42 18.760 2,218,986.64 157,316.22 LT
+  | Trade date: Apr 8, 25 24,523.950 17.329 425,000.00 425,000.00 18.760 460,069.30 35,069.30 ST
+  | Trade date: Apr 30, 25 14,156.290 17.659 250,000.00 250,000.00 18.760 265,572.00 15,572.00 ST
+  | Trade date: May 6, 25 91,690.070 17.670 1,620,163.58 1,620,163.58 18.760 1,720,105.71 99,942.13 ST
+  | Trade date: Jun 10, 25 14,303.220 17.909 256,170.67 256,170.67 18.760 268,328.41 12,157.74 ST
+  | Trade date: Aug 29, 25 7,097.700 18.329 130,100.83 130,100.83 18.760 133,152.85 3,052.02 ST
+  | Trade date: Sep 4, 25 13,738.240 18.400 252,783.64 252,783.64 18.760 257,729.38 4,945.74 ST
+  | Trade date: Oct 9, 25 23,086.030 18.519 427,553.27 427,553.27 18.760 433,093.92 5,540.65 ST
+  | Trade date: Dec 9, 25 14,753.220 18.639 275,000.00 275,000.00 18.760 276,770.41 1,770.41 ST
+  | Security total 321,631.590 17.717 5,698,442.41 5,698,442.41 6,033,808.62 335,366.21 335,366.21
+  | PIMCO GIS US HIGH YIELD
+  | BOND FUND CLASS I USD
+  | Trade date: Dec 6, 24 94,369.226 44.050 4,156,964.41 4,156,964.41 47.560 4,488,200.39 331,235.98 LT
+  | Trade date: Aug 29, 25 1,923.377 46.180 88,821.57 88,821.57 47.560 91,475.81 2,654.24 ST
+  | Security total 96,292.603 44.093 4,245,785.98 4,245,785.98 4,579,676.19 333,890.22 333,890.22
+  | PIMCO INCOME FUND CLASS
+  | I USD ACC
+  | Trade date: Dec 6, 24 225,851.293 18.290 4,130,820.15 4,130,820.15 20.010 4,519,284.37 388,464.22 LT
+  | Trade date: Apr 8, 25 12,234.910 18.390 225,000.00 225,000.00 20.010 244,820.55 19,820.55 ST
+  | Trade date: Jun 10, 25 12,893.333 18.810 242,523.60 242,523.60 20.010 257,995.59 15,471.99 ST
+  | Trade date: Aug 29, 25 4,188.768 19.330 80,968.89 80,968.89 20.010 83,817.25 2,848.36 ST
+  | Trade date: Sep 4, 25 13,056.565 19.519 254,864.14 254,864.14 20.010 261,261.87 6,397.73 ST
+  | Trade date: Oct 9, 25 80,007.405 19.609 1,568,945.21 1,568,945.21 20.010 1,600,948.17 32,002.96 ST
+  | Security total 348,232.274 18.675 6,503,121.99 6,503,121.99 6,968,127.80 465,005.81 465,005.81
+  | Total $16,447,350.38 $16,447,350.38 $17,581,612.61 $1,134,262.24 $1,134,262.23
+  | ANQ70009003919879 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 13 of 18
+
+--- Page 14 ---
+  Lines: 44, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Fixed income(continued)
+  | 4
+  | Government securities
+  | Prices are obtained from independent quotation bureaus that use computerized valuation formulas to automatically adjusted for amortization of bond premium using the constant yield method. If you have made a
+  | calculate current values. Actual market values may vary and thus gains/losses may not be accurately tax election to deduct the premium amortization on taxable debt securities, you may request that UBS adjust
+  | reflected. Cost basis has been adjusted for accreted original issue discount (OID). Cost basis has been cost basis for the bond premium amortization.
+  | Trade Purchase Adjusted Price on Value on Unrealized Holding
+  | Holding date Quantity price ($) cost basis ($) Dec 31 ($) Dec 31 ($) gain or loss ($) period
+  | US TSY INFL PROT NOTE
+  | RATE 1.2500% DUE 04/15/28
+  | CURRENT PAR VALUE 1,356,800
+  | ACCRUED INTEREST $3,587.65
+  | CUSIP 91282CGW5
+  | EAI: $16,960 Current yield: 1.25% Sep 14, 23 750,000.000 104.743 785,578.48 99.644 811,182.00 25,603.52 LT
+  | Apr 24, 24 500,000.000 104.427 522,135.05 99.644 540,788.00 18,652.95 LT
+  | Security total 1,250,000.000 1,307,713.53 1,351,969.79 44,256.47
+  | US TSY INFL PROT NOTE
+  | RATE 1.3750% DUE 07/15/33
+  | CURRENT PAR VALUE 1,072,010
+  | ACCRUED INTEREST $6,769.20
+  | CUSIP 91282CHP9
+  | EAI: $14,740 Current yield: 1.41% Sep 14, 23 500,000.000 102.379 511,897.97 97.612 523,205.00 11,307.03 LT
+  | Apr 24, 24 500,000.000 100.212 501,064.78 97.612 523,205.00 22,140.22 LT
+  | Security total 1,000,000.000 1,012,962.75 1,046,410.40 33,447.25
+  | Total 2,250,000.000 $2,320,676.28 $2,398,380.19 $77,703.72
+  | Total accrued interest: $10,356.85
+  | Total estimated annual income: $31,700
+  | Your total assets
+  | Percentage of Cost Estimated Unrealized
+  | Value on Dec 31 ($) your account basis ($) annual income ($) gain or loss ($)
+  | Cash Cash and money balances 29,462.21 0.03% 29,462.21
+  | Cash alternatives Money market funds 101,065.40 0.11% 100,337.39 728.01
+  | Equities Common stock 4,574,115.00 4,459,650.15 114,464.85
+  | Closed end funds & Exchange traded
+  | products 31,223,313.39 26,377,050.02 69,686.00 4,846,263.37
+  | Total equities 35,797,428.39 38.74% 30,836,700.17 69,686.00 4,960,728.22
+  | Fixed income Corporate bonds and notes 9,541,999.33 8,674,851.09 351,945.00 867,148.24
+  | continued next page
+  | ANQ70009003919880 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 14 of 18
+
+--- Page 15 ---
+  Lines: 41, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Your assets Your total assets(continued)
+  | 4
+  | Percentage of Cost Estimated Unrealized
+  | Value on Dec 31 ($) your account basis ($) annual income ($) gain or loss ($)
+  | Closed end funds & Exchange traded
+  | products 26,830,100.66 25,290,553.86 1,539,546.81
+  | Mutual funds 17,581,612.61 16,447,350.38 1,134,262.24
+  | Government securities 2,398,380.19 2,320,676.28 31,700.00 77,703.72
+  | Total accrued interest 118,578.36
+  | Total fixed income 56,470,671.15 61.12% 52,733,431.61 383,645.00 3,618,661.01
+  | Total $92,398,627.15 100.00% $83,699,931.38 $453,331.00 $8,580,117.24
+  | Account activity this month
+  | For more information about the price/value shown for restricted securities, see Important information about
+  | your statement at the end of this document.
+  | Your Quantity/ Cash Cash and
+  | Date Activity Description expense code Face value Price/Value ($) amount ($) money balance ($)
+  | Nov 28 Cash and money balance $13,435.67
+  | Dec 1 Foreign Tax BUONI POLIENNALI DEL TES 02.000% 120125 -.48
+  | Withheld DTD090115 FC120115 B/E EUR
+  | CUSIP: T6247A3G9
+  | Dec 1 Foreign BUONI POLIENNALI DEL TES 02.000% 120125 3.88
+  | Interest DTD090115 FC120115 B/E EUR
+  | CUSIP: T6247A3G9
+  | Dec 1 Call BUONI POLIENNALI DEL TES 02.000% 120125 -334.000 387.61 13,826.68
+  | Redemption DTD090115 FC120115 B/E EUR
+  | CUSIP: T6247A3G9
+  | Dec 10 Sold INVESCO US DOLLAR LIQDTY PORT INSTL (ACC) -240.116 1145.278 275,000.00 288,826.68
+  | FBOID 53434057429
+  | Dec 12 Bought BGF FIXED INCOME GLOBAL OPPORTUNITIES FUND 14,753.220 18.640 -275,000.00 13,826.68
+  | CLASS D FBOID 53434059771
+  | Dec 15 Interest CITIGROUP INC 06.625% 061532 DTD060602 33,125.00 46,951.68
+  | FC121502 PAID ON 1000000
+  | CUSIP: 172967BL4
+  | Dec 18 Bought INVESCO US DOLLAR LIQDTY PORT INSTL (ACC) 22.683 1146.243 -26,000.00 20,951.68
+  | FBOID 53512854218
+  | continued next page
+  | ANQ70009003919881 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 15 of 18
+
+--- Page 16 ---
+  Lines: 43, Tables: 0
+  | ab
+  | Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Account activity this month
+  | (continued)
+  | Your Quantity/ Cash Cash and
+  | Date Activity Description expense code Face value Price/Value ($) amount ($) money balance ($)
+  | Dec 23 Interest KREDITANSTALT FUR 02.600% 062037 DTD062007 27.63 20,979.31
+  | FC122007 WIEDERAUFBAU PAID ON 333333 AS
+  | OF 12/20/25
+  | CUSIP: 500769CG7
+  | Dec 24 Tax VANGUARD VALUE ETF NON-RESIDENT ALIEN -3,635.53
+  | WITHHOLDING PAID TO IRS IRS REQUIRED
+  | WITHHOLDING JOURNAL FROM TYPE 1
+  | SYMBOL: VTV
+  | Dec 24 Dividend VANGUARD VALUE ETF PAID ON 12288 12,118.43 29,462.21
+  | SYMBOL: VTV
+  | Dec 31 Closing cash and money balance $29,462.21
+  | Proceeds from investment transactions $275,387.61
+  | Funds used for investment transactions -$301,000.00
+  | Realized gains and losses
+  | The estimated realized gains and losses shown below are not intended for tax purposes. Please note that gain See Important information about your statementat the end of this document for more information. We may not adjust
+  | or loss recognized on the sale or redemption of certain Structured Products, like Contingent Debt Securities, gains and losses for all capital changes. We automatically adjust cost basis for tax-exempt and AMT coupon municipal
+  | may be ordinary, and not capital, gain or loss. Please check with your tax advisor. To calculate gains or losses, securities for estimated amortization of bond premiums and for accreted OID securities issued at a discount. If you
+  | we liquidate the oldest security lot first. This is known as the first-in, first-out or FIFO accounting method. We requested that UBS adjust cost basis for the bond premium amortization on taxable debt securities then cost basis
+  | use this method unless you specified which tax lot to close when you placed your order. This is known as a reflected for these securities has been adjusted. Estimates in the Unclassified section can not be classified as short term
+  | versus purchases or VSP order. or long term because information is missing, or the product is one in which the gain/loss calculation is not provided.
+  | Short-term capital gains and losses
+  | Wash sale
+  | Quantity or Purchase Sale Sale Cost cost basis
+  | Security description Method face value date date amount ($) basis ($) adjustment($) Loss ($) Gain ($)
+  | INVESCO US DOLLAR LIQDTY
+  | PORT INSTL (ACC) FIFO 42.186 Apr 08, 25 Dec 09, 25 48,314.77 46,947.41 1,367.36
+  | FIFO 44.767 May 08, 25 Dec 09, 25 51,270.74 50,000.00 1,270.74
+  | FIFO 110.335 Sep 04, 25 Dec 09, 25 126,364.45 125,000.00 1,364.45
+  | FIFO 20.268 Sep 18, 25 Dec 09, 25 23,212.53 23,000.00 212.53
+  | FIFO 22.560 Oct 09, 25 Dec 09, 25 25,837.51 25,662.61 174.90
+  | Total $275,000.00 $270,610.02 $4,389.98
+  | Net short-term capital gains and losses $4,389.98
+  | continued next page
+  | ANQ70009003919882 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 16 of 18
+
+--- Page 17 ---
+  Lines: 13, Tables: 0
+  | ab Portfolio Management Program Account name: BOATVIEW LIMITED Your Financial Advisor:
+  | Friendly account name:Boatview ANDES WEALTH ADVISORS
+  | December 2025
+  | Account number: 3J 00432 P1
+  | Realized gains and losses (continued)
+  | Long-term capital gains and losses
+  | Wash sale
+  | Quantity or Purchase Sale Sale Cost cost basis
+  | Security description Method face value date date amount ($) basis ($) adjustment($) Loss ($) Gain ($)
+  | BUONI POLIENNALI DEL TES
+  | 02.000% 120125 DTD090115
+  | FC120115 B/E EUR FIFO 334.000 Nov 30, 16 Dec 01, 25 387.77 361.21 26.56
+  | ANQ70009003919883 NQ7000449775 00001 1225 000000000 3J00432P10 111000 Page 17 of 18
+
+  ... (3 more pages not analyzed)

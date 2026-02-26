@@ -1,0 +1,408 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: JPMorgan Mandato
+FILE: 20251231-statements-2600-Mandato - JPMorgan.pdf
+==========================================================================================
+Total pages: 78
+
+--- Page 1 ---
+  Lines: 32, Tables: 0
+  | Important information regarding a change to your J.P. Morgan Account Agreements
+  | Enclosed, please find amendments to your Combined Terms and Conditions (ÔÇ£Combined Terms and
+  | ConditionsÔÇØ) and/or International General Terms for Accounts and Services Account Agreements
+  | (ÔÇ£International Combined Terms and ConditionsÔÇØ). The amendments, summarized below, go into
+  | effect on February 15, 2026.
+  | ÔÇó Your Representations and Warranties. We removed the representation that you do not have
+  | an entity affiliate of a Canadian Person, as defined in the Ontario Securities CommissionÔÇÖs rule
+  | on Trade Repositories and Derivative Data Reporting, who is responsible generally for all or
+  | substantially all of your liabilities.
+  | ÔÇó Affiliations. We removed the representation that you do not have an entity affiliate of a
+  | Canadian Person, as defined in the Ontario Securities CommissionÔÇÖs Rule 91-507, who is
+  | responsible generally for all or substantially all of your liabilities.
+  | ÔÇó Inactive and Unclaimed Accounts. We note that for CD accounts, the account is considered
+  | inactive from the day it is funded until the CD matures or you initiate an early withdrawal
+  | and closure.
+  | ÔÇó Statements. We note that you are required to keep your mailing address up-to-date with us.
+  | ÔÇó Limitations on Transfers, Amounts, and Frequency of Transactions. We note that we may
+  | limit your ability to make electronic funds transfers if you do not use a trusted device to access
+  | these services or complete certain tasks related to your account, digital profile or payments.
+  | Not applicable to non-U.S. phone carriers.
+  | ÔÇó Using Trusted Devices. We note that we may require that you use a trusted device to manage
+  | your account or digital profile, access certain account services, make specific payments and
+  | transfers, or authorize and approve transactions. Not applicable to non-U.S. phone carriers.
+  | ÔÇó Special Rules for CDs. We updated the date on which deposited check amounts over $6,725
+  | will be available to no later than the tenth business day.
+  | Definitions for all capitalized terms not provided above can be found in the Combined Terms and
+  | Conditions or International Combined Terms and Conditions, as applicable.
+  | Please review the amendments carefully and retain them for your records.
+  | For more information
+  | If you have any questions or need additional information, please contact your J.P. Morgan team.
+  | If you are a person with a disability and need additional support, please contact your J.P. Morgan team or email us at
+  | accessibility.support@jpmorgan.com for assistance.
+
+--- Page 2 ---
+  Lines: 72, Tables: 0
+  | Effective February 15, 2026, the following are amendments to your Combined Terms and Conditions
+  | (ÔÇ£Combined Terms and ConditionsÔÇØ) and/or International General Terms for Accounts and Services
+  | Account Agreements (ÔÇ£International Combined Terms and ConditionsÔÇØ), and may contain additional
+  | information about the features of your accounts.
+  | Unless indicated below, all other terms and conditions of your Combined Terms and Conditions and/or
+  | International Combined Terms and Conditions still apply. Please contact your J.P. Morgan team if you
+  | have any questions about these changes or would like additional information.
+  | Amendment applicable to the Combined Terms and Accountholder is an entity, you must provide us with
+  | Conditions and the International Combined Terms information related to the Accountholder that includes, but
+  | is not limited to, a current version of the AccountholderÔÇÖs
+  | and Conditions:
+  | Articles of Incorporation and a certified copy of the
+  | YOUR REPRESENTATIONS AND WARRANTIES AccountholderÔÇÖs Shareholder Register. You agree that you
+  | will immediately inform us if there are changes to: (i) the
+  | The second-to-last paragraph of the section entitled Your
+  | AccountholderÔÇÖs share capital; (ii) the ownership of the
+  | Representations and Warranties in the General Terms for
+  | AccountholderÔÇÖs shares; (iii) the beneficial ownership of,
+  | Accounts and Services in your Combined Terms and Conditions
+  | and control over, the Accountholder; and (iv) if the
+  | and/or International Combined Terms and Conditions is
+  | Accountholder contemplates issuing bearer shares.
+  | removed. Such section shall now read as follows:
+  | All information provided in the Application or otherwise We may rely on these representations and warranties,
+  | given to us from time to time is accurate, true and complete. which are made as of the date of the Agreement and which
+  | will continue until the Agreement is terminated.
+  | For individual and joint accounts, the identified
+  | Accountholders are the beneficial owners. For entity accounts, AFFILIATIONS
+  | beneficial ownership is as you have told us. You will notify us
+  | The last paragraph of the section entitled Affiliations in
+  | immediately if the beneficial ownership of any Account
+  | the Brokerage Account Agreement in your Combined Terms
+  | changes.
+  | and Conditions and/or International Combined Terms and
+  | Conditions is removed. Such section shall now read as
+  | If you are a natural person, you represent and warrant that
+  | follows:
+  | you are of the age of majority according to the law of your
+  | place of residence and of the place of your Accounts. If the client is a natural person, the client represents that
+  | unless the client has notified J.P. Morgan to the contrary,
+  | If you establish the Account when acting in a fiduciary capacity, neither the client nor any member of the clientÔÇÖs immediate
+  | (i) all beneficial interests in the estate, trust or Account for family is: (i) an employee or member of any exchange,
+  | which you are a fiduciary are owned by individuals or by non- (ii) an employee or member of FINRA, (iii) an employee of
+  | profit organizations; and (ii) you are legally empowered to any corporation or firm engaged in the business of dealing,
+  | enter into and perform this Agreement in such capacity. as broker or principal, in securities, options or futures, or
+  | (iv) an employee of any bank, trust company or insurance
+  | If the Account is to be maintained in the name of a sole company. Persons signing on behalf of others should indicate
+  | proprietorship, (i) you are the sole owner of the sole the titles or capacities in which they are signing. If any of the
+  | proprietorship; (ii) the sole proprietorship is doing business foregoing information changes, the client agrees to notify
+  | under the name and style of, and at the location, given in the J.P. Morgan promptly. If the client is required to obtain his or
+  | Application; (iii) you will be personally responsible for any her employerÔÇÖs consent before opening a securities account,
+  | debts, deficiencies or overdrafts in the sole proprietorship the client has obtained such consent.
+  | Account; and (iv) checks drawn on the sole proprietorshipÔÇÖs
+  | Account may be debited against any Account you hold, in INACTIVE AND UNCLAIMED ACCOUNTS
+  | your individual name or jointly, with us.
+  | The second paragraph of the section entitled Inactive and
+  | Unclaimed Accounts in the Deposit Account Agreement in
+  | For Accounts opened other than by a natural person, (i) the
+  | your Combined Terms and Conditions and/or International
+  | Accountholder has the power to enter into and perform
+  | Combined Terms and Conditions shall be revised and read
+  | under the Agreement, (ii) all necessary actions have been
+  | as follows:
+  | taken and approvals received in accordance with its
+  | organizational documents and applicable law and Inactive Accounts. Accounts must have customer-initiated
+  | regulation, and (iii) the Accountholder is duly organized activity to remain in an active status. If your account doesnÔÇÖt
+  | and in good standing in the jurisdiction in which it is meet this criteria for a minimum of 24 months, the account
+  | organized. The persons signing the Application have the may become inactive. For Certificate of Deposit (CD) accounts,
+  | authority to bind the Accountholder to the Agreement. We the CD is considered inactive from the day the CD is funded
+  | will not open new accounts for companies that have issued until either the CD matures, or a customer initiated early
+  | shares in bearer form except if the shares are publicly withdrawal and closure occurs.
+  | traded on a recognized exchange. In the case that the
+
+--- Page 3 ---
+  Lines: 76, Tables: 0
+  | STATEMENTS A trusted device is an eligible device that has been
+  | successfully enrolled with us based on specific criteria we set
+  | The first paragraph of the section entitled Statements in
+  | and may modify from time to time in our sole discretion. This
+  | the Deposit Account Agreement in your Combined Terms
+  | criteria includes, but is not limited to, using an eligible device
+  | and Conditions and/or International Combined Terms and
+  | and establishing device trust by verifying your identity and
+  | Conditions shall be revised and read as follows:
+  | authenticating. Your eligible device may already be trusted if
+  | We will maintain appropriate records of your Account. An you meet our criteria and have used that device with us for a
+  | Account statement for checking and savings accounts will be certain period of time. If your eligible device is not already
+  | sent to you at your current address listed on our records on a trusted, you may be presented with the opportunity to
+  | monthly basis, unless there have been no deposits or establish device trust, or reestablish trust in a previously
+  | withdrawals made to your accounts within a 30-month (12 trusted device.
+  | months in Texas) period, in which case annual statements will
+  | be sent, unless otherwise specifically indicated in the personal Not all devices will be eligible to become a trusted device.
+  | accounts or business accounts sections of this Agreement. A mobile smartphone device with a current operating system
+  | Statements will be sent via ordinary U.S. mail, unless you and that we support (such as iOS or Android) is an eligible device;
+  | the Bank agree otherwise. We will send at least one statement currently, tablets, laptops and personal or desktop computers
+  | per Account, even if that Account has more than one owner. are not. We may add, remove, or modify the qualifying eligible
+  | Combined statements for linked accounts will be sent to the devices at any time.
+  | primary account holderÔÇÖs address, unless a new mailing address
+  | is designated for the account. You agree that sending the During the process of making your eligible device a trusted
+  | Account statement as described qualifies as sending the device, we may require you to verify your identity and
+  | Account statement to all owners of the Account, even if all authenticate by taking certain actions, which may include,
+  | owners do not have access to the mailing address of record for but are not limited to, one or more of the following:
+  | the Account. You agree you will keep your mailing address up- ÔÇó taking a photo with your mobile phone camera of your
+  | to-date with us. We may change your postal address of record if acceptable form of identification,
+  | we receive an address change notice from the U.S. Postal
+  | ÔÇó entering information from your Chase debit card (e.g.,
+  | Service or if we receive information from another party in the
+  | CVV), or
+  | business of providing correct address information that the
+  | address in our records no longer corresponds to your address. ÔÇó providing biometrics (e.g., selfie), or
+  | ÔÇó using a token where available.
+  | LIMITATIONS ON TRANSFERS, AMOUNTS, AND FREQUENCY
+  | OF TRANSACTIONS Valid driverÔÇÖs licenses and state identifications qualify as
+  | acceptable forms of identification; additional qualifying
+  | A new paragraph is added paragraph (6) of the section
+  | forms of identification may be added by us periodically.
+  | entitled Limitations on Transfers, Amounts, and Frequency
+  | The image of your identification will be stored or retained
+  | of Transactions in the Deposit Account Agreement in your
+  | only to the extent permitted by applicable law and will be
+  | Combined Terms and Conditions and/or International
+  | used as permitted under our privacy policy. You must
+  | Combined Terms and Conditions. The new paragraph shall
+  | agree to additional disclosures and specific terms that we
+  | read as follows:
+  | may present relating to trusted devices when you enroll in
+  | (7) We may also limit your ability to make electronic funds jpmorganonline.com or J.P. Morgan Online.
+  | transfers if you do not use a trusted device to access such
+  | services or complete certain tasks relating to your account, SPECIAL RULES FOR CDs
+  | digital profile, and/or payments. Refer to the section below
+  | The section entitled Special Rules for CDs in the Appendix:
+  | entitled Using Trusted Devices for more information.
+  | Asset Account and Deposit AccountÔÇöFunds Availability
+  | Policy Statement in your Combined Terms and Conditions
+  | USING TRUSTED DEVICES
+  | and/or International Combined Terms and Conditions shall
+  | A new section entitled Using Trusted Devices is added after
+  | be revised and read as follows:
+  | the section entitled Alerts and J.P. Morgan Mobile┬« Services
+  | in the Deposit Account Agreement in your Combined Terms Generally, funds you deposit will be available within one
+  | and Conditions and/or International Combined Terms and business day except when you deposit checks that total more
+  | Conditions. The new section shall read as follows: than $6,725 in a business day. The amount exceeding
+  | $6,725 will be available no later than the tenth business day
+  | To help protect your account, we may require that you use a after the day of your deposit. However, we are not required
+  | trusted device to: to let you withdraw principal from a CD before it matures.
+  | ÔÇó manage your account and/or digital profile,
+  | ÔÇó access certain account services,
+  | ÔÇó make certain payments and transfers, or
+  | ÔÇó authorize or approve payments and transfers.
+  | ┬® 2025 JPMorgan Chase & Co. All rights reserved. (10/2025)
+  | 1025-100-LE-OLNY
+
+--- Page 5 ---
+  Lines: 16, Tables: 0
+  | December 31, 2025
+  | For your information: Updates to periodic reporting
+  | We are writing to you in connection with the launch of the new Equity Completion Funds1 (ÔÇ£FundsÔÇØ).
+  | Initial investments in the Funds may be made in eligible Investment Management Account(s) (ÔÇ£Account(s)ÔÇØ)
+  | beginning December 2025. The terms of the Investment Parameters will remain in place.
+  | This may result in changes to your periodic statements, performance reports and, if applicable, J.P. Morgan
+  | Online International for your Account(s).
+  | What you need to know
+  | Depending on the eligibility of your Account(s), your statement may show two new line items reflecting the new
+  | Funds added to your Account(s), and the Manager Allocation chart will be updated.
+  | Next steps
+  | No action is required on your part. Please note that these changes may not apply to all of your Account(s).
+  | Some Account(s) may not be eligible for the Funds due to certain account-specific elections or restrictions.
+  | If you have any questions about the Funds or your Account(s)ÔÇÖ eligibility, please contact your J.P. Morgan
+  | team.
+  | J.P. Morgan Chase Bank, N.A.
+
+--- Page 7 ---
+  Lines: 15, Tables: 0
+  | Account Number: MND-1483400 JPMorgan Chase Bank, N.A.
+  | 390 Madison Avenue, New York, New York 10017
+  | Statement of Account
+  | 01 December - 31 December 2025
+  | Table of Contents
+  | Page
+  | Portfolio Summary 2
+  | Statement of Account 1179200 4
+  | Statement of Account 1412600 16
+  | Statement of Account 1483400 54
+  | INVESTMENT PRODUCTS ARE: *NOT FDIC INSURED *NOT A DEPOSIT OR OTHER OBLIGATION OF, OR GUARANTEED BY, JPMORGAN CHASE BANK, N.A. OR ANY OF ITS AFFILIATES *SUBJECT TO
+  | INVESTMENT RISKS, INCLUDING POSSIBLE LOSS OF THE PRINCIPAL AMOUNT INVESTED
+  | This statement shall be considered to be approved if no written notice is received by JPMorgan Chase Bank, N.A. within 60 days. This statement shall be considered to be approved if no written notice is received by
+  | JPMorgan Chase Bank, N.A. within 60 days.
+  | ES-1 1AIGT
+
+--- Page 8 ---
+  Lines: 21, Tables: 1
+  | Account Number: MND-1483400 01 December - 31 December 2025 Page 2
+  | Account Summary
+  | Asset Allocation Values in Reference Currency - USD Portfolio Activity
+  | Beginning Market Value Ending Market Value as of
+  | as of 30 November 2025 31 December 2025 Change in Value Current Period Value Year-to-Date Value
+  | Cash, Deposits & Short Term 9,404,989.43 5,633,705.15 -3,771,284.28 Beginning Market Value 334,461,630.56 299,051,887.42
+  | Fixed Income 183,190,097.94 187,640,939.13 4,450,841.19 Net Cash Contributions / Withdrawals 0.00 0.00
+  | Equities 141,866,543.19 143,814,915.29 1,948,372.10 Net Security Contributions / Withdrawals 0.00 0.00
+  | Total Market Value* 334,461,630.56 337,089,559.57 2,627,929.01 Income and Distributions 346,342.98 5,898,830.91
+  | Change in Investment Value 2,281,585.99 32,138,841.20
+  | Total Net Market Value* 334,461,630.56 337,089,559.57 2,627,929.01
+  | Ending Market Value 337,089,559.53 337,089,559.53
+  | * Includes pending transactions based on exchange rates as of 31 December 2025
+  | Consolidated YTD figures of all accounts within the portfolio as of 31 December 2025
+  | Diversification by Asset Class Diversification by Currency Includes Foreign Exchange Contracts
+  | 55.7% Fixed Income 89.2% USD U.S. Dollar
+  | 42.7% Equities 6.4% EUR Euro
+  | 1.7% Cash, Deposits & Short Term 2.4% JPY Japanese Yen
+  | 1.1% CAD Canadian Dollar
+  | 0.9% ASI Asia Growth Fund
+  | 1AIGT
+  TABLE 0 (2 rows x 3 cols):
+    [0] ['55.7% Fixed Income\n42.7% Equities\n1.7% Cash, Deposits & Short Term', '89.2% U\n6.4% E\n2.4% J\n1.1% C\n0.9% A', 'SD U.S. Dollar\nUR Euro\nPY Japanese Yen\nAD Canadian Dollar\nSI Asia Growth Fund\n1AIGT']
+    [1] ['', '', None]
+
+--- Page 9 ---
+  Lines: 11, Tables: 0
+  | Account Number: MND-1483400 01 December - 31 December 2025 Page 3
+  | Account Summary
+  | Portfolio Diversification Exchange Rates
+  | Currency Cash, Deposits & S T h e o rm rt Fixed IncomeEquities & Convertibles Foreign E C x o c n h t a ra n c g t e s Private M In i v s e c s e t l m la e n n e t o s u & s Currency Diversification Currency vs USD Exchange Rate
+  | Asia Growth Fund ASI 0.95% 0.95% ASI 1.00000
+  | Canadian Dollar CAD 1.10% 1.10% CAD 1.37145
+  | Euro EUR 5.41% 1.02% 6.43% EUR 1.17350
+  | Japanese Yen JPY 2.36% 2.36% JPY 156.81502
+  | U.S. Dollar USD 1.67% 55.67% 30.32% 1.51% 89.16% USD 1.00000
+  | Total 1.67% 55.67% 40.14% 2.53% 100.00%
+  | 1AIGT
+
+--- Page 10 ---
+  Lines: 14, Tables: 0
+  | Account Number: 1179200 JPMorgan Chase Bank, N.A.
+  | 390 Madison Avenue, New York, New York 10017
+  | Statement of Account
+  | 01 December - 31 December 2025
+  | Table of Contents
+  | Page
+  | Portfolio Summary 5
+  | Cash, Deposits & Short Term 8
+  | Cash Account Transactions 9
+  | INVESTMENT PRODUCTS ARE: *NOT FDIC INSURED *NOT A DEPOSIT OR OTHER OBLIGATION OF, OR GUARANTEED BY, JPMORGAN CHASE BANK, N.A. OR ANY OF ITS AFFILIATES *SUBJECT TO
+  | INVESTMENT RISKS, INCLUDING POSSIBLE LOSS OF THE PRINCIPAL AMOUNT INVESTED
+  | This statement shall be considered to be approved if no written notice is received by JPMorgan Chase Bank, N.A. within 60 days. This statement shall be considered to be approved if no written notice is received by
+  | JPMorgan Chase Bank, N.A. within 60 days.
+  | ES-1 1AIGT
+
+--- Page 11 ---
+  Lines: 16, Tables: 1
+  | Account Number: 1179200 01 December - 31 December 2025 Page 5
+  | Account Summary
+  | Asset Allocation Values in Reference Currency - USD Portfolio Activity
+  | Beginning Market Value Ending Market Value as of
+  | as of 30 November 2025 31 December 2025 Change in Value Current Period Value Year-to-Date Value
+  | Cash, Deposits & Short Term 0.70 0.70 0.00 Beginning Market Value 0.70 347.21
+  | Net Cash Contributions / Withdrawals 0.00 -350.92
+  | Total Net Market Value* 0.70 0.70 0.00
+  | Net Security Contributions / Withdrawals 0.00 0.00
+  | * Includes pending transactions based on exchange rates as of 31 December 2025
+  | Income and Distributions 0.00 4.41
+  | Change in Investment Value 0.00 0.00
+  | Ending Market Value 0.70 0.70
+  | Diversification by Asset Class Diversification by Currency Includes Foreign Exchange Contracts
+  | 100.0% Cash, Deposits & Short Term 100.0% USD U.S. Dollar
+  | 1AIGT
+  TABLE 0 (2 rows x 3 cols):
+    [0] ['100.0% Cash, Deposits & Short Term', '100.0% U', 'SD U.S. Dollar\n1AIGT']
+    [1] ['', '', None]
+
+--- Page 12 ---
+  Lines: 8, Tables: 0
+  | Account Number: 1179200 01 December - 31 December 2025 Page 6
+  | Manager Allocation Summary
+  | Manager Allocation *
+  | 100.0% J.P. Morgan Separately Managed Account
+  | * J.P. Morgan Separately Managed Account includes fixed income, equity, alternative separately managed accounts managed
+  | by JPMC.
+  | See important information about investment principles and conflicts in the disclosures section.
+  | 1AIGT
+
+--- Page 13 ---
+  Lines: 7, Tables: 0
+  | Account Number: 1179200 01 December - 31 December 2025 Page 7
+  | Account Summary
+  | Portfolio Diversification Exchange Rates
+  | Currency Cash, Deposits & S T h e o rm rt Fixed IncomeEquities & Convertibles Foreign E C x o c n h t a ra n c g t e s Private M In i v s e c s e t l m la e n n e t o s u & s Currency Diversification Currency vs USD Exchange Rate
+  | U.S. Dollar USD 100.00% 100.00% USD 1.00000
+  | Total 100.00% 100.00%
+  | 1AIGT
+
+--- Page 14 ---
+  Lines: 15, Tables: 1
+  | Account Number: 1179200 01 December - 31 December 2025 Page 8
+  | Cash, Deposits & Short Term
+  | Summary Summary by Currency
+  | Currency Current Market Value USD
+  | USD
+  | USD 0.70
+  | Total 0.70
+  | Current Market Value USD % of Portfolio
+  | Cash Holdings 0.70 100.00%
+  | Total Cash, Deposits & Short Term 0.70 100.00%
+  | Cash Holdings
+  | Description Ccy Balance Current Market Value USD % of Portfolio
+  | U.S. Dollar Current Account USD 0.70 0.70 100.00%
+  | Total Cash Holdings 0.70 100.00%
+  | 1AIGT
+  TABLE 0 (4 rows x 1 cols):
+    [0] ['Currency\nUSD\nUSD\nTotal']
+    [1] ['Ccy Balance Current Market Value U']
+    [2] ['SD 0.70 0.']
+    [3] ['0.']
+
+--- Page 15 ---
+  Lines: 9, Tables: 0
+  | Account Number: 1179200 01 December - 31 December 2025 Page 9
+  | Cash Account Transactions
+  | Booking Date Settlement Date Type Description Credits / Debits Credits / Debits Value in USD
+  | CAPITAL U.S. DOLLAR
+  | OPENING BALANCE 0.70 0.70
+  | FX Gain/Loss
+  | FX GAIN/LOSS 0.00 0.00
+  | CAPITAL U.S. DOLLAR 0.70 0.70
+  | 1AIGT
+
+--- Page 16 ---
+  Lines: 21, Tables: 0
+  | Account Number: 1179200 01 December - 31 December 2025 Page 10
+  | Accounting Policies
+  | Summary of Accounting Policies
+  | Security holdings are accounted for on a System Date basis (i.e. the date on which a transaction is booked in the system). The countervalues of purchases and sales of securities are also accounted for on a
+  | System Date basis. Cash account balances include all amounts booked during the period reported, including those with a value date after the end of the period.
+  | Our statements quote the buying price of securities. If the securities were bought in several instalments, then the weighted average buying price is shown.The price of each instalment is not quoted in the
+  | statement.
+  | The buying cost of securities denominated in currencies other than the client's base currency is converted into the client's base currency using the exchange rate of the date of purchase.
+  | When securities or other assets are sold or otherwise disposed of (e.g. redemption, delivery against payment, etc.), the system calculates realised market gains or losses based on the difference between the
+  | net proceeds of a disposal and the original, average book cost. For a sale of a security, the realised gain or loss is recognised on the trade date.
+  | Pricing of investments held by portfolios is updated regularly depending on the product. In all cases the pricing is updated at the end of month before the finalization of our monthly statements.
+  | All assets and liabilities not in the client's base currency, with the exception of forward foreign exchange contracts, are valued in base currency at the spot rates of exchange ruling at the date of
+  | valuation.
+  | Outstanding forward foreign exchange contracts are valued in the client's base currency at the forward rates of exchange. Unrealised gains and losses are calculated on the difference between the latest value
+  | of assets and liabilities in base currency and their historic values.
+  | Unrealised currency gains and losses are calculated on unrealised market gains and losses of relevant assets and liabilities.
+  | Whenever the characteristics of an asset change (e.g. when a security is sold or matures, or a coupon payment is generated), the realised currency gains or losses are calculated. At the same time, any
+  | previously recorded unrealised currency gain or loss is removed.
+  | The accrued interest on Fixed Income and Floating Rate products is calculated on a daily basis. If needed it is expressed in the client's base currency using daily rates.
+  | The accrued interest incurred on current accounts is calculated and booked monthly.
+  | 1AIGT
+
+--- Page 17 ---
+  Lines: 11, Tables: 0
+  | Account Number: 1179200 01 December - 31 December 2025 Page 11
+  | Pricing Policies
+  | Summary of the pricing policy
+  | Forex rates used by default are the closing spot rates from the previous day; these rates are taken from Reuters.
+  | Security prices are based on the closing price of the previous trading day; rates are supplied by Telekurs, Bloomberg, Reuters or relevant counterparties. Exotic or less liquid products are revalued at least
+  | monthly.
+  | Prices for derivative products and certain securities are provided by our counterparties and verified by our inhouse specialists.
+  | The yield to maturity for Fixed Income products is calculated by our own system.
+  | In cases where we are unable to obtain a current market price for a particular security, your statement will show that such security is "unpriced".Please note that a security shown as "unpriced" is not
+  | included in the determination of the total market value of your portfolio.
+  | 1AIGT
+
+  ... (61 more pages not analyzed)

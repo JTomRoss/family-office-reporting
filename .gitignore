@@ -46,3 +46,6 @@ coverage.xml
 
 # Hypothesis
 .hypothesis/
+
+# Documentos financieros (sensibles, nunca subir a GitHub)
+documentos/

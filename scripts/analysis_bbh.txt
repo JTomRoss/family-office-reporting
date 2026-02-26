@@ -1,0 +1,703 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: BBH Mandato
+FILE: 202512 Boatview - Mandato - BBH.pdf
+==========================================================================================
+Total pages: 30
+
+--- Page 1 ---
+  Lines: 35, Tables: 0
+  | Your Investment Statement
+  | December 1 toDecember 31, 2025
+  | Account name:
+  | BOATVIEW LIMITED
+  | Account number:
+  | Market value on Dec 1, 2025 $89,688,007.83 XXXXXX7085
+  | Market value on Dec 31, 2025 $90,200,610.86
+  | Your relationship team:
+  | Change in market value $512,603.03 NICOLAS AGUIRRE
+  | 140 BROADWAY
+  | NEW YORK, NY 10005
+  | Telephone: 212-493-7329
+  | Email: nicolas.aguirre@bbh.com
+  | Change in market value of your investments
+  | ERIC DOMINGUEZ
+  | ($ millions) Telephone: 212-493-8582
+  | Email: eric.dominguez@bbh.com
+  | Market value
+  | ANTONELLA FRIERI
+  | Telephone: 212-493-7716
+  | Email: antonella.frieri@bbh.com
+  | Contributions less
+  | withdrawals (net THOMAS DAVIS - Team Leader
+  | of fees) Telephone: 312-781-7146
+  | Email: thomas.davis@bbh.com
+  | ´┐¢ Go Paperless
+  | Electronic delivery of statements is more secure and provides quick access to your documents - past
+  | and present. BBH will send you an email notification whenever your documents are ready to be
+  | Table of contents
+  | viewed, and you can securely access up to five years of your account documents online. To go
+  | paperless, log in to the BBH Private Wealth Portal and visit the My Profile tab. Analysis ofyour investments......................................2
+  | Details ofyour investments.........................................6
+  | Transactions.............................................................16
+  | Important information and disclosures.....................24
+  | Page 1 of30
+
+--- Page 2 ---
+  Lines: 37, Tables: 4
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Analysis of your investments
+  | Summary of your investments Investments by asset class
+  | THIS PERIOD ($) YEAR TO DATE ($) 1%
+  | Opening value 89,688,007.83 81,631,814.17
+  | Prior period adjustments 0.00 0.00
+  | Dividend and interest income 29,346.21 764,713.10
+  | Other income 0.00 207.91
+  | Change in value of accrued income 28,779.22 -15,700.19
+  | Contributions less withdrawals 0.00 2,276.30 42%
+  | Fees 3,855.81 -55,933.25
+  | Change in market value 450,621.79 7,873,232.82
+  | Closing value $90,200,610.86 $90,200,610.86 57%
+  | Dividend and interest income
+  | THIS PERIOD ($) YEAR TO DATE ($)
+  | Non-taxable interest 0.00 0.00
+  | Taxable interest 26,562.29 700,436.54
+  | Non-taxable dividends 0.00 0.00
+  | PERCENT
+  | Taxable dividends 2,783.92 64,276.56 VALUE ON OF YOUR
+  | DEC 31, 2025 ($) PORTFOLIO
+  | Total income $29,346.21 $764,713.10
+  | Cash 516,437.81 0.57%
+  | Fixed income 51,485,414.23 57.08%
+  | Summary of gains and losses
+  | Equity 38,198,758.82 42.35%
+  | Total $90,200,610.86 100.00%
+  | REALIZED GAINS/LOSSES
+  | UNREALIZED
+  | THIS PERIOD ($) YEAR TO DATE ($) GAINS/LOSSES ($)
+  | Short-term 0.00 71,219.56 724,755.65
+  | Long-term -13.67 8,591.22 13,275,461.35
+  | Long-term capital gains
+  | distributions 0.00 207.91
+  | Total gains/losses -$13.67 $80,018.69 $14,000,217.00
+  | Page 2 of30
+  TABLE 0 (1 rows x 3 cols):
+    [0] ['Closing value', '$90,200,610.86', '$90,200,610.86']
+  TABLE 1 (1 rows x 3 cols):
+    [0] ['Total income', '$29,346.21', '$764,713.10']
+  TABLE 2 (1 rows x 3 cols):
+    [0] ['Total', '$90,200,610.86', '100.00%']
+  TABLE 3 (1 rows x 4 cols):
+    [0] ['Total gains/losses', '-$13.67', '$80,018.69', '$14,000,217.00']
+
+--- Page 3 ---
+  Lines: 35, Tables: 4
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Analysis of your investments - continued
+  | Cash flow summary Investments by liquidity
+  | The table below summarizes cash transactions in your account. Opening and closing cash This chart illustrates the liquidity of your investments, showing the length of time required to
+  | balances include cash, accrued income, and money market balances; they do not include convert an investment into cash.
+  | fixed income securities or foreign cash balances. Other cash inflows include long-term capital
+  | gains dividends and cash transfers from alternative assets. Other cash outflows include cash
+  | transfers to alternative assets.
+  | Cash balance onDec 1, 2025 $394,904.92
+  | 28%
+  | Cash inflows
+  | Cash deposits $0.00
+  | Interest income $26,562.29
+  | Dividend income $2,783.92
+  | Other cash inflows $0.00
+  | Total cash inflows $29,346.21
+  | Cash outflows
+  | Fees $3,855.81 72%
+  | Cash withdrawals $0.00
+  | Other cash outflows $0.00
+  | Total cash outflows $3,855.81
+  | Investments bought -$26,050.81
+  | PERCENT
+  | Investments sold $602.46 VALUE ON OF YOUR
+  | DEC 31, 2025 ($) PORTFOLIO
+  | Investments that matured $85,000.00
+  | Liquid - marketable securities 65,114,204.27 72.19%
+  | Change in value of accrued income $28,779.22
+  | Limited liquidity - public market private funds 25,086,406.59 27.81%
+  | Prior period adjustments $0.00
+  | Total $90,200,610.86 100.00%
+  | Alternative asset activity $0.00
+  | Cash balance onDec 31, 2025 $516,437.81
+  | Page 3 of30
+  TABLE 0 (1 rows x 2 cols):
+    [0] ['Total cash inflows', '$29,346.21']
+  TABLE 1 (1 rows x 2 cols):
+    [0] ['Total cash outflows', '$3,855.81']
+  TABLE 2 (1 rows x 3 cols):
+    [0] ['Total', '$90,200,610.86', '100.00%']
+  TABLE 3 (1 rows x 2 cols):
+    [0] ['Cash balance onDec 31, 2025', '$516,437.81']
+
+--- Page 4 ---
+  Lines: 22, Tables: 1
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Analysis of your investments - continued
+  | Income forecast for the next 12 months
+  | ($ thousands)
+  | Fixed income
+  | Equity
+  | Returns by asset class
+  | YEAR TO DATE 1 YEAR 3 YEAR 5 YEAR 10 YEAR SINCE INCEPTION INCEPTION DATE
+  | Total investments (net of fees) 10.4% 10.4% 12.6% 5.8% ÔÇö 11.9% Apr 1, 2020
+  | U.S. CPI 2.7% 2.7% 3.0% 4.5% ÔÇö 4.0%
+  | Fixed income (gross of fees) 7.4% 7.4% ÔÇö ÔÇö ÔÇö 8.2% Nov 22, 2023
+  | Bloomberg U.S. Aggregate 7.3% 7.3% ÔÇö ÔÇö ÔÇö 6.3%
+  | Equity (gross of fees) 15.3% 15.3% 18.5% 9.1% ÔÇö 15.0% Apr 1, 2020
+  | MSCI AC World (Net Divs) eff Jan19
+  | 22.3% 22.3% 20.6% 11.2% ÔÇö 17.4%
+  | MSCI World(Net)
+  | ´┐¢ Total investments is presented net of fees and reflects the deduction of investment advisory fees. Fixed income, equity and real assets are
+  | presented gross of investment advisory fees. If investment advisory fees were included in the asset class returns, the asset class returns would
+  | be lower. Please refer to the important information and disclosures section for additional information. Past performance does not guarantee
+  | future results.
+  | Page 4 of30
+  TABLE 0 (2 rows x 8 cols):
+    [0] ['Total investments (net of fees)', '10.4%', '10.4%', '12.6%', '5.8%', 'ÔÇö', '11.9%', 'Apr 1, 2020']
+    [1] ['U.S. CPI', '2.7%', '2.7%', '3.0%', '4.5%', 'ÔÇö', '4.0%', '']
+
+--- Page 5 ---
+  Lines: 21, Tables: 1
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Analysis of your investments - continued
+  | Fixed income maturity schedule
+  | PERCENT OF YOUR
+  | TOTAL FIXED INCOME
+  | YEAR FEDERAL TAX COST ($) FACE VALUE ($) CURRENT MARKET VALUE ($) INVESTMENTS
+  | 2025 0.00 0.00 0.00 0.00%
+  | 2026 1,278,012.90 1,290,000.00 1,281,201.00 7.79%
+  | 2027 2,118,045.30 2,135,000.00 2,138,261.46 13.00%
+  | 2028 2,860,776.00 2,910,000.00 2,927,250.20 17.80%
+  | 2029 1,272,453.40 1,275,000.00 1,301,401.30 7.91%
+  | 2030 2,332,803.25 2,385,000.00 2,366,933.55 14.39%
+  | 2031 578,856.00 600,000.00 603,966.00 3.67%
+  | 2032 2,694,140.45 2,820,000.00 2,704,953.37 16.45%
+  | 2033 3,008,879.65 3,000,000.00 3,078,765.90 18.72%
+  | 2034 0.00 0.00 0.00 0.00%
+  | Ten to twenty years 44,969.31 41,144.87 41,997.45 0.26%
+  | Over twenty years 0.00 0.00 0.00 0.00%
+  | Total $16,188,936.26 $16,456,144.87 $16,444,730.23 100.00%
+  | Page 5 of30
+  TABLE 0 (1 rows x 5 cols):
+    [0] ['Total', '$16,188,936.26', '$16,456,144.87', '$16,444,730.23', '100.00%']
+
+--- Page 6 ---
+  Lines: 33, Tables: 3
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments
+  | Information is as ofDec 31, 2025, except where noted otherwise.
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | CASH
+  | Cash
+  | CASH 0.00 0.00 0.00 0.00 0.00 0.00 0.00% 0.00 0.00%
+  | ACCRUED INCOME 0.00 0.00 0.00 180,883.31 180,883.31 0.00 0.20% 0.00 0.00%
+  | Total cash $180,883.31 $180,883.31 $0.00 0.20% $0.00 0.00%
+  | Transactional cash
+  | BBH U.S. GOVERNMENT MONEY
+  | MARKET
+  | FUND INSTITUTIONAL 335,554.50 1.00 1.00 335,554.50 335,554.50 0.00 0.37% 11,912.18 3.55%
+  | Total transactional cash $335,554.50 $335,554.50 $0.00 0.37% $11,912.18 3.55%
+  | TOTAL CASH $516,437.81 $516,437.81 $0.00 0.57% $11,912.18 2.31%
+  | FIXED INCOME
+  | Short duration bond funds
+  | BBH LUXEMBOURG FUNDS BBH SHORT
+  | DURATION FUND - CL A 299,746.82 13.89 13.17 4,162,584.21 3,948,045.26 214,538.95 4.61% 0.00 0.00%
+  | Total short duration bond funds $4,162,584.21 $3,948,045.26 $214,538.95 4.61% $0.00 0.00%
+  | U.s. Inv grade
+  | Mortgage backed securities
+  | FEDERAL NATIONAL MTGE ASSN POOL
+  | #735676 5% 07/01/2035
+  | DUR: 2.94 YRS CY: 4.92% 25,876.14 101.56 108.75 26,280.58 28,140.30 -1,859.72 0.03% 1,293.81 4.92%
+  | FEDERAL NATIONAL MTGE ASSN POOL
+  | #310104 5.5% 08/01/2037
+  | DUR: 2.86 YRS CY: 5.34% 15,268.73 102.94 110.22 15,716.87 16,829.01 -1,112.14 0.02% 839.78 5.34%
+  | (details continued on next page)
+  | Page 6 of30
+  TABLE 0 (1 rows x 7 cols):
+    [0] ['Total cash', '$180,883.31', '$180,883.31', '$0.00', '0.20%', '$0.00', '0.00%']
+  TABLE 1 (2 rows x 7 cols):
+    [0] ['Total transactional cash', '$335,554.50', '$335,554.50', '$0.00', '0.37%', '$11,912.18', '3.55%']
+    [1] ['TOTAL CASH', '$516,437.81', '$516,437.81', '$0.00', '0.57%', '$11,912.18', '2.31%']
+  TABLE 2 (1 rows x 7 cols):
+    [0] ['Total short duration bond funds', '$4,162,584.21', '$3,948,045.26', '$214,538.95', '4.61%', '$0.00', '0.00%']
+
+--- Page 7 ---
+  Lines: 37, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | U.s. Inv grade- continued
+  | Corporate bonds
+  | GILEAD SCIENCES INC NOTES 3.65%
+  | 03/01/2026
+  | DUR: 0.17 YRS CY: 3.65% 525,000.00 99.96 97.96 524,769.00 514,305.75 10,463.25 0.58% 19,162.50 3.65%
+  | APPLE COMPUTER INC SNR PIDI NTS
+  | 11/09/2026 USD (SEC REGD) 2.05%
+  | 09/11/2026
+  | DUR: 0.68 YRS CY: 2.07% 765,000.00 98.88 99.83 756,432.00 763,707.15 -7,275.15 0.84% 15,682.50 2.07%
+  | EXXON MOBIL CORP SNR PIDI NTS
+  | 19/03/2030 USD (SEC REGD) 3.294%
+  | 03/19/2027
+  | DUR: 1.17 YRS CY: 3.31% 135,000.00 99.57 100.00 134,418.15 135,000.00 -581.85 0.15% 4,446.90 3.31%
+  | HORMEL FOODS CORP 4.8% SNR NTS
+  | 03/30/2027 USD (SEC REGD) 4.8%
+  | 03/30/2027
+  | DUR: 1.11 YRS CY: 4.75% 360,000.00 101.08 99.65 363,870.00 358,740.00 5,130.00 0.40% 17,280.00 4.75%
+  | SOUTHERN CAL EDISON 1ST MTG BDS
+  | 01/11/2027 USD (SEC REGD)
+  | (2022F) 5.85% 11/01/2027
+  | DUR: 1.64 YRS CY: 5.69% 450,000.00 102.75 102.92 462,388.50 463,122.00 -733.50 0.51% 26,325.00 5.69%
+  | CNH INDUSTRIAL CAPITAL LLC 4.55%
+  | SNR NTS 4/10/2028 USD (SEC REGD)
+  | 4.55% 04/10/2028
+  | DUR: 2.05 YRS CY: 4.52% 475,000.00 100.68 97.68 478,249.00 463,983.35 14,265.65 0.53% 21,612.50 4.52%
+  | MCKESSON CORPORATION MCKESSON
+  | CORP 4.9% 07/15/2028
+  | DUR: 2.25 YRS CY: 4.78% 470,000.00 102.42 98.39 481,357.50 462,421.40 18,936.10 0.53% 23,030.00 4.78%
+  | (details continued on next page)
+  | Page 7 of30
+
+--- Page 8 ---
+  Lines: 38, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | U.s. Inv grade- continued
+  | Corporate bonds- continued
+  | BANK OF AMERICA FXD-FRN SNR
+  | 07/22/2028 USD (SEC REGD) (N)
+  | 4.948% 07/22/2028
+  | DUR: 1.46 YRS CY: 4.88% 460,000.00 101.42 99.87 466,513.60 459,407.40 7,106.20 0.52% 22,760.80 4.88%
+  | GOLDMAN SACHS GROUP INC FXD-FRN
+  | SNR 23/08/2028 USD (SEC REGD)
+  | 4.482% 08/23/2028
+  | DUR: 1.55 YRS CY: 4.45% 510,000.00 100.70 100.00 513,580.20 509,997.15 3,583.05 0.57% 22,858.20 4.45%
+  | PRINCIPAL LIFE GLOBAL FUNDING II
+  | 5.1% NTS 01/25/2029 USD (144A)
+  | 5.1% 01/25/2029
+  | DUR: 2.76 YRS CY: 4.98% 360,000.00 102.39 98.96 368,600.40 356,270.40 12,330.00 0.41% 18,360.00 4.98%
+  | US BANCORP FXD-FRN SNR
+  | 06/12/2029 USD (SEC REGD) (CC)
+  | 5.775% 06/12/2029
+  | DUR: 2.27 YRS CY: 5.56% 445,000.00 103.94 102.09 462,533.00 454,305.75 8,227.25 0.51% 25,698.75 5.56%
+  | BUNGE LIMITED FINANCE CO SNR NTS
+  | 09/17/2029 USD (SEC REGD)
+  | 09/17/2029
+  | DUR: 3.29 YRS 470,000.00 100.06 98.27 470,267.90 461,877.25 8,390.65 0.52% 0.00 0.00%
+  | CVS HEALTH CORP 5.125% SNR NTS
+  | 02/21/2030 USD (SEC REGD) 5.125%
+  | 02/21/2030
+  | DUR: 3.51 YRS CY: 4.99% 475,000.00 102.74 99.37 487,996.00 472,020.25 15,975.75 0.54% 24,343.75 4.99%
+  | METLIFE INC SNR PIDI NTS USD
+  | (SEC REGD) 4.55% 03/23/2030
+  | DUR: 3.57 YRS CY: 4.46% 135,000.00 102.12 99.60 137,867.40 134,453.25 3,414.15 0.15% 6,142.50 4.46%
+  | (details continued on next page)
+  | Page 8 of30
+
+--- Page 9 ---
+  Lines: 35, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | U.s. Inv grade- continued
+  | Corporate bonds- continued
+  | INTEL CORP SNR PIDI NTS
+  | 25/03/2030 USD (SEC REGD) 3.9%
+  | 03/25/2030
+  | DUR: 3.79 YRS CY: 3.98% 355,000.00 98.03 95.07 347,999.40 337,486.25 10,513.15 0.39% 13,845.00 3.98%
+  | PROCTER & GAMBLE CO PIDI NTS
+  | 25/03/2030 USD (SEC REGD) 3%
+  | 03/25/2030
+  | DUR: 4.01 YRS CY: 3.11% 530,000.00 96.42 99.76 510,999.50 528,728.00 -17,728.50 0.57% 15,900.00 3.11%
+  | PROGRESSIVE CORP OHIO SNR PIDI
+  | NTS 26/03/2030 USD (SEC REGD)
+  | 3.2% 03/26/2030
+  | DUR: 3.82 YRS CY: 3.31% 65,000.00 96.73 100.00 62,871.25 65,000.00 -2,128.75 0.07% 2,080.00 3.31%
+  | ONCOR ELECTRIC DELIVERY COMPANY
+  | 2.75% SNR SEC NTS 05/15/2030 USD
+  | (SEC REGD) 2.75% 05/15/2030
+  | DUR: 4.04 YRS CY: 2.92% 400,000.00 94.22 92.33 376,860.00 369,308.00 7,552.00 0.42% 11,000.00 2.92%
+  | EXTRA SPACE STORAGE LP 5.5% SNR
+  | NTS 07/01/2030 USD (SEC REGD)
+  | 5.5% 07/01/2030
+  | DUR: 3.74 YRS CY: 5.28% 425,000.00 104.08 100.19 442,340.00 425,807.50 16,532.50 0.49% 23,375.00 5.28%
+  | WELLS FARGO & COMPANY FXD-FRN
+  | SNR 04/04/2031 USD (SEC REGD)
+  | (U) 4.478% 04/04/2031
+  | DUR: 3.80 YRS CY: 4.45% 600,000.00 100.66 96.48 603,966.00 578,856.00 25,110.00 0.67% 26,868.00 4.45%
+  | (details continued on next page)
+  | Page 9 of30
+
+--- Page 10 ---
+  Lines: 40, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | U.s. Inv grade- continued
+  | Corporate bonds- continued
+  | ELI LILLY & CO 4.9% UNSUB NTS
+  | 02/12/2032 USD (SEC REGD) 4.9%
+  | 02/12/2032
+  | DUR: 5.05 YRS CY: 4.74% 455,000.00 103.37 101.51 470,319.85 461,879.45 8,440.40 0.52% 22,295.00 4.74%
+  | ARCHER-DANIELS-MIDLAND
+  | ARCHER-DANIELS-MIDLAND 2.9%
+  | 03/01/2032
+  | DUR: 5.49 YRS CY: 3.16% 445,000.00 91.91 92.22 408,986.15 410,397.25 -1,411.10 0.45% 12,905.00 3.16%
+  | ALABAMA POWER CO SNR NTS USD
+  | (SEC REGD) 3.05% 03/15/2032
+  | DUR: 5.50 YRS CY: 3.29% 635,000.00 92.80 94.37 589,254.60 599,262.65 -10,008.05 0.65% 19,367.50 3.29%
+  | BRISTOL-MYERS SQUIBB CO 2.95%
+  | SNR NTS 15/03/2032 USD (SEC
+  | REGD) 2.95% 03/15/2032
+  | DUR: 5.52 YRS CY: 3.18% 175,000.00 92.63 99.64 162,093.75 174,364.75 -12,271.00 0.18% 5,162.50 3.18%
+  | DUKE ENERGY CAROLINAS 2.85% 1ST
+  | MTG BDS 15/03/2032 USD (SEC
+  | REGD) 2.85% 03/15/2032
+  | DUR: 5.53 YRS CY: 3.11% 510,000.00 91.58 88.63 467,045.02 452,022.85 15,022.17 0.52% 14,535.00 3.11%
+  | HOME DEPOT INC 4.5% SNR NTS
+  | 15/09/2032 USD (SEC REGD) 4.5%
+  | 09/15/2032
+  | DUR: 5.49 YRS CY: 4.45% 600,000.00 101.21 99.37 607,254.00 596,213.50 11,040.50 0.67% 27,000.00 4.45%
+  | INTEL CORP NOTES 5.2% 02/10/2033
+  | DUR: 5.62 YRS CY: 5.1% 165,000.00 101.89 101.29 168,115.20 167,126.85 988.35 0.19% 8,580.00 5.10%
+  | BROWN-FORMAN CORP 4.75% SNR NTS
+  | 04/15/2033 USD (SEC REGD) 4.75%
+  | 04/15/2033
+  | DUR: 5.88 YRS CY: 4.69% 495,000.00 101.36 99.98 501,751.80 494,884.30 6,867.50 0.56% 23,512.50 4.69%
+  | (details continued on next page)
+  | Page 10 of30
+
+--- Page 11 ---
+  Lines: 36, Tables: 1
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | U.s. Inv grade- continued
+  | Corporate bonds- continued
+  | CARGILL INC. 4.75% SNR NTS
+  | 4/24/2033 USD (144A) 4.75%
+  | 04/24/2033
+  | DUR: 5.90 YRS CY: 4.72% 460,000.00 100.73 99.38 463,353.40 457,135.20 6,218.20 0.51% 21,850.00 4.72%
+  | FLORIDA POWER & LIGHT FLORIDA
+  | POWER & LIGHT CO 4.8% 05/15/2033
+  | DUR: 5.96 YRS CY: 4.71% 480,000.00 101.94 99.69 489,326.40 478,521.60 10,804.80 0.54% 23,040.00 4.71%
+  | REINSURANCE GROUP OF AMERICA 6%
+  | SNR NTS 09/15/2033 USD (SEC
+  | REGD) 6% 09/15/2033
+  | DUR: 5.93 YRS CY: 5.63% 470,000.00 106.51 102.38 500,611.10 481,200.10 19,411.00 0.55% 28,200.00 5.63%
+  | Fixed income funds
+  | BBH LUXEMBOURG FUNDS BBH INCOME
+  | FUND CLASS A 1,138,168.25 10.40 9.87 11,831,258.97 11,236,779.98 594,478.99 13.12% 0.00 0.00%
+  | Alternative assets
+  | BBH CREDIT VALUE SUB-TRUST
+  | OFFSHORE - NON-DISTRIBUTING -
+  | BBH GLOBAL FUNDS UNIT TRUST 996.96 17,353.57 11,509.99 17,300,814.20 11,475,000.00 5,825,814.20 19.18% 0.06 0.00%
+  | BBH STRUCTURED FIXED INCOME
+  | (CAYMAN) LTD. NON-DISTRIBUTING 145.97 11,961.54 11,440.71 1,746,026.62 1,670,000.00 76,026.62 1.94% 0.00 0.00%
+  | Total U.S. Inv grade $44,202,087.31 $37,514,554.64 $6,687,532.67 49.00% $549,352.55 1.24%
+  | Global bonds
+  | THE TORONTO-DOMINION BANK NTS
+  | USD (SEC REGD) 2.8% 03/10/2027
+  | DUR: 1.15 YRS CY: 2.84% 680,000.00 98.72 99.80 671,272.11 678,646.80 -7,374.69 0.74% 19,040.00 2.84%
+  | (details continued on next page)
+  | Page 11 of30
+  TABLE 0 (1 rows x 7 cols):
+    [0] ['Total U.S. Inv grade', '$44,202,087.31', '$37,514,554.64', '$6,687,532.67', '49.00%', '$549,352.55', '1.24%']
+
+--- Page 12 ---
+  Lines: 39, Tables: 1
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | FIXED INCOME - CONTINUED
+  | Global bonds- continued
+  | EQUINOR ASA-SPON PIDI NTS USD
+  | (SEC REGD) 3% 04/06/2027
+  | DUR: 1.22 YRS CY: 3.02% 510,000.00 99.28 94.62 506,312.70 482,536.50 23,776.20 0.56% 15,300.00 3.02%
+  | CANADIAN IMPERIAL BANK OF
+  | COMMER
+  | VAR NTS 4/28/2028 USD (SEC REGD)
+  | 5.001% 04/28/2028
+  | DUR: 2.09 YRS CY: 4.89% 475,000.00 102.25 102.02 485,687.50 484,585.50 1,102.00 0.54% 23,754.75 4.89%
+  | HSBC HLDGS PLC SNR PIDI NTS
+  | 22/09/2028 USD (SEC REGD) 2.013%
+  | 09/22/2028
+  | DUR: 1.66 YRS CY: 2.09% 520,000.00 96.51 92.38 501,862.40 480,381.20 21,481.20 0.56% 10,467.60 2.09%
+  | PFIZER INVESTMENT ENTERPRISES PT
+  | 4.75% UNSUB NTS 05/19/2033 USD
+  | (SEC REGD) 4.75% 05/19/2033
+  | DUR: 5.97 YRS CY: 4.7% 480,000.00 101.06 99.82 485,088.00 479,112.00 5,976.00 0.54% 22,800.00 4.70%
+  | RENAISSANCERE HOLDINGS L 5.75%
+  | SNR NTS 06/05/2033 USD (SEC
+  | REGD) 5.75% 06/05/2033
+  | DUR: 5.85 YRS CY: 5.5% 450,000.00 104.56 100.20 470,520.00 450,899.60 19,620.40 0.52% 25,875.00 5.50%
+  | Total global bonds $3,120,742.71 $3,056,161.60 $64,581.11 3.46% $117,237.35 3.76%
+  | TOTAL FIXED INCOME $51,485,414.23 $44,518,761.50 $6,966,652.73 57.07% $666,589.90 1.29%
+  | EQUITY
+  | U.S. large cap equity
+  | ALTAROCK PARTNERS SUB-TRUST -
+  | BBH WS 97.62 25,784.64 12,154.89 2,517,096.10 1,186,560.16 1,330,535.94 2.79% 0.00 0.00%
+  | VALLEY FORGE LARGE CAP EQUITY
+  | SUB-TRUST - BBH WS 106.35 17,356.00 8,609.20 1,845,810.27 915,588.20 930,222.07 2.05% 0.00 0.00%
+  | ISHARES CORE S&P 500 14,537.00 738.53 647.70 10,736,010.61 9,415,570.27 1,320,440.34 11.90% 0.00 0.00%
+  | (details continued on next page)
+  | Page 12 of30
+  TABLE 0 (2 rows x 7 cols):
+    [0] ['Total global bonds', '$3,120,742.71', '$3,056,161.60', '$64,581.11', '3.46%', '$117,237.35', '3.76%']
+    [1] ['TOTAL FIXED INCOME', '$51,485,414.23', '$44,518,761.50', '$6,966,652.73', '57.07%', '$666,589.90', '1.29%']
+
+--- Page 13 ---
+  Lines: 35, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | EQUITY - CONTINUED
+  | U.S. large cap equity- continued
+  | Consumer discretionary
+  | AMAZON.COM INC 409.00 230.82 214.92 94,405.38 87,904.01 6,501.37 0.10% 0.00 0.00%
+  | BOOKING HOLDINGS INC COM STK 6.00 5,355.33 5,175.09 32,131.98 31,050.54 1,081.44 0.04% 230.40 0.72%
+  | MCDONALD'S CORP 116.00 305.63 297.57 35,453.08 34,518.30 934.78 0.04% 863.04 2.43%
+  | NIKE INC CL B 966.00 63.71 73.48 61,543.86 70,979.79 -9,435.93 0.07% 1,584.24 2.57%
+  | Consumer staples
+  | COCA-COLA CO 290.00 69.91 71.42 20,273.90 20,710.67 -436.77 0.02% 591.60 2.92%
+  | COSTCO WHOLESALE CORP 30.00 862.34 990.53 25,870.20 29,716.01 -3,845.81 0.03% 156.00 0.60%
+  | PROCTER & GAMBLE CO 150.00 143.31 164.12 21,496.50 24,618.16 -3,121.66 0.02% 634.05 2.95%
+  | WALMART INC 307.00 111.41 96.51 34,202.87 29,628.76 4,574.11 0.04% 288.58 0.84%
+  | Financials
+  | BERKSHIRE HATHAWAY INC-CL B 71.00 502.65 461.39 35,688.15 32,758.72 2,929.43 0.04% 0.00 0.00%
+  | BLACKROCK INC COM 24.00 1,070.34 1,049.84 25,688.16 25,196.16 492.00 0.03% 500.16 1.95%
+  | ARTHUR J GALLAGHER & CO 122.00 258.79 285.87 31,572.38 34,876.23 -3,303.85 0.04% 317.20 1.00%
+  | MOODYS INVESTORS SERVICES 46.00 510.85 488.57 23,499.10 22,474.22 1,024.88 0.03% 172.96 0.74%
+  | PROGRESSIVE CORP OHIO 188.00 227.72 241.32 42,811.36 45,367.66 -2,556.30 0.05% 75.20 0.18%
+  | S&P GLOBAL INC COM STK 87.00 522.59 511.76 45,465.33 44,523.34 941.99 0.05% 334.08 0.73%
+  | Healthcare
+  | ABBOTT LABORATORIES 184.00 125.29 117.90 23,053.36 21,693.30 1,360.06 0.03% 463.68 2.01%
+  | JOHNSON & JOHNSON 83.00 206.95 148.92 17,176.85 12,360.36 4,816.49 0.02% 431.60 2.51%
+  | ELI LILLY & CO 30.00 1,074.68 771.28 32,240.40 23,138.31 9,102.09 0.04% 207.60 0.64%
+  | NOVO NORDISK SPONS ADR 129.00 50.88 86.36 6,563.52 11,140.73 -4,577.21 0.01% 158.80 2.42%
+  | THERMO FISHER SCIENTIFIC INC 67.00 579.45 407.92 38,823.15 27,330.36 11,492.79 0.04% 115.24 0.30%
+  | ZOETIS INC COM STK 236.00 125.82 177.08 29,693.52 41,791.30 -12,097.78 0.03% 500.32 1.68%
+  | ALCON INC COM STK 453.00 78.81 86.54 35,700.93 39,202.62 -3,501.69 0.04% 152.21 0.43%
+  | (details continued on next page)
+  | Page 13 of30
+
+--- Page 14 ---
+  Lines: 36, Tables: 1
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | EQUITY - CONTINUED
+  | U.S. large cap equity- continued
+  | Industrials
+  | DEERE & CO 20.00 465.57 442.01 9,311.40 8,840.10 471.30 0.01% 129.60 1.39%
+  | LOCKHEED MARTIN CORP 18.00 483.67 510.21 8,706.06 9,183.78 -477.72 0.01% 248.40 2.85%
+  | OTIS WORLDWIDE CORPORATION COM 463.00 87.35 93.23 40,443.05 43,167.79 -2,724.74 0.04% 777.84 1.92%
+  | WASTE MANAGEMENT INC 390.00 219.71 217.52 85,686.90 84,830.96 855.94 0.09% 1,287.00 1.50%
+  | Information technology
+  | ADOBE INC 160.00 349.99 549.60 55,998.40 87,936.00 -31,937.60 0.06% 0.00 0.00%
+  | ANALOG DEVICES INC 133.00 271.20 216.31 36,069.60 28,768.66 7,300.94 0.04% 526.68 1.46%
+  | APPLE COMPUTER INC 396.00 271.86 220.25 107,656.56 87,220.12 20,436.44 0.12% 411.84 0.38%
+  | APPLIED MATERIALS INC 194.00 256.99 167.25 49,856.06 32,446.29 17,409.77 0.06% 356.96 0.72%
+  | AUTOMATIC DATA PROCESSING INC 242.00 257.23 297.54 62,249.66 72,004.91 -9,755.25 0.07% 1,645.60 2.64%
+  | CADENCE DESIGN SYS INC 211.00 312.58 288.99 65,954.38 60,976.50 4,977.88 0.07% 0.00 0.00%
+  | KLA CORPORATION 69.00 1,215.08 649.16 83,840.52 44,792.38 39,048.14 0.09% 524.40 0.63%
+  | MASTERCARD INCORPORATED 136.00 570.88 536.37 77,639.68 72,946.77 4,692.91 0.09% 473.28 0.61%
+  | MICROSOFT CORP 398.00 483.62 459.52 192,480.76 182,889.12 9,591.64 0.21% 1,448.72 0.75%
+  | NVIDIA CORP COM STK 840.00 186.50 143.83 156,660.00 120,815.92 35,844.08 0.17% 33.60 0.02%
+  | ORACLE CORP 160.00 194.91 175.20 31,185.60 28,032.48 3,153.12 0.03% 320.00 1.03%
+  | SERVICENOW INC COM STK 345.00 153.19 178.39 52,850.55 61,545.41 -8,694.86 0.06% 0.00 0.00%
+  | TEXAS INSTRUMENTS INC 263.00 173.49 188.91 45,627.87 49,683.64 -4,055.77 0.05% 1,493.84 3.27%
+  | VISA INC- CL.A SHARES 240.00 350.71 316.86 84,170.40 76,045.63 8,124.77 0.09% 643.20 0.76%
+  | Materials
+  | ECOLAB INC 51.00 262.52 249.99 13,388.52 12,749.42 639.10 0.01% 148.92 1.11%
+  | LINDE PLC 79.00 426.39 440.33 33,684.81 34,785.91 -1,101.10 0.04% 474.00 1.41%
+  | Communications services
+  | ALPHABET INC CL C 490.00 313.80 185.73 153,762.00 91,007.70 62,754.30 0.17% 411.60 0.27%
+  | Total U.S. Large cap equity $17,259,493.74 $13,519,367.67 $3,740,126.07 19.13% $19,132.44 0.11%
+  | (details continued on next page)
+  | Page 14 of30
+  TABLE 0 (1 rows x 7 cols):
+    [0] ['Total U.S. Large cap equity', '$17,259,493.74', '$13,519,367.67', '$3,740,126.07', '19.13%', '$19,132.44', '0.11%']
+
+--- Page 15 ---
+  Lines: 28, Tables: 5
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Details of your investments - continued
+  | PERCENT ESTIMATED
+  | UNITS/SHARES AVERAGE UNREALIZED OF TOTAL ANNUAL ESTIMATED
+  | DESCRIPTION YOU HOLD UNIT PRICE ($) UNIT COST ($) MARKET VALUE ($) TOTAL COST ($) GAINS/LOSSES ($) INVESTMENTS INCOME ($) YIELD
+  | EQUITY - CONTINUED
+  | U.S. small/mid cap equity
+  | CLARKSTON CAPITAL PARTNERS
+  | SMALL/MID CAP SUB TRUST - BBH
+  | WS 82.00 20,447.07 14,183.59 1,676,659.40 1,163,054.58 513,604.82 1.86% 0.00 0.00%
+  | Total U.S. Small/mid cap equity $1,676,659.40 $1,163,054.58 $513,604.82 1.86% $0.00 0.00%
+  | Non-U.S. developed equity
+  | BBH PARTNER FUND INTERNATIONAL
+  | EQUITY (CAYMAN) 7,377.67 920.02 752.27 6,787,612.23 5,550,000.33 1,237,611.90 7.53% 0.00 0.00%
+  | Total non-U.S. Developed equity $6,787,612.23 $5,550,000.33 $1,237,611.90 7.53% $0.00 0.00%
+  | Emerging markets equity
+  | GQG PARTNERS EM MKT EQ-SUSDA
+  | UCITS 221,276.59 12.59 11.75 2,785,872.33 2,599,999.99 185,872.34 3.09% 0.00 0.00%
+  | ISHARES MSCI EM ACC 38,535.00 52.46 42.46 2,021,546.10 1,636,274.41 385,271.69 2.24% 0.00 0.00%
+  | Total emerging markets equity $4,807,418.43 $4,236,274.40 $571,144.03 5.33% $0.00 0.00%
+  | Global equity
+  | ISHARES CORE MSCI WORLD OFFSHORE 58,482.00 131.11 114.51 7,667,575.02 6,696,497.57 971,077.45 8.50% 0.00 0.00%
+  | Total global equity $7,667,575.02 $6,696,497.57 $971,077.45 8.50% $0.00 0.00%
+  | TOTAL EQUITY $38,198,758.82 $31,165,194.55 $7,033,564.27 42.35% $19,132.44 0.05%
+  | Total investments $90,200,610.86 $76,200,393.86 $14,000,217.00 100.00% $697,634.52 0.77%
+  | ´┐¢ Percent of your total investments may not total 100% due to rounding.
+  | Page 15 of30
+  TABLE 0 (1 rows x 7 cols):
+    [0] ['Total U.S. Small/mid cap equity', '$1,676,659.40', '$1,163,054.58', '$513,604.82', '1.86%', '$0.00', '0.00%']
+  TABLE 1 (1 rows x 7 cols):
+    [0] ['Total non-U.S. Developed equity', '$6,787,612.23', '$5,550,000.33', '$1,237,611.90', '7.53%', '$0.00', '0.00%']
+  TABLE 2 (1 rows x 7 cols):
+    [0] ['Total emerging markets equity', '$4,807,418.43', '$4,236,274.40', '$571,144.03', '5.33%', '$0.00', '0.00%']
+  TABLE 3 (2 rows x 7 cols):
+    [0] ['Total global equity', '$7,667,575.02', '$6,696,497.57', '$971,077.45', '8.50%', '$0.00', '0.00%']
+    [1] ['TOTAL EQUITY', '$38,198,758.82', '$31,165,194.55', '$7,033,564.27', '42.35%', '$19,132.44', '0.05%']
+  TABLE 4 (2 rows x 7 cols):
+    [0] ['Total investments', '$90,200,610.86', '$76,200,393.86', '$14,000,217.00', '100.00%', '$697,634.52', '0.77%']
+    [1] ['´┐¢ Percent of your total investments may not total 100% due to rounding.', '', '', '', '', '', '']
+
+--- Page 16 ---
+  Lines: 41, Tables: 3
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Transactions
+  | TRADE DATE DESCRIPTION UNITS UNIT PRICE ($) AMOUNT ($) COST ($) GAIN/LOSS ($)
+  | PURCHASES
+  | DEC 9, 2025 PURCHASED 15 SHS MASTERCARD
+  | INCORPORATED ON 12/09/2025
+  | CUSIP # 57636Q104 15 536.60 -8,049.46 8,049.46 0.00
+  | PURCHASED 18 SHS VISA INC- CL.A
+  | SHARES ON 12/09/2025
+  | CUSIP # 92826C839 18 326.29 -5,873.68 5,873.68 0.00
+  | DEC 19, 2025 PURCHASED 206 SHS NIKE INC CL B
+  | ON 12/19/2025
+  | CUSIP # 654106103 206 58.84 -12,127.67 12,127.67 0.00
+  | TOTAL PURCHASES -$26,050.81 $26,050.81 $0.00
+  | TRADE DATE DESCRIPTION UNITS UNIT PRICE ($) AMOUNT ($) COST ($) GAIN/LOSS ($)
+  | SALES/MATURITIES
+  | DEC 16, 2025 REDEEMED 12/16/2025 85,000 UNITS
+  | VERIZON COMMUNICATIONS INC PIDI
+  | NTS USD (SEC REGD) 3% 03/22/2027
+  | CAID 62262467
+  | CUSIP # 92343VFF6 85,000 100.00 85,000.00 84,957.50 42.50
+  | DEC 26, 2025 PAYMENT ON 15,503.87 UNITS
+  | FEDERAL NATIONAL MTGE ASSN POOL
+  | #310104 5.5% 08/01/2037 ORIGINAL
+  | FACE VALUE 480,000.00 FNMA SUPER
+  | MEGA SF LT
+  | CUSIP # 31374CNV4 235 0.00 235.14 259.17 -24.03
+  | PAYMENT ON 26,243.46 UNITS
+  | FEDERAL NATIONAL MTGE ASSN POOL
+  | #735676 5% 07/01/2035 ORIGINAL
+  | FACE VALUE 2,761,000.00 FNMA
+  | SUPER LNG 30 YEAR
+  | CUSIP # 31402RJV2 367 0.00 367.32 399.46 -32.14
+  | TOTAL SALES/MATURITIES $85,602.46 $85,616.13 -$13.67
+  | TRADE DATE DESCRIPTION UNITS UNIT PRICE ($) AMOUNT ($) COST ($) GAIN/LOSS ($)
+  | NET CASH MANAGEMENT
+  | NET MONEY MARKET PURCHASES/SALES 0 0.00 -92,753.67 92,753.67 0.00
+  | TOTAL NET CASH MANAGEMENT -$92,753.67 $92,753.67 $0.00
+  | (transactions continued on next page)
+  | Page 16 of30
+  TABLE 0 (1 rows x 6 cols):
+    [0] ['TOTAL PURCHASES', '', '', '-$26,050.81', '$26,050.81', '$0.00']
+  TABLE 1 (1 rows x 6 cols):
+    [0] ['TOTAL SALES/MATURITIES', '', '', '$85,602.46', '$85,616.13', '-$13.67']
+  TABLE 2 (1 rows x 6 cols):
+    [0] ['TOTAL NET CASH MANAGEMENT', '', '', '-$92,753.67', '$92,753.67', '$0.00']
+
+--- Page 17 ---
+  Lines: 43, Tables: 0
+  | December 1 toDecember 31, 2025 Account name:BOATVIEW LIMITED
+  | Account number:XXXXXX7085
+  | Transactions - continued
+  | DIVIDEND
+  | TRADE DATE DESCRIPTION UNITS PER UNIT ($) AMOUNT ($)
+  | DIVIDENDS
+  | Taxable
+  | DEC 1, 2025 DIVIDEND ON 222 SHS VISA INC-
+  | CL.A SHARES AT 0.67 PER SHARE
+  | PAYABLE 12/01/2025 EX DATE
+  | 11/12/2025 CAID 62235449
+  | CUSIP # 92826C839 222 0.67 148.74
+  | NON-RESIDENT ALIEN INCOME TAX TO
+  | IRS ON VISA INC- CL.A SHARES
+  | 12/1/2025 222 DIV 148.74 0 0.00 -44.62
+  | DEC 2, 2025 DIVIDEND ON 236 SHS ZOETIS INC
+  | COM STK AT 0.50 PER SHARE
+  | PAYABLE 12/02/2025 EX DATE
+  | 10/31/2025 CAID 62170037
+  | CUSIP # 98978V103 236 0.50 118.00
+  | DIVIDEND ON 74 SHS KLA
+  | CORPORATION AT 1.90 PER SHARE
+  | PAYABLE 12/02/2025 EX DATE
+  | 11/17/2025 CAID 62170037
+  | CUSIP # 482480100 74 1.90 140.60
+  | NON-RESIDENT ALIEN INCOME TAX TO
+  | IRS ON KLA CORPORATION CAID
+  | 62170037 2025-12-02 74 DIV 140.6
+  | 030.000000 0 0.00 -42.18
+  | NON-RESIDENT ALIEN INCOME TAX TO
+  | IRS ON ZOETIS INC COM STK
+  | 12/2/2025 236 DIV 118 0 0.00 -35.40
+  | DEC 5, 2025 DIVIDEND ON 463 SHS OTIS
+  | WORLDWIDE CORPORATION COM AT
+  | 0.42 PER SHARE PAYABLE
+  | 12/05/2025 EX DATE 11/14/2025
+  | CUSIP # 68902V107 463 0.42 194.46
+  | NON-RESIDENT ALIEN INCOME TAX TO
+  | IRS ON OTIS WORLDWIDE
+  | CORPORATION COM 2025-12-05 463
+  | DIV 194.46 030.000000 0 0.00 -58.34
+  | (transactions continued on next page)
+  | Page 17 of30
+
+  ... (13 more pages not analyzed)

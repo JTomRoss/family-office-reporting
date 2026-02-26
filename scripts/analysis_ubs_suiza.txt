@@ -1,0 +1,458 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: UBS Suiza Mandato
+FILE: 202512 Boatview UBS Suiza (Portfolio 1) - Mandato.pdf
+==========================================================================================
+Total pages: 15
+
+--- Page 1 ---
+  Lines: 24, Tables: 0
+  | aUBS
+  | UBSSwitzerlandAG Forinformation:
+  | Postfach B94E-43100692
+  | 8098Z├╝rich Tel.+41-44-2341111
+  | www.ubs.com
+  | Producedon13February2026
+  | Statement of assets
+  | As of 31 December 2025
+  | For your Portfolio
+  | Foractionablerecommendationsforour
+  | mostimportantinvestmentideas,please
+  | Portfolio206-560552-01,valuedinUSDollar(USD) visitourwebpageat:
+  | BoatviewLimited,RoadTown,Tortola
+  | www.ubs.com/monthly-letter
+  | Importantnotes
+  | -See"Importantinformation"fordetailsofportfolio
+  | definition
+  | -Wekindlyaskyoutovalidatetheinformationin
+  | section"Detailedpositions"inthisStatementof
+  | assetsandtoinformuswithin4weeksincaseof
+  | inconsistencies.
+  | BoatviewLimited
+  | RoadTown,Tortola
+  | 12.02.2026
+
+--- Page 2 ---
+  Lines: 19, Tables: 0
+  | Table of contents
+  | Portfolionumber206-560552-01
+  | BoatviewLimitedRoadTown,Tortola
+  | Statementofassetsasof31December2025
+  | UBSSwitzerlandAG,producedon13February2026
+  | Overview
+  | Totalassets 1
+  | Portfoliooverview 2
+  | Assetevaluations
+  | Assetallocation 3
+  | Performance 6
+  | Positionsoverview 8
+  | Detailedpositions
+  | Liquidity-Accounts 9
+  | Liquidity-Calldeposits 9
+  | Additionalinformation
+  | Abbreviationsandexplanations 10
+  | Importantinformation 11
+  | 12.02.2026
+
+--- Page 3 ---
+  Lines: 28, Tables: 2
+  | Total assets Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | Bankingrelationship206-560552-ValuedinUSD
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 01
+  | Page1/13
+  | Totalnetassetsasof31.12.2025 USD92054308 Totalnetassetsbyassetclass
+  | Portfolio01
+  | Assetclass Marketvalue Accruedinterest Total %NA
+  | Liquidity 52974 52974 100.00
+  | Netassets 52974 52974 100.00
+  | 31.12.2024to31.12.2025:Cumulativeperformancebeforetax(TWR)inUSD 2.63%
+  | Portfolio02-UBSManagePremium[Ultra]-CustomizedBalanced
+  | Assetclass Marketvalue Accruedinterest Total %NA
+  | Liquidity 1009406 1.10%
+  | Liquidity 956432 956432 1.04 Bonds 53411708 58.02%
+  | Bonds 52991545 420163 53411708 58.05 Equities 37633194 40.88%
+  | Equities 37633194 37633194 40.91
+  | Netassets 91581171 420163 92001334 100.00
+  | 31.12.2024to31.12.2025:Cumulativeperformancebeforetax(TWR)inUSD 171.52% Totalnetassetsbyexposurecurrency
+  | USD USDollar 71324799 77.49%
+  | EUR Euro 5671525 6.16%
+  | GBP PoundSterling 3705229 4.03%
+  | GLB Global 2933566 3.19%
+  | JPY JapaneseYen 2795941 3.04%
+  | CHF SwissFranc 1897569 2.06%
+  | Various 3725679 4.03%
+  | 12.02.2026
+  TABLE 0 (3 rows x 1 cols):
+    [0] ['']
+    [1] ['']
+    [2] ['']
+  TABLE 1 (7 rows x 1 cols):
+    [0] ['']
+    [1] ['']
+    [2] ['']
+    [3] ['']
+    [4] ['']
+    ... (2 more rows)
+
+--- Page 4 ---
+  Lines: 17, Tables: 0
+  | Portfolio overview Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 02
+  | Page2/13
+  | Netassetsandperformance(beforetax)ofyourportfoliovaluedinUSD Detailsofyourportfolio
+  | Netassets Performance Referencecurrency USD
+  | Period (perendofperiod) TWR value
+  | Currentyear:
+  | 31.12.2024-31.12.2025 52974 2.63% 1397
+  | Previousyear:
+  | 29.12.2023-31.12.2024 54509 3.15% 1711
+  | YourinvestmentobjectivesbasedonyourcurrentInvestorProfile
+  | Referencecurrency/market USD-Global
+  | Yourselectedrisktolerance Notprovidedbyclient
+  | 12.02.2026
+
+--- Page 5 ---
+  Lines: 17, Tables: 0
+  | Asset allocation Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 03
+  | Page3/13
+  | NetassetsbyassetclassvaluedinUSD
+  | Positionview Exposureimpact Exposureview
+  | Assetclass Total %NA Total %NA Total %NA
+  | Liquidity 52974 100.00 0 0.00 52974 100.00
+  | Netassets 52974 100.00 52974 100.00
+  | NetassetsbycurrencyvaluedinUSD
+  | Positionview Exposureimpact Exposureview
+  | Currency Total %NA Total %NA Total %NA
+  | USD USDollar 52974 100.00 0 0.00 52974 100.00
+  | Netassets 52974 100.00 52974 100.00
+  | 12.02.2026
+
+--- Page 6 ---
+  Lines: 12, Tables: 1
+  | Asset allocation Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 04
+  | Page4/13
+  | NetassetsbyinstrumentcategoryvaluedinUSD
+  | Instrumentcategory Amount in%
+  | Directinvestments 50000 94.39
+  | Account 2974 5.61
+  | Netassets 52974 100.00
+  | 12.02.2026
+  TABLE 0 (2 rows x 1 cols):
+    [0] ['']
+    [1] ['']
+
+--- Page 7 ---
+  Lines: 14, Tables: 0
+  | Asset allocation Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 05
+  | Page5/13
+  | ValuedinUSD
+  | Hedgefunds Preciousmet.
+  | Exposurecurrency Liquidity Bonds Equities &privatemarkets Realestate &commodities Others Total
+  | USD 52974 52974
+  | 100.00% 100.00%
+  | Netassets 52974 52974
+  | 100.00% 100.00%
+  | 12.02.2026
+
+--- Page 8 ---
+  Lines: 38, Tables: 0
+  | Performance Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 06
+  | Page6/13
+  | Monthlyperformancebeforetax(TWR)31.12.2024-31.12.2025 Annualperformancebeforetax(TWR)2021-2025
+  | 3.5% 10.0%
+  | 3.0%
+  | 0.0%
+  | 2.5%
+  | -10.0%
+  | 2.0%
+  | 1.5%
+  | -20.0%
+  | 1.0%
+  | -30.0%
+  | 0.5%
+  | 0.0% -40.0%
+  | 01 02 03 04 05 06 07 08 09 10 11 12 2021 2022 2023 2024 2025
+  | Months Performance Years Performance
+  | Performancesummary(TWR)
+  | Currentmonth Currentquarter Year-to-date Last12months Since19.01.2021
+  | PerformanceTWR(NetbeforeTax) 0.18% 0.59% 2.63% 2.63% -18.66%
+  | AverageannualperformanceTWR(NetbeforeTax) -4.09%
+  | 2025:MonthlyperformancebeforetaxvaluedinUSD
+  | Performance Performancecumulative
+  | Period Finalvalue Inflows Outflows Value TWR Value TWR
+  | ReferencecurrencyUSD
+  | Cumulative 0 -2932 1397 2.63%
+  | 31December2025 52974 0 -640 96 0.18% 1397 2.63%
+  | 28November2025 53518 0 0 102 0.19% 1301 2.44%
+  | 31October2025 53416 0 0 114 0.21% 1199 2.25%
+  | 30September2025 53302 0 -641 117 0.22% 1085 2.03%
+  | 29August2025 53826 0 0 123 0.23% 968 1.81%
+  | 31July2025 53703 0 0 124 0.23% 845 1.57%
+  | 30June2025 53579 0 -625 119 0.22% 721 1.34%
+  | 12.02.2026
+
+--- Page 9 ---
+  Lines: 30, Tables: 0
+  | Performance Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 07
+  | Page7/13
+  | 2025:MonthlyperformancebeforetaxvaluedinUSD
+  | Performance Performancecumulative
+  | Period Finalvalue Inflows Outflows Value TWR Value TWR
+  | 30May2025 54085 0 0 123 0.23% 602 1.12%
+  | 30April2025 53962 0 0 119 0.22% 479 0.89%
+  | 31March2025 53843 0 -578 124 0.23% 360 0.67%
+  | 28February2025 54297 0 0 112 0.21% 236 0.44%
+  | 31January2025 54185 0 -448 124 0.23% 124 0.23%
+  | 31December2024 54509
+  | 2021-2025:AnnualperformancebeforetaxvaluedinUSD
+  | Performance Performancecumulative
+  | Period Finalvalue Inflows Outflows Value TWR Value TWR
+  | ReferencecurrencyUSD
+  | Cumulative 0 -45981333 -1214062 -18.66%
+  | 2025 52974 0 -2932 1397 2.63% -1214062 -18.66%
+  | 2024 54509 0 -2765 1711 3.15% -1215459 -20.74%
+  | 2023 55563 0 -3802274 42582 2.08% -1217170 -23.16%
+  | 2022 3815255 0 -2809 -1054050 -21.64% -1259752 -24.73%
+  | 20211 4872114 0 -42170553 -205702 -3.95% -205702 -3.95%
+  | 19January2021 47248369
+  | 119.01.2021-31.12.2021
+  | Portfolioinvestmentprofile
+  | Referencecurrency USD
+  | 12.02.2026
+
+--- Page 10 ---
+  Lines: 13, Tables: 0
+  | Positions overview Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 08
+  | Page8/13
+  | Byinvestmentcategory ValuedinUSD
+  | Investmentcategory Marketvalue Accruedinterest Total %NA
+  | Liquidity 52974 0 52974 100.00
+  | Accounts 2974 0 2974 5.61
+  | Calldeposits 50000 0 50000 94.39
+  | Netassets 52974 0 52974 100.00
+  | 12.02.2026
+
+--- Page 11 ---
+  Lines: 30, Tables: 0
+  | Detailed positions Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 09
+  | Page9/13
+  | Byinvestmentcategory ValuedinUSD
+  | Number/Amount Description Openingbalance Exchangerate Marketvalue %NA
+  | asof Accruedinterest
+  | Liquidity-Accounts
+  | USD 2974.10 UBSCurrentAccountforPrivateClients USD 4509.04 2974 5.61
+  | CH850020620656055260F 31.12.2024 0.00
+  | TotalAccounts 2974 5.61
+  | TotalaccruedinterestAccounts 0 0.00
+  | Number/Amount Description S&P/Moody'srating Costprice Marketprice Marketgain Marketvalue %NA
+  | Sector Exchangerate Exchangerate Exchangegain Accruedinterest
+  | Duration Costvalue Marketpricedate UnrealizedP/L
+  | Yield Lastpurchase
+  | Liquidity-Calldeposits
+  | USD 50000 FiduciaryCallInvestment 100% 100%I 50000 94.39
+  | UBSAGJerseyBranch 0.00
+  | St.Helier 50000
+  | Serialno.6370279 17.10.2023
+  | Interestrate:2.70%
+  | TotalCalldeposits 50000 94.39
+  | TotalaccruedinterestCalldeposits 0 0.00
+  | Totalmarketvalue 52974 100.00
+  | Totalaccruedinterest 0 0.00
+  | Netassets 52974 100.00
+  | 12.02.2026
+
+--- Page 12 ---
+  Lines: 33, Tables: 0
+  | Abbreviations and explanations Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 10
+  | Page10/13
+  | Abbreviations
+  | n.a. Notavailable I Indicativeprice TWR Timeweightedrateofreturn
+  | p.m. Promemoria Mio Inmillions 000 Inthousands
+  | GA Grossassets NA Netassets
+  | Assetallocation
+  | Generalinformation:Positionsinyourportfoliowill,ifpossible,be Assetallocation:Assetclassesarecategorizedasfollows: classincludescashortermdeposits,moneymarketinvestmentsand
+  | unbundled,unlessunbundlingisnotpossibleowingtoinsufficient currencycertificates/derivatives.
+  | informationorforproduct-specificreasons.Pleasenotethattheasset Liquidity:Assetclasscontaininginvestmentinstrumentswithmain
+  | structureshownisonlyindicativeandthatroundingdifferencesmay exposureinthemoneymarketinvestmentsandFXmarkets.Thisasset
+  | occur.
+  | Performance
+  | Performance:Thechangeoftheportfoliovalueconvertedintoa Performancebeforetax:Performancebeforedeductionoftaxes Retroactivebookings:Retroactivebookingscanresultinstatement
+  | percentagegivesthetotalreturn.Inadditiontopricegains/losses,this andafterdeductionoftransactionandportfoliofees. calculationsdeviatingfromearlierversions.Thestatementofassets
+  | includesinterestearnings(withaccruedinterest)anddividend liststheinformationavailableonthedateonwhichthestatementof
+  | payments.Depositsandwithdrawalsareweightedusingeitherthe Timeweightedrateofreturn(TWR):Theperformanceis assets wascreatedfortherelevantvaluationdate.
+  | "MWR"orthe"TWR"method. calculatedbylinkingtheperformanceswhichhaveoccurredbetween
+  | theinflowsoroutflows,therebyneutralizingtheinfluenceofinflows
+  | andoutflowsonperformance.
+  | Detailedpositions
+  | Grossprofitiscalculatedasfollows: UnrealizedP/L:Marketvaluecomparedtoaveragecostvalueinthe Risksinvolvedintradingfinancialinstruments:Transactionswith
+  | reportingcurrency(excl.accruedinterest).Forstandardandexotic financialinstrumentsinvolveopportunitiesandrisks.Itisimportant
+  | Marketgain:Marketpricecomparedtoaveragecostpriceinthe optionsonforeignexchangeandpreciousmetals,"UnrealizedP/L"is thatyouunderstandtheserisks.Inthebrochure"RisksInvolvedin
+  | reportingcurrency(excl.monetarybenefits). sameasthemarketvalue. TradingFinancialInstruments"youwillfindimportantinformation
+  | abouttheriskstakenwhentradingwithfinancialinstruments.Please
+  | Exchangegain:Exchangeratecomparedtoaveragebuyexchange Productinformation:Foralargenumberoffinancialinstruments readthisinformationcarefully.Yourclientadvisorremainsatyour
+  | rateinthereportingcurrency. therearecorrespondingproductinformationdocumentsavailable. disposalshouldyouneedanyfurtherinformation.
+  | 12.02.2026
+
+--- Page 13 ---
+  Lines: 46, Tables: 0
+  | Important information Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 11
+  | Page11/13
+  | Portfoliodefinition
+  | Clientproductsrelatedtoportfolio
+  | Switzerland,206-560552-01
+  | USD UBSCurrentAccountforPrivateClients CH850020620656055260F (206-560552.60F)
+  | UBSCustodyAccount 206-560552.S1
+  | Monetaryandnon-monetarybenefits
+  | Inlinewithitscommitmenttocosttransparency,UBShasfor MonetarybenefitspercategoryofFinancialInstruments benefitfromtheunderlyingfundmanagerofupto4%ofthefull
+  | manyyearsbeenprovidingdetaileddisclosureofmonetary subscriptionamountandashareofupto50%oftheperformancefee
+  | benefitsintheGeneralTermsandConditionsgoverning InvestmentFunds (orequivalentthereof).
+  | CustodyAccounts(art.12),initsaccount/custodyaccount Withrespecttoinvestmentfunds,Monetarybenefitstaketheformof
+  | openingdocuments,initsserviceorproductspecific distributionfees/trailerfees,rebates,andsimilarfees.TheseMonetary TheactualamountoftheMonetarybenefitsreceivedbyUBSvaries
+  | agreements,asapplicable(e.g.AdvisoryAgreements)andwith benefitsaretypicallycalculatedasanannualpercentagerateapplied dependingontheinvestmentfundcategory,investmentfundand
+  | thefollowinginformation,whilesimultaneouslyobtainingthe totheinvestmentvolumeofalladvisoryandexecution-onlyclientsof investmentfundshareclass.
+  | righttoretainthem. relevantUBSGroupentitiesinashareclassofaninvestmentfundona
+  | specifieddate.Monetarybenefitsarenormallypaidoutofthe Forillustrativepurposes,asofJune2025,theactualassetweighted
+  | UBStypicallyreceivesmonetarybenefits(asfurtherdescribedinthe investmentfund'smanagementfee(whichisdisclosedinthe averageMonetarybenefitspercentageforallassetsinvestedbyUBS
+  | followingsectionsbelow,"Monetarybenefits")andnon-monetary correspondingfunddocumentation).Theyaretypicallycalculatedand clientsonanadvisorybasis(excl.fee-basedadvisoryagreements)oron
+  | benefits(asfurtherdescribedinthefollowingsectionsbelow, paidonamonthly,quarterlyorannualbasis. anexecution-onlybasis,wasasfollows:
+  | "Non-monetarybenefits")fromUBSGroupentities("Groupentities")
+  | and/orfromindependentthirdpartiesascompensationforthe Thefollowingrangesrepresentthemaximumpercentagerateof -Moneymarketfundsapprox.0.15%p.a.;
+  | distributionand/orcustodyofunits/sharesininvestmentfundsand MonetarybenefitsthatUBSmayreceiveforaninvestmentfundfalling -Bondfundsapprox.0.3%p.a.;
+  | structuredproducts("FinancialInstruments").Inparticular,UBS intotherespectiveinvestmentfundcategory: -Equityfundsapprox.0.5%p.a.;
+  | performstheonboardingandselectedoperationalactivitiesofsuch -Assetallocationfundsapprox.0.75%p.a.;
+  | FinancialInstrumentsandprovidesanefficientandhigh-quality -Moneymarketfundsupto1%p.a.; -Hedgefundsapprox.0.35%p.a.;
+  | distributioninfrastructurewhichitcontinuouslyenhancesand -Bondfundsupto2.05%p.a.; -Listedrealestatefundsapprox.0.15%p.a.;
+  | expands.Thishelpsclientsmakeinformeddecisionsandefficiently -Equityfundsupto2.05%p.a.; -Openendedrealestateandprivatemarketfundsapprox.0.6%p.a.
+  | transactinFinancialInstruments.Additionally,thefollowingsections -Assetallocationfundsupto2%p.a.;
+  | alsodescribethescopeofinvestmentadviceandgeneral -Hedgefundsupto2%p.a.Inaddition,UBSmayreceiveaone-off Pleasenotethattheseaverageweightedpercentagesarecalculatedas
+  | recommendationstoFinancialInstrumentswithMonetarybenefits. monetarybenefitfromtheunderlyingfundmanagerofupto2%of perthespecifieddateandvaryovertime.
+  | thefullsubscriptionamountandashareofupto50%ofthe
+  | BenefitsmayleadtoconflictsofinterestsonthepartofUBS.They performancefee(orequivalentthereof); Structuredproducts
+  | mayinparticularcreateincentivesforUBStofavorFinancial -Listedrealestatefundsupto1.2%p.a.; Withrespecttostructuredproducts(incl.warrants),Monetarybenefits
+  | InstrumentspayinghigherbenefitsoverFinancialInstrumentspaying -Openendedrealestateandprivatemarketfundsupto2%p.a.In cantaketheformofadiscountobtainedbyUBSontheissuepriceor
+  | no,orless,benefits.UBShasappropriateorganizationalmeasuresin addition,UBSmayreceiveaone-offmonetarybenefitfromthe ofacompensationrelatingtotheissuepriceandpaidtoUBS(both
+  | placeinordertomitigatetherisksresultingfromsuchconflictof underlyingfundmanagerofupto2%ofthefullsubscriptionamount formsofcompensationarehereinafterreferredtoas"Up-frontfee").
+  | interests. andashareofupto50%oftheperformancefee(orequivalent SuchUpfrontfeesareone-offfees,amountingtoamaximumof3%
+  | thereof); oftheinvestedamount(inthecaseofCollateralizedLoanObligations
+  | -Closed-endedprivatemarketfundsupto2.5%p.a.ofthefull uptoamaximumof5%).InadditiontoorinsteadofUpfrontfees,
+  | subscriptionamount.Inaddition,UBSmayreceiveaone-offmonetary recurringMonetarybenefitsofupto1%p.a.oftheinvestedamount
+  | 12.02.2026
+
+--- Page 14 ---
+  Lines: 45, Tables: 0
+  | Important information Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 12
+  | Page12/13
+  | Monetaryandnon-monetarybenefits
+  | oroftheinvestedassetsmaybepaidtoUBS.RecurringMonetary Bywayofillustration:
+  | benefitsaretypicallycalculatedandpaidonamonthly,quarterlyor Aclientsubscribestoanequityfundwithaninvestmentamountof Furthermore,UBSmayreceiveremunerationfromaffiliatesfor
+  | annualbasis. CHF100000. brokerageanddistributionservices.
+  | Inaddition,UBSmayreceivepaymentsinconnectionwithinvestments Thisinformationsheetshowsthatthemaximumpercentagerateof Scopeofinvestmentadviceandgeneralrecommendations
+  | ininvestmentfundsmadeforhedgingcertainobligationsrelatingto recurringMonetarybenefitsforequityfundsis2.05%p.a.Thismeans UBSlimitsinvestmentadviceandgeneralrecommendationsto
+  | structuredproductsissuedbyGroupentities.Suchpaymentsmay thatforaninvestmentofCHF100000inthisFinancialInstrument FinancialInstrumentswithMonetarybenefits,wheresuchinstruments
+  | qualifyasMonetarybenefits.TheMonetarybenefitspaidtoUBS category,UBScanreceiveamaximum2.05%inrecurringMonetary areavailable,unlessthereisafee-basedadvisoryagreementwiththe
+  | basedonsuchinvestmentsliewithinthemaximumrangesdisclosed benefits,whichequatestoamaximumofCHF2050p.a.Onaverage, client.
+  | forinvestmentfundsabove. UBShasreceivedrecurringMonetarybenefitsintherangeof0.5%
+  | p.a.oftheinvestmentamount,whichequatedtoCHF500p.a.The WaivingofMonetaryandNon-monetarybenefits
+  | MonetarybenefitsforUBSAdvicemandates Monetarybenefitsarefactoredintothetradepriceand/ortakeninto TheclientagreesthatUBSfullyretainsanyMonetarybenefits
+  | UBSreceivesmonetarybenefitsaveraging0.11%p.a.oftheinvested accountinthereportednetreturnofaFinancialInstrument. receivedfromUBSGroupentitiesand/orindependentthird
+  | assetsorfinancialcommitmentinprivatemarketfunds,with95%of partiesandherewithexpresslywaivestherespectiverightto
+  | allUBSAdviceMandatesincurringlessthan0.55%p.a.andindividual EffectiveamountofMonetarybenefitsintheproduct-specific receiveanyMonetarybenefits.Theclientacknowledgesthat
+  | casesreachingupto3.7%p.a. CostandChargesReport thisarrangementdeviatesfromthestatutoryrighttoclaimfor
+  | Pleasenotethatthesefiguresarecalculatedforatwelve-monthperiod PriortoorduringthecompletionofatransactionUBSwillprovidea restitutionaccordingtoart.400para.1oftheSwissCodeof
+  | asofJune2025(basedonactiveUBSAdviceMandatesthroughout product-specificCostandChargesReporttotheclient(uponrequest). Obligationsoranyotherstatutoryprovisionwithsimilar
+  | theentireperiod)andmaychangeovertime. ThisreportshowstheexpectedMonetarybenefitsbasedonthe content.Bycontinuingtoinvestorremaininginvestedin
+  | TheeffectiveamountofMonetarybenefitsforaninvestmentisshown percentagerateatwhichsuchbenefitswerelastinvoicedbetweenthe FinancialInstruments,theclientconfirmsthiswaiver.
+  | intheproduct-specificCostandChargesReport. productproviderandUBSfortherespectiveproduct.Shouldthelatest
+  | percentageratenotbeavailable,theexpectedMonetarybenefits Costinformation:BothUBSandthirdparties(e.g.fundmanagers)
+  | Monetarybenefitsperclient shownwillbebasedontheminimumcontractuallyagreedrate mayapplycostsandfeesinconnectionwiththeprovisionoffinancial
+  | betweentheproductproviderandUBSoriginallysetforagiven services.Wedistinguishbetweencostsandfeesthatarecharged
+  | MaximumamountofMonetarybenefits product. directlytoyouraccountandcostsreducingthereturnsofaFinancial
+  | ThemaximumamountofMonetarybenefitscanbecalculatedby Instrument.Youcanfindageneraloverviewofthecostsandfeesof
+  | multiplyingthemaximumpercentagerateoftheFinancialInstrument Non-monetarybenefits UBSSwitzerlandAGandthirdpartiesatwww.ubs.com/finsa.Upon
+  | categorybythevalueofaclient'sinvestmentassetsinthiscategory. SomeproductprovidersofferUBSNon-monetarybenefits.Such yourspecificrequestthecostswillbedisclosedtoyoupriortoevery
+  | benefitsusuallytaketheformoffreefinancialanalysis,trainingfor transactionandanoverviewofyourfinancialtransactionsmaybe
+  | UBSstaffandothersales-supportactivities. includedinyourstatementofassets.Yourclientadvisorremainsat
+  | yourdisposalshouldyouneedanyfurtherinformation.
+  | Disclaimer
+  | Thisstatementofassetsonlydisplaystheportfolio(assetsand
+  | liabilities)definedundertheheading"Importantinformation-
+  | Portfoliodefinition".
+  | Thevaluationsofindividualassetsarebasedonratesandprices
+  | derivedfromavailablesourcesofinformationwhichareregularlyused
+  | bybanksandwhichUBSmayobtainfromthirdparties.The
+  | 12.02.2026
+
+--- Page 15 ---
+  Lines: 27, Tables: 0
+  | Important information Portfolionumber206-560552-01 Overview
+  | BoatviewLimitedRoadTown,Tortola Assetevaluations
+  | Statementofassetsasof31December2025 Detailedpositions
+  | ForyourPortfolio
+  | UBSSwitzerlandAG,producedon13February2026 Additionalinformation 13
+  | Page13/13
+  | Disclaimer
+  | informationisindicativeonlyandnorepresentationorwarrantyis Interestratesoncreditanddebitbalances(includingthoseforcall Ifyouhaveanyquestionsorcomplaintsregardingyourbusinesswith
+  | providedinrelationtosuchinformation.Theremaybecircumstances deposits)canchangeatshortnotice.Accruedinterestsonaccounts us(especiallywithregardstoderivativetransactions),yourclient
+  | wheretherearenomarketpricesavailableforaninstrumentinyour arenotalwaysshown.Pleasecheckallyourinterestcalculationforthe advisorwillbehappytohelp.
+  | portfolioasatthedateofthisstatementofassets.Forsuch ratesactuallyapplied.
+  | instruments,themarketpricehasbeenreflectedas"n.a."whilethe Yourssincerely,
+  | marketvaluehasbeenreflectedas"0"inthestatementofassets.The (L)IBORrelatedpositions("LrP")areidentifiedbasedoninformation
+  | valueofsuchinstrumentswillbeupdatedinyourportfolioassoonas derivedfromthirdparties,suchasissuersanddataaggregators.This UBSSwitzerlandAG
+  | marketpricesbecomeavailable. Amissingoroutdatedmarketprice informationmaybeincomplete.Asaresult,thestatementofassets
+  | mayindicatereducedliquidityintheinstrument. maynotreflectallLrP.UBSoffersnowarrantyandacceptsnoliability Communicationwithoutsignature
+  | thattheinformationderivedfromthirdpartiesiscorrect,complete
+  | Incertaincasesthemarketpriceasatthedatewhenthesecuritywas andup-to-date,althoughsuchinformationwereobtainedfrom
+  | receivedwillbeusedasthecostprice.Deviationsfromtheactualcost sourcesUBSbelievestobereliable.
+  | pricearethereforepossible.Costpricesadjustedmanuallyonthebasis
+  | ofclientinstructionsaredesignatedaccordingly.Thecalculatedcost Pleasecheckthisstatementofassetsandinformusofany
+  | pricesarenottobeusedfortaxpurposes.Thepricesindicatedwithin discrepancieswithinfourweeks.
+  | thestatementofassetsaswellasotherquotationsarenottobeused
+  | astaxvalues.Calculationsareforinformationpurposesonlyandare
+  | notbindingforUBSasCorporateActionsorcancelations/rebookings
+  | impactcosts/prices.
+  | 12.02.2026

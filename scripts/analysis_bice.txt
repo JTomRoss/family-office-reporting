@@ -1,0 +1,460 @@
+﻿
+==========================================================================================
+DEEP ANALYSIS: BICE Brokerage
+FILE: Cartola Ecoterra Internacional SpA 20251231 - Brokerage - BICE.pdf
+==========================================================================================
+Total pages: 7
+
+--- Page 1 ---
+  Lines: 38, Tables: 10
+  | Cliente: Ecoterra Internacional Spa Rut: 76.893.813-K
+  | Email: operaciones@iect.cl Tel├®fono 56-22-6922891
+  | Direcci├│n: Calle Teatinos 220 Piso 8, Santiago
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | An├ílisis del portafolio seg├║n exposici├│n a renta variable
+  | Su Perfil de Inversionista: Agresivo Nivel de exposici├│n actual: 93%
+  | M├íxima exposicion sugerida seg├║n su perfil: 100%
+  | Exposici├│n actual de su cartera: 93% 0 10 20 30 40 50 60 70 80 90 100
+  | Usted se encuentra dentro del rango de exposici├│n a renta Nivel m├íximo exposici├│n seg├║n perfil: 100%
+  | Estado:
+  | variable sugerido para su Perfil.
+  | Nota: Por renta variable se entienden instrumentos de capitalizaci├│n. Conservador Balanceado Agresivo
+  | Resumen de sus inversiones
+  | Activos $ US$ APV ($)
+  | Disponible en Caja 0 0,00 0
+  | Dep├│sitos a Plazo BICE (1) 0 0,00 0
+  | Libreta de Ahorro 0 0,00 0
+  | Acciones 3.958.359.238 0,00 0
+  | Fondos Mutuos 2.090.053 5.280.912,75 0
+  | Renta Fija (2) 0 0,00 0
+  | Operaciones en Tr├ínsito 0 0,00 0
+  | Total Activos 3.960.449.291 5.280.912,75 0
+  | Otros Activos y Derivados
+  | Forward (Resultado Neto) 0 0,00 0
+  | Venta Corta 0 0,00 0
+  | Patrimonio Custodia Pershing 0 0,00 0
+  | Pasivos
+  | Simult├íneas 0 0,00 0
+  | Total Pasivos 0 0,00 0
+  | Patrimonio 3.960.449.291 5.280.912,75 0
+  | Inversiones en $ Inversiones en US$
+  | Acciones 99,95% Fondos Mutuos 100,00%
+  | Fondos Mutuos 0,05%
+  | (1) Dep├│sitos a plazo BICE en custodia Banco BICE. (2) Incluye dep├│sitos a plazo BICE en custodia BICE Inversiones Corredores de Bolsa.
+  | P├ígina 1 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (3 rows x 4 cols):
+    [0] ['Cliente:', 'Ecoterra Internacional Spa', 'Rut:', '76.893.813-K']
+    [1] ['Email:', 'operaciones@iect.cl', 'Tel├®fono', '56-22-6922891']
+    [2] ['Direcci├│n:', 'Calle Teatinos 220 Piso 8, Santiago', None, None]
+  TABLE 1 (1 rows x 6 cols):
+    [0] ['Ejecutivo:', 'Claudia Sepulveda M.', 'Email:', 'csepulve@bice.cl', 'Tel├®fono:', '56-2-26922714']
+  TABLE 2 (7 rows x 6 cols):
+    [0] ['Per├¡odo:', None, '01-12-2025 al 31-12-2025', None, 'Fecha Emisi├│n:', '31-12-2025']
+    [1] ['An├ílisis del portafolio seg├║n exposici├│n a renta variable', None, None, None, None, None]
+    [2] ['Su Perfil de Inversionista:', None, None, 'Agresivo', None, None]
+    [3] ['M├íxima exposicion sugerida seg├║n su perfil:', None, None, '100%', None, None]
+    [4] ['Exposici├│n actual de su cartera:', None, None, '93%', None, None]
+    ... (2 more rows)
+  TABLE 3 (1 rows x 3 cols):
+    [0] ['', '', '']
+  TABLE 4 (10 rows x 6 cols):
+    [0] ['Resumen de sus inversiones', None, None, None, None, None]
+    [1] ['Activos', None, None, '$', 'US$', 'APV ($)']
+    [2] ['', '', 'Disponible en Caja', '0', '0,00', '0']
+    [3] ['', '', 'Dep├│sitos a Plazo BICE (1)', '0', '0,00', '0']
+    [4] ['', '', 'Libreta de Ahorro', '0', '0,00', '0']
+    ... (5 more rows)
+  TABLE 5 (4 rows x 5 cols):
+    [0] ['Otros Activos y Derivados', None, None, None, None]
+    [1] ['', 'Forward (Resultado Neto)', '0', '0,00', '0']
+    [2] ['', 'Venta Corta', '0', '0,00', '0']
+    [3] ['', 'Patrimonio Custodia Pershing', '0', '0,00', '0']
+  TABLE 6 (3 rows x 5 cols):
+    [0] ['Pasivos', None, None, None, None]
+    [1] ['', 'Simult├íneas', '0', '0,00', '0']
+    [2] ['Total Pasivos', None, '0', '0,00', '0']
+  TABLE 7 (1 rows x 4 cols):
+    [0] ['Patrimonio', '3.960.449.291', '5.280.912,75', '0']
+  TABLE 8 (2 rows x 1 cols):
+    [0] ['']
+    [1] ['']
+  TABLE 9 (4 rows x 10 cols):
+    [0] ['(1) Dep├│sitos a plazo BICE en custodia Banco BICE. (2) Incluye dep├│sitos a plazo BICE en custodia BICE Inversiones Corredores de Bolsa.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '', '', 'P├ígina', '1', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 2 ---
+  Lines: 27, Tables: 4
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | DETALLE DE INVERSIONES EN $
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | Resumen Cartera en $ Resumen de Movimientos Caja en $
+  | Valor inicial al 30-11-2025 (A) 3.834.464.119 Monto $ Saldo $
+  | Abonos/Retiros (B) 8.095.847 Inicio 0
+  | Ganancia/P├®rdida(1) 117.889.325 Compras/Aportes(D) 8.095.847
+  | Valor Final al 31-12-2025 (C) 3.960.449.291 Ventas/Rescates (E) 0
+  | Dividendos y Otros(F) 0
+  | Abonos/Retiros (B) 8.095.847
+  | Final 0
+  | Resumen de sus inversiones en $
+  | Activos Saldo al (**)Compras/ (**)Ventas/ (***)Cambio de Saldo al Activo
+  | Instrumento 30-11-2025 (G) Aportes (H) Rescates (I) Valor (2) 31-12-2025 (J) %
+  | Acciones 3.834.377.253 6.095.847 0 117.886.138 3.958.359.238 99,95%
+  | CFICI81I-E 2.235.054.328 0 0 154.753.750 2.389.808.078 60,34%
+  | CFIHPH2I-E 1.599.322.925 6.095.847 0 -36.867.612 1.568.551.160 39,61%
+  | Fondos Mutuos 86.866 2.000.000 0 3.187 2.090.053 0,05%
+  | BICE TESORERIA INSTITUCIONAL 86.866 2.000.000 0 3.187 2.090.053 0,05%
+  | Total Activos 3.834.464.119 8.095.847 0 117.889.325 3.960.449.291 100,00%
+  | Patrimonio 3.834.464.119 3.960.449.291
+  | Para mayor informaci├│n, consulte el glosario al final de su cartola.
+  | << < P├ígina 2 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (16 rows x 22 cols):
+    [0] ['RESUMEN DE SUS', None, '', 'INVERSIONES', '', 'INVERSIONES', None, None, '', 'INVERSIONES', None, None, '', 'DETALLE DE', None, '', 'DETALLE DE', None, None, '', 'GLOSARIO', None]
+    [1] ['INVERSIONES', None, '', 'EN $', '', 'EN US$', None, None, '', 'EN APV', None, None, '', 'CARTERAS', None, '', 'MOVIMIENTOS', None, None, '', '', None]
+    [2] [None, None, '', None, '', None, None, None, '', None, None, None, '', None, None, '', None, None, None, None, None, None]
+    [3] ['DETALLE DE I', None, 'NVERSIONES E', None, 'N $', None, None, None, '', None, None, None, '', None, None, '', None, None, None, '', None, None]
+    [4] ['Ejecutivo:', '', 'Claudia Sepulveda M.', None, '', None, None, 'Ema', 'il:', None, None, 'csepulve', '@bice.cl', None, None, '', None, 'Tel├®fono:', None, '56-2-26922714', None, None]
+    ... (11 more rows)
+  TABLE 1 (9 rows x 7 cols):
+    [0] ['Resumen de sus inversiones en $', None, None, None, None, None, None]
+    [1] ['Activos', 'Saldo al', '(**)Compras/', '(**)Ventas/', '(***)Cambio de', 'Saldo al', 'Activo']
+    [2] ['Instrumento', '30-11-2025 (G)', 'Aportes (H)', 'Rescates (I)', 'Valor (2)', '31-12-2025 (J)', '%']
+    [3] ['Acciones', '3.834.377.253', '6.095.847', '0', '117.886.138', '3.958.359.238', '99,95%']
+    [4] ['CFICI81I-E', '2.235.054.328', '0', '0', '154.753.750', '2.389.808.078', '60,34%']
+    ... (4 more rows)
+  TABLE 2 (1 rows x 7 cols):
+    [0] ['Patrimonio', '3.834.464.119', '', '', '', '3.960.449.291', '']
+  TABLE 3 (4 rows x 10 cols):
+    [0] ['Para mayor informaci├│n, consulte el glosario al final de su cartola.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '<<', '<', 'P├ígina', '2', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 3 ---
+  Lines: 27, Tables: 4
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | DETALLE DE INVERSIONES EN US$
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | Resumen Cartera en US$ Resumen de Movimientos Caja en US$
+  | Valor inicial al 30-11-2025 (A) 5.217.506,34 Monto US$ Saldo US$
+  | Abonos/Retiros (B) 302.624,56 Inicio 0,00
+  | Ganancia/P├®rdida(1) -239.218,15 Compras/Aportes(D) 539.624,56
+  | Valor Final al 31-12-2025 (C) 5.280.912,75 Ventas/Rescates (E) 237.000,00
+  | Dividendos y Otros(F) 0,00
+  | Abonos/Retiros (B) 302.624,56
+  | Final 0,00
+  | El resumen de movimientos de caja no incluye Valores Extranjeros
+  | Resumen de sus inversiones en US$
+  | Activos Saldo al (**)Compras/ (**)Ventas/ (***)Cambio de Saldo al Activo
+  | Instrumento 30-11-2025 (G) Aportes (H) Rescates (I) Valor (2) 31-12-2025 (J) %
+  | Fondos Mutuos 5.217.506,34 539.624,56 237.000,00 -239.218,15 5.280.912,75 100,00%
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL 413.286,55 539.624,56 237.000,00 1.850,40 717.761,51 13,59%
+  | FI BICE SSOF IV I 1.061.243,80 0,00 0,00 9.913,07 1.071.156,87 20,28%
+  | FI BICE STEPSTONE IV SERIE I 3.742.975,99 0,00 0,00 -250.981,62 3.491.994,37 66,12%
+  | Total Activos 5.217.506,34 539.624,56 237.000,00 -239.218,15 5.280.912,75 100,00%
+  | Patrimonio 5.217.506,34 5.280.912,75
+  | Para mayor informaci├│n, consulte el glosario al final de su cartola.
+  | << < P├ígina 3 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (16 rows x 22 cols):
+    [0] ['RESUMEN DE SUS', None, '', 'INVERSIONES', '', 'INVERSIONES', None, None, '', 'INVERSIONES', None, None, '', 'DETALLE DE', None, '', 'DETALLE DE', None, None, '', 'GLOSARIO', None]
+    [1] ['INVERSIONES', None, '', 'EN $', '', 'EN US$', None, None, '', 'EN APV', None, None, '', 'CARTERAS', None, '', 'MOVIMIENTOS', None, None, '', '', None]
+    [2] [None, None, '', None, '', None, None, None, '', None, None, None, '', None, None, '', None, None, None, None, None, None]
+    [3] ['DETALLE DE I', None, 'NVERSIONES E', None, 'N US$', None, None, None, '', None, None, None, '', None, None, '', None, None, None, '', None, None]
+    [4] ['Ejecutivo:', '', 'Claudia Sepulveda M.', None, '', None, None, 'Ema', 'il:', None, None, 'csepulve', '@bice.cl', None, None, '', None, 'Tel├®fono:', None, '56-2-26922714', None, None]
+    ... (11 more rows)
+  TABLE 1 (8 rows x 7 cols):
+    [0] ['Resumen de sus inversiones en US$', None, None, None, None, None, None]
+    [1] ['Activos', 'Saldo al', '(**)Compras/', '(**)Ventas/', '(***)Cambio de', 'Saldo al', 'Activo']
+    [2] ['Instrumento', '30-11-2025 (G)', 'Aportes (H)', 'Rescates (I)', 'Valor (2)', '31-12-2025 (J)', '%']
+    [3] ['Fondos Mutuos', '5.217.506,34', '539.624,56', '237.000,00', '-239.218,15', '5.280.912,75', '100,00%']
+    [4] ['BICE LIQUIDEZ DOLAR INSTITUCIONAL', '413.286,55', '539.624,56', '237.000,00', '1.850,40', '717.761,51', '13,59%']
+    ... (3 more rows)
+  TABLE 2 (1 rows x 7 cols):
+    [0] ['Patrimonio', '5.217.506,34', '', '', '', '5.280.912,75', '']
+  TABLE 3 (4 rows x 10 cols):
+    [0] ['Para mayor informaci├│n, consulte el glosario al final de su cartola.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '<<', '<', 'P├ígina', '3', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 4 ---
+  Lines: 30, Tables: 5
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | DETALLE DE CARTERAS
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | Detalle Cartera Renta Variable en $
+  | Cuenta Cantidad Precio Dividendos Valor de
+  | Instrumento Inversi├│n Libre En Garant├¡a Saldo a Plazo Compra ├Ültimo del Periodo Mercado
+  | CFICI81I-E 0 1.339.973 0 0 895,00 1.783,47 0 2.389.808.078
+  | CFIHPH2I-E 0 1.302.747 0 0 924,41 1.204,03 0 1.568.551.160
+  | Subtotal Cuenta Inversi├│n 0: 3.958.359.238
+  | Subtotal Cartera Renta Variable: 3.958.359.238
+  | Detalle Cartera Fondos Mutuos en $
+  | Cuenta Cuenta Valor Saldo Cuotas Saldo
+  | Instrumento Inversi├│n Fondo Cuota Libres En Garant├¡a En $
+  | BICE TESORERIA INSTITUCIONAL 0 0 2.643,5082 790,6362 0,0000 2.090.053
+  | Subtotal Cuenta Inversi├│n 0: 2.090.053
+  | Subtotal Cartera Fondos Mutuos: 2.090.053
+  | Detalle Cartera Fondos Mutuos en US$
+  | Cuenta Cuenta Valor Saldo Cuotas Saldo
+  | Instrumento Inversi├│n Fondo Cuota Libres En Garant├¡a En US$
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL 0 1 1.359,9248 527,7950 0,0000 717.761,51
+  | FI BICE STEPSTONE IV SERIE I 0 0 1,3969 2.499.817,0000 0,0000 3.491.994,37
+  | FI BICE SSOF IV I 0 0 0,9833 1.089.349,0000 0,0000 1.071.156,87
+  | Subtotal Cuenta Inversi├│n 0: 5.280.912,75
+  | Subtotal Cartera Fondos Mutuos: 5.280.912,75
+  | Para mayor informaci├│n, consulte el glosario al final de su cartola.
+  | << < P├ígina 4 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (8 rows x 18 cols):
+    [0] ['RESUMEN DE SUS', None, '', 'INVERSIONES', '', 'INVERSIONES', None, '', 'INVERSIONES', None, '', 'DETALLE DE', None, '', 'DETALLE DE', None, '', 'GLOSARIO']
+    [1] ['INVERSIONES', None, '', 'EN $', '', 'EN US$', None, '', 'EN APV', None, '', 'CARTERAS', None, '', 'MOVIMIENTOS', None, '', '']
+    [2] [None, None, '', None, '', None, None, '', None, None, '', None, None, '', None, None, None, None]
+    [3] ['DETALLE DE', None, 'CARTERAS', None, '', None, None, '', None, None, '', None, None, '', None, None, '', None]
+    [4] ['Ejecutivo:', '', 'Claudia Sepulveda M.', None, '', None, 'Ema', 'il:', None, 'csepulve', '@bice.cl', None, None, '', None, 'Tel├®fono:', '56-2-26922714', None]
+    ... (3 more rows)
+  TABLE 1 (7 rows x 9 cols):
+    [0] ['Detalle Cartera Renta Variable en $', None, None, None, None, None, None, None, None]
+    [1] ['', 'Cuenta', 'Cantidad', None, None, 'Precio', None, 'Dividendos', 'Valor de']
+    [2] ['Instrumento', 'Inversi├│n', 'Libre', 'En Garant├¡a', 'Saldo a Plazo', 'Compra', '├Ültimo', 'del Periodo', 'Mercado']
+    [3] ['CFICI81I-E', '0', '1.339.973', '0', '0', '895,00', '1.783,47', '0', '2.389.808.078']
+    [4] ['CFIHPH2I-E', '0', '1.302.747', '0', '0', '924,41', '1.204,03', '0', '1.568.551.160']
+    ... (2 more rows)
+  TABLE 2 (6 rows x 7 cols):
+    [0] ['Detalle Cartera Fondos Mutuos en $', None, None, None, None, None, None]
+    [1] ['', 'Cuenta', 'Cuenta', 'Valor', 'Saldo Cuotas', None, 'Saldo']
+    [2] ['Instrumento', 'Inversi├│n', 'Fondo', 'Cuota', 'Libres', 'En Garant├¡a', 'En $']
+    [3] ['BICE TESORERIA INSTITUCIONAL', '0', '0', '2.643,5082', '790,6362', '0,0000', '2.090.053']
+    [4] ['Subtotal Cuenta Inversi├│n 0:', None, None, None, None, None, '2.090.053']
+    ... (1 more rows)
+  TABLE 3 (8 rows x 7 cols):
+    [0] ['Detalle Cartera Fondos Mutuos en US$', None, None, None, None, None, None]
+    [1] ['', 'Cuenta', 'Cuenta', 'Valor', 'Saldo Cuotas', None, 'Saldo']
+    [2] ['Instrumento', 'Inversi├│n', 'Fondo', 'Cuota', 'Libres', 'En Garant├¡a', 'En US$']
+    [3] ['BICE LIQUIDEZ DOLAR INSTITUCIONAL', '0', '1', '1.359,9248', '527,7950', '0,0000', '717.761,51']
+    [4] ['FI BICE STEPSTONE IV SERIE I', '0', '0', '1,3969', '2.499.817,0000', '0,0000', '3.491.994,37']
+    ... (3 more rows)
+  TABLE 4 (4 rows x 10 cols):
+    [0] ['Para mayor informaci├│n, consulte el glosario al final de su cartola.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '<<', '<', 'P├ígina', '4', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 5 ---
+  Lines: 37, Tables: 3
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | DETALLE DE MOVIMIENTOS
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | Detalle de movimientos de Caja en $
+  | Cuenta Inversi├│n: 0
+  | Fecha Folio Tipo Movimiento Instrumento Abono Cargo Saldo
+  | SALDO INICIAL CAJA 0
+  | 11-12-2025 25.272.423 ABONO POR COBRO DE INVERSION $ OWP 1.000.000 0 1.000.000
+  | 11-12-2025 25.272.424 CARGO COMPROMISO DE INVERSION $ OWP 0 1.000.000 0
+  | 30-12-2025 25.403.193 ABONO POR COBRO DE INVERSION $ OWP 1.000.000 0 1.000.000
+  | 30-12-2025 25.403.194 CARGO COMPROMISO DE INVERSION $ OWP 0 1.000.000 0
+  | SALDO FINAL CAJA 0
+  | Detalle de movimientos de Caja en US$
+  | Cuenta Inversi├│n: 0
+  | Fecha Folio Tipo Movimiento Instrumento Abono Cargo Saldo
+  | SALDO INICIAL CAJA 0,00
+  | 04-12-2025 5.145.825 CARGO POR PAGO DE RESCATES US$ OWP 0,00 17.000,00 -17.000,00
+  | 04-12-2025 5.146.406 ABONO ORIGINADO POR PAGO RESCATE US$ OWP 17.000,00 0,00 0,00
+  | 05-12-2025 5.153.388 ABONO POR COBRO DE INVERSION US$ OWP 43.139,60 0,00 43.139,60
+  | 05-12-2025 5.153.389 CARGO COMPROMISO DE INVERSION US$ OWP 0,00 43.139,60 0,00
+  | 10-12-2025 5.159.489 ABONO POR COBRO DE INVERSION US$ OWP 62.000,00 0,00 62.000,00
+  | 10-12-2025 5.159.490 CARGO COMPROMISO DE INVERSION US$ OWP 0,00 62.000,00 0,00
+  | 19-12-2025 5.187.478 ABONO POR COBRO DE INVERSION US$ OWP 218.000,00 0,00 218.000,00
+  | 19-12-2025 5.187.479 CARGO COMPROMISO DE INVERSION US$ OWP 0,00 218.000,00 0,00
+  | 22-12-2025 5.189.876 ABONO CUENTA CAJA DOLAR 203.732,94 0,00 203.732,94
+  | 23-12-2025 5.192.824 CARGO COMPROMISO DE INVERSION US$ OWP 0,00 203.732,94 0,00
+  | 29-12-2025 5.208.044 CARGO POR PAGO DE RESCATES US$ OWP 0,00 220.000,00 -220.000,00
+  | 29-12-2025 5.208.708 ABONO ORIGINADO POR PAGO RESCATE US$ OWP 220.000,00 0,00 0,00
+  | 30-12-2025 5.216.235 ABONO POR COBRO DE INVERSION US$ OWP 12.752,02 0,00 12.752,02
+  | 30-12-2025 5.216.236 CARGO COMPROMISO DE INVERSION US$ OWP 0,00 12.752,02 0,00
+  | SALDO FINAL CAJA 0,00
+  | Para mayor informaci├│n, consulte el glosario al final de su cartola.
+  | << < P├ígina 5 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (16 rows x 23 cols):
+    [0] ['RESUMEN DE SUS', None, None, '', 'INVERSIONES', None, '', 'INVERSIONES', None, '', 'INVERSIONES', None, None, None, '', 'DETALLE DE', None, '', 'DETALLE DE', None, '', None, 'GLOSARIO']
+    [1] ['INVERSIONES', None, None, '', 'EN $', None, '', 'EN US$', None, '', 'EN APV', None, None, None, '', 'CARTERAS', None, '', 'MOVIMIENTOS', None, '', None, '']
+    [2] [None, None, None, '', None, None, '', None, None, '', None, None, None, None, '', None, None, '', None, None, None, None, None]
+    [3] ['DETALLE DE', None, None, 'MOVIMIENTOS', None, None, '', None, None, '', None, None, None, None, '', None, None, '', None, None, '', None, None]
+    [4] ['Ejecutivo:', None, '', 'Claudia Sepulveda M.', None, None, '', None, 'Ema', 'il:', None, None, 'csepulve', None, '@bice.cl', None, None, '', None, 'Tel├®fono:', '56-2-26922714', None, None]
+    ... (11 more rows)
+  TABLE 1 (19 rows x 7 cols):
+    [0] ['Detalle de movimientos de Caja en US$', None, None, None, None, None, None]
+    [1] ['Cuenta Inversi├│n: 0', None, None, None, None, None, None]
+    [2] ['Fecha', 'Folio', 'Tipo Movimiento', 'Instrumento', 'Abono', 'Cargo', 'Saldo']
+    [3] ['', '', 'SALDO INICIAL CAJA', '', '', '', '0,00']
+    [4] ['04-12-2025', '5.145.825', 'CARGO POR PAGO DE RESCATES US$ OWP', '', '0,00', '17.000,00', '-17.000,00']
+    ... (14 more rows)
+  TABLE 2 (4 rows x 10 cols):
+    [0] ['Para mayor informaci├│n, consulte el glosario al final de su cartola.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '<<', '<', 'P├ígina', '5', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 6 ---
+  Lines: 43, Tables: 3
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | DETALLE DE MOVIMIENTOS
+  | Ejecutivo: Claudia Sepulveda M. Email: csepulve@bice.cl Tel├®fono: 56-2-26922714
+  | Per├¡odo: 01-12-2025 al 31-12-2025 Fecha Emisi├│n: 31-12-2025
+  | Movimientos de T├¡tulos en $
+  | Cuenta Inversi├│n: 0
+  | Fecha N┬░Ref. Operaci├│n Instrumento P/B Cantidad Precio, TIR Monto Neto
+  | BICE TESORERIA INSTITUCIONAL - CUENTA FONDO:
+  | 11-12-2025 12.713.976 INVERSION FM 379,2707 2.636,6394 1.000.000
+  | 0
+  | 22-12-2025 526.372 INGRESO RV CFIHPH2I-E 4.637,000 1.314,610 6.095.847
+  | BICE TESORERIA INSTITUCIONAL - CUENTA FONDO:
+  | 30-12-2025 12.731.976 INVERSION FM 378,3785 2.642,8561 1.000.000
+  | 0
+  | Movimientos de T├¡tulos en US$
+  | Cuenta Inversi├│n: 0
+  | Fecha N┬░Ref. Operaci├│n Instrumento P/B Cantidad Precio, TIR Monto Neto
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 03-12-2025 12.688.885 RESCATE FM 12,5349 1.356,2091 17.000,00
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 05-12-2025 12.709.291 INVERSION FM 31,8058 1.356,3417 43.139,60
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 10-12-2025 12.712.553 INVERSION FM 45,6889 1.357,0038 62.000,00
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 19-12-2025 12.722.800 INVERSION FM 160,5067 1.358,1987 218.000,00
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 23-12-2025 12.725.809 INVERSION FM 149,9442 1.358,7250 203.732,94
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 28-12-2025 12.710.897 RESCATE FM 161,8213 1.359,5247 220.000,00
+  | FONDO: 1
+  | BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA
+  | 30-12-2025 12.731.973 INVERSION FM 9,3788 1.359,6582 12.752,02
+  | FONDO: 1
+  | Para mayor informaci├│n, consulte el glosario al final de su cartola.
+  | << < P├ígina 6 de 7 > >>
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (15 rows x 24 cols):
+    [0] ['RESUMEN DE SUS', None, None, '', 'INVERSIONES', None, '', 'INVERSIONES', None, '', 'INVERSIONES', None, '', 'DETALLE DE', None, None, None, '', 'DETALLE DE', None, None, '', None, 'GLOSARIO']
+    [1] ['INVERSIONES', None, None, '', 'EN $', None, '', 'EN US$', None, '', 'EN APV', None, '', 'CARTERAS', None, None, None, '', 'MOVIMIENTOS', None, None, '', None, '']
+    [2] [None, None, None, '', None, None, '', None, None, '', None, None, '', None, None, None, None, '', None, None, None, None, None, None]
+    [3] ['DETALLE DE', None, None, 'MOVIMIENTOS', None, None, '', None, None, '', None, None, '', None, None, None, None, '', None, None, None, '', None, None]
+    [4] ['Ejecutivo:', None, '', 'Claudia Sepulveda M.', None, None, '', None, 'Ema', 'il:', None, 'csepulve', '@bice.cl', None, None, None, None, '', None, 'Tel├®fono:', None, '56-2-26922714', None, None]
+    ... (10 more rows)
+  TABLE 1 (17 rows x 8 cols):
+    [0] ['Movimientos de T├¡tulos en US$', None, None, None, None, None, None, None]
+    [1] ['Cuenta Inversi├│n: 0', None, None, None, None, None, None, None]
+    [2] ['Fecha', 'N┬░Ref.', 'Operaci├│n', 'Instrumento', 'P/B', 'Cantidad', 'Precio, TIR', 'Monto Neto']
+    [3] ['03-12-2025', '12.688.885', 'RESCATE FM', 'BICE LIQUIDEZ DOLAR INSTITUCIONAL - CUENTA', '', '12,5349', '1.356,2091', '17.000,00']
+    [4] [None, None, None, 'FONDO: 1', None, None, None, None]
+    ... (12 more rows)
+  TABLE 2 (4 rows x 10 cols):
+    [0] ['Para mayor informaci├│n, consulte el glosario al final de su cartola.', None, None, None, None, None, None, None, None, None]
+    [1] ['', '<<', '<', 'P├ígina', '6', 'de', '7', '>', '>>', '']
+    [2] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [3] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]
+
+--- Page 7 ---
+  Lines: 33, Tables: 12
+  | RESUMEN DE SUS INVERSIONES INVERSIONES INVERSIONES DETALLE DE DETALLE DE GLOSARIO
+  | INVERSIONES EN $ EN US$ EN APV CARTERAS MOVIMIENTOS
+  | GLOSARIO
+  | (1) Ganancia / P├®rdida = C ÔÇô ( A + B )
+  | (2) Cambio de Valor = ( I + J ) - ( G + H )
+  | (B) Abonos / Retiros ($) : Monto neto de dinero abonado y/o rescatado de la cuenta de inversi├│n.
+  | (D) Compras / Aportes : Suma total de las operaciones de compras y/o aportes realizadas en el per├¡odo, incluyendo operaciones simult├íneas.
+  | (E) Ventas / Rescates : Suma total de las operaciones de ventas y/o rescates realizadas en el per├¡odo, incluyendo operaciones simult├íneas.
+  | (F) Dividendos y Otros : Incluye los dividendos de fondos mutuos y acciones percibidos, y/o eventuales cargos o comisiones cobrados en el per├¡odo.
+  | (P/B)Presencia B├║rsatil : Para compras y ventas de acciones, la columna (P/B) en la hoja detalle de movimientos se├▒ala si los instrumentos involucrados
+  | ten├¡an Presencia Burs├ítil cuando ├®stas fueron realizadas.
+  | BF CV-A : Bonificaci├│n Fiscal de las Cotizaciones Voluntarias, r├®gimen tributario A
+  | BF DAPV-A : Bonificaci├│n Fiscal de los Dep├│sitos de APV, r├®gimen tributario A
+  | CV-A : Cotizaciones Voluntarias, r├®gimen tributario A
+  | CV-B : Cotizaciones Voluntarias, r├®gimen tributario B
+  | DAPV-A : Dep├│sitos de APV, r├®gimen tributario A
+  | DAPV-B : Dep├│sitos de APV, r├®gimen tributario B
+  | DC : Dep├│sitos Convenidos
+  | Fair value : Precio que se recibir├¡a por vender un activo en una transacci├│n ordenada entre participantes del mercado en la fecha de medici├│n.
+  | NOTA 1 : Cuentas Prime corresponden a aquellas administradas por BICE Inversiones Corredores de Bolsa S.A.
+  | NOTA 2 : Valorizaci├│n de los activos en el Plan APV Prime se efect├║a a valor de mercado bajo metodolog├¡a de ÔÇ£fair value". Trat├índose de
+  | cuotas de inversi├│n nacionales, el ├║ltimo precio corresponder├í al valor cuota del fondo o serie seg├║n corresponda el que puede
+  | no coincidir con el precio de mercado.
+  | (*) : Valores en mercados internacionales a trav├®s de intermediarios extranjeros.
+  | (**) : No incluye simult├íneas.
+  | (***) : No incluye dividendos.
+  | (****) : Dividendos repartidos por los Fondos Mutuos (reparto de beneficios) son reinvertidos autom├íticamente en el mismo Fondo. En el
+  | caso de Acciones, estos quedan disponibles en su cuenta caja.
+  | Rogamos hacernos llegar su conformidad u observaciones sobre las operaciones y saldos referidos en este documento dentro del plazo de 30 d├¡as contados desde
+  | la fecha de env├¡o. Transcurrido este plazo sin recibir su respuesta, entendemos que usted otorga su conformidad.
+  | << < P├ígina 7 de 7
+  | Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.
+  | BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.
+  TABLE 0 (4 rows x 13 cols):
+    [0] ['RESUMEN DE SUS', '', 'INVERSIONES', '', 'INVERSIONES', '', 'INVERSIONES', '', 'DETALLE DE', '', 'DETALLE DE', '', 'GLOSARIO']
+    [1] ['INVERSIONES', '', 'EN $', '', 'EN US$', '', 'EN APV', '', 'CARTERAS', '', 'MOVIMIENTOS', '', '']
+    [2] [None, '', None, '', None, '', None, '', None, '', None, None, None]
+    [3] ['GLOSARIO', '', None, '', None, '', None, '', None, '', None, '', None]
+  TABLE 1 (1 rows x 3 cols):
+    [0] ['Ganancia /', 'P├®rdida', '=']
+  TABLE 2 (1 rows x 2 cols):
+    [0] ['Cambio de Valor', '=']
+  TABLE 3 (1 rows x 2 cols):
+    [0] ['Abonos / Retiros ($)', ':']
+  TABLE 4 (1 rows x 2 cols):
+    [0] ['Compras / Aportes', ':']
+  TABLE 5 (1 rows x 2 cols):
+    [0] ['Ventas / Rescates', ':']
+  TABLE 6 (1 rows x 2 cols):
+    [0] ['Dividendos y Otros', ':']
+  TABLE 7 (2 rows x 2 cols):
+    [0] ['Presencia B├║rsatil', ':']
+    [1] ['', '']
+  TABLE 8 (8 rows x 1 cols):
+    [0] [':']
+    [1] [':']
+    [2] [':']
+    [3] [':']
+    [4] [':']
+    ... (3 more rows)
+  TABLE 9 (4 rows x 1 cols):
+    [0] [':']
+    [1] [':']
+    [2] ['']
+    [3] ['']
+  TABLE 10 (5 rows x 2 cols):
+    [0] [None, ':']
+    [1] ['(**)', ':']
+    [2] [None, ':']
+    [3] [None, ':']
+    [4] [None, '']
+  TABLE 11 (5 rows x 10 cols):
+    [0] ['Rogamos hacernos llegar su conformidad u observaciones sobre las operaciones y saldos referidos en este documento dentro del plazo de 30 d├¡as contados desde', None, None, None, None, None, None, None, None, None]
+    [1] ['la fecha de env├¡o. Transcurrido este plazo sin recibir su respuesta, entendemos que usted otorga su conformidad.', None, None, None, None, None, None, None, None, None]
+    [2] ['', '<<', '<', 'P├ígina', '7', 'de', '7', '', '', '']
+    [3] ['Mesa Central: 600 400 4000 - Avda. Apoquindo 3846, piso 14, Las Condes, Santiago, Chile - E-mail: inversiondigital@bice.cl / www.biceinversiones.cl.', None, None, None, None, None, None, None, None, None]
+    [4] ['BICE Inversiones Corredores de Bolsa S.A. | BICE Inversiones Administradora General de Fondos S.A.', None, None, None, None, None, None, None, None, None]

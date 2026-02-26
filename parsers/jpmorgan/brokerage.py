@@ -1,13 +1,11 @@
 """
-Parser: JPMorgan – Cuenta ETF (Cartola PDF – Consolidated Statement).
+Parser: JPMorgan – Cuenta Brokerage (Consolidated Statement PDF).
 
-Formato:  "For the Period M/D/YY to M/D/YY"
-Página 1: Account Summary (cuentas, beginning/ending market value)
-Página 3: Consolidated Summary (asset allocation, portfolio activity)
-Página 4: Per-account YTD (contributions, income, gains)
-Páginas 5+: Holdings detail por cuenta
+Formato IDÉNTICO al ETF: "For the Period M/D/YY to M/D/YY"
+Usa el mismo Consolidated Statement package pero taggeado como brokerage.
+Detección: "Consolidated Statement" + "brokerage" en nombre de archivo.
 
-AISLADO: No comparte lógica con otros bancos.
+AISLADO: No comparte lógica con otros parsers.
 """
 
 from __future__ import annotations
@@ -23,10 +21,9 @@ import pdfplumber
 from parsers.base import BaseParser, ParseResult, ParsedRow, ParserStatus
 
 
-# ── Helpers locales (aislados en este módulo) ────────────────────
+# ── Helpers locales (duplicados a propósito – aislamiento) ───────
 
 def _parse_usd(text: str) -> Optional[Decimal]:
-    """Parse US dollar string: '$1,234.56', '(1,234.56)', '-1,234.56'."""
     if not text or text.strip() in ("", "N/A", "--", "n/a"):
         return None
     s = text.strip().replace("$", "").replace(",", "").strip()
@@ -45,7 +42,6 @@ def _parse_usd(text: str) -> Optional[Decimal]:
 
 
 def _parse_date_mdy_short(text: str) -> Optional[date]:
-    """Parse 'M/D/YY' → date (assumes 2000s)."""
     m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{2,4})", text)
     if not m:
         return None
@@ -58,22 +54,13 @@ def _parse_date_mdy_short(text: str) -> Optional[date]:
         return None
 
 
-def _extract_all_text(filepath: Path) -> list[str]:
-    """Return list of text strings, one per page."""
-    pages: list[str] = []
-    with pdfplumber.open(filepath) as pdf:
-        for page in pdf.pages:
-            pages.append(page.extract_text() or "")
-    return pages
-
-
 # ── Parser ───────────────────────────────────────────────────────
 
-class JPMorganEtfParser(BaseParser):
+class JPMorganBrokerageParser(BaseParser):
     BANK_CODE = "jpmorgan"
-    ACCOUNT_TYPE = "etf"
+    ACCOUNT_TYPE = "brokerage"
     VERSION = "2.0.0"
-    DESCRIPTION = "Parser para cartolas ETF JPMorgan (Consolidated Statement PDF)"
+    DESCRIPTION = "Parser para cartolas Brokerage JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
     _DETECTION_MARKERS = [
@@ -82,11 +69,13 @@ class JPMorganEtfParser(BaseParser):
         "Consolidated Statement",
     ]
 
-    # ── parse ────────────────────────────────────────────────────
-
     def parse(self, filepath: Path) -> ParseResult:
         file_hash = self.compute_file_hash(filepath)
-        pages = _extract_all_text(filepath)
+
+        pages: list[str] = []
+        with pdfplumber.open(filepath) as pdf:
+            for page in pdf.pages:
+                pages.append(page.extract_text() or "")
 
         result = ParseResult(
             status=ParserStatus.SUCCESS,
@@ -104,19 +93,10 @@ class JPMorganEtfParser(BaseParser):
 
         result.raw_text_preview = pages[0][:500]
 
-        # 1) Period dates
         self._extract_period(pages, result)
-
-        # 2) Account summary (page 1)
         self._extract_account_summary(pages, result)
-
-        # 3) Consolidated summary (usually page 3)
         self._extract_consolidated_summary(pages, result)
-
-        # 4) Per-account YTD (usually page 4)
         self._extract_account_ytd(pages, result)
-
-        # 5) Holdings from detail pages
         self._extract_holdings(pages, result)
 
         if not result.account_number and not result.rows:
@@ -145,26 +125,19 @@ class JPMorganEtfParser(BaseParser):
         text = pages[0] if pages else ""
         accounts: list[dict] = []
 
-        # Regex: account number followed by beginning/ending values
-        # Example: B99719001¹ 21,542,506.53 18,885,468.69 (2,657,037.84) 4
         for m in re.finditer(
             r"([A-Z0-9]{5,15})[¹²³\u00b9\u00b2\u00b3\u2071]*"
             r"\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+"
             r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})\s+(\d+)",
             text,
         ):
-            acct = m.group(1)
-            beginning = _parse_usd(m.group(2))
-            ending = _parse_usd(m.group(3))
-            change = _parse_usd(m.group(4))
             accounts.append({
-                "account_number": acct,
-                "beginning_value": str(beginning) if beginning else None,
-                "ending_value": str(ending) if ending else None,
-                "change": str(change) if change else None,
+                "account_number": m.group(1),
+                "beginning_value": str(_parse_usd(m.group(2))),
+                "ending_value": str(_parse_usd(m.group(3))),
+                "change": str(_parse_usd(m.group(4))),
             })
 
-        # Total Value line
         total_m = re.search(
             r"Total Value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})",
             text,
@@ -180,13 +153,11 @@ class JPMorganEtfParser(BaseParser):
     # ── Consolidated Summary ─────────────────────────────────────
 
     def _extract_consolidated_summary(self, pages: list[str], result: ParseResult) -> None:
-        # Search in first 10 pages for "Consolidated Summary"
         for text in pages[:10]:
             if "Consolidated Summary" not in text:
                 continue
 
             asset_alloc: dict[str, dict] = {}
-            # Equity  4,357,711.89  5,272,882.80  915,170.91  16%
             for m in re.finditer(
                 r"(Equity|Cash & Fixed Income)\s+"
                 r"([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+"
@@ -206,7 +177,6 @@ class JPMorganEtfParser(BaseParser):
             if asset_alloc:
                 result.qualitative_data["asset_allocation"] = asset_alloc
 
-            # Portfolio Activity
             activity = {}
             patterns = [
                 ("beginning_market_value", r"Beginning Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
@@ -225,7 +195,7 @@ class JPMorganEtfParser(BaseParser):
 
             if activity:
                 result.qualitative_data["portfolio_activity"] = activity
-            break  # only process first consolidated summary page
+            break
 
     # ── Per-account YTD ──────────────────────────────────────────
 
@@ -256,7 +226,6 @@ class JPMorganEtfParser(BaseParser):
             if ytd_accounts:
                 result.qualitative_data["account_ytd"] = ytd_accounts
 
-            # Income Summary
             income: list[dict] = []
             for m in re.finditer(
                 r"([A-Z0-9]{5,15})\s+"
@@ -266,7 +235,6 @@ class JPMorganEtfParser(BaseParser):
                 r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
                 text,
             ):
-                # Only after "Income Summary" section
                 income.append({
                     "account_number": m.group(1),
                     "income": str(_parse_usd(m.group(2))),
@@ -282,43 +250,33 @@ class JPMorganEtfParser(BaseParser):
     # ── Holdings detail ──────────────────────────────────────────
 
     def _extract_holdings(self, pages: list[str], result: ParseResult) -> None:
-        """Extract individual positions from holdings detail pages."""
         current_account: Optional[str] = None
         current_section: str = "unknown"
 
         for page_num, text in enumerate(pages):
-            # Track current account
             acct_m = re.search(r"ACCT\.\s+([A-Z0-9]+)", text)
             if acct_m:
                 current_account = acct_m.group(1)
 
-            # Track section
             if "Cash & Fixed Income" in text:
                 current_section = "cash_fixed_income"
             elif "Equity" in text and "Detail" in text:
                 current_section = "equity"
 
-            # Skip non-holdings pages
             if "Detail" not in text and "Holdings" not in text:
                 continue
 
-            # Parse holdings lines:
-            # INSTRUMENT_NAME  PRICE  QUANTITY  VALUE  COST  GAIN/LOSS  INCOME  YIELD
-            # Simplified: look for lines with dollar values that look like holdings
             for line in text.split("\n"):
-                # Holdings pattern: name followed by numbers
-                # JPM USD LIQUIDITY SWEEP C SHARE 1.00 445,951.86 445,951.86 445,951.86 16,972.92 3.81%
                 h_m = re.match(
                     r"^(.{15,60}?)\s+"
-                    r"([\d,.]+)\s+"        # price or quantity
-                    r"([\d,.]+)\s+"        # quantity or value
-                    r"([\d,]+\.\d{2})\s+"  # market value
-                    r"([\d,]+\.\d{2}|N/A)",  # cost
+                    r"([\d,.]+)\s+"
+                    r"([\d,.]+)\s+"
+                    r"([\d,]+\.\d{2})\s+"
+                    r"([\d,]+\.\d{2}|N/A)",
                     line.strip(),
                 )
                 if h_m:
                     name = h_m.group(1).strip()
-                    # Skip header lines and totals
                     if any(skip in name.lower() for skip in [
                         "price", "quantity", "total", "account", "period",
                         "beginning", "ending", "summary", "asset",
@@ -344,7 +302,6 @@ class JPMorganEtfParser(BaseParser):
                         confidence=0.8,
                     ))
 
-            # Total lines: "Total Cash $16,258,536.38..."
             for m in re.finditer(
                 r"Total\s+([\w\s&-]+?)\s+\$?([\d,]+\.\d{2})",
                 text,
@@ -363,18 +320,12 @@ class JPMorganEtfParser(BaseParser):
                         confidence=0.9,
                     ))
 
-    # ── validate ─────────────────────────────────────────────────
-
     def validate(self, result: ParseResult) -> list[str]:
         errors = []
         if result.opening_balance is not None and result.closing_balance is not None:
             if result.closing_balance <= Decimal("0"):
-                errors.append(
-                    f"Closing balance sospechoso: {result.closing_balance}"
-                )
+                errors.append(f"Closing balance sospechoso: {result.closing_balance}")
         return errors
-
-    # ── detect ───────────────────────────────────────────────────
 
     def detect(self, filepath: Path) -> float:
         if filepath.suffix.lower() != ".pdf":
@@ -388,8 +339,8 @@ class JPMorganEtfParser(BaseParser):
                 for marker in self._DETECTION_MARKERS:
                     if marker.lower() in text.lower():
                         score += 0.25
-                # Bonus for ETF-specific markers in filename
-                if "etf" in filepath.name.lower():
+                # Bonus for brokerage-specific markers
+                if "brokerage" in filepath.name.lower():
                     score += 0.25
                 return min(score, 1.0)
         except Exception:
