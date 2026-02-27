@@ -146,38 +146,43 @@ def render():
         # ── Auto-fill logic ─────────────────────────────────────
         if "autofill_data" not in st.session_state:
             st.session_state.autofill_data = {}
+        if "autofill_version" not in st.session_state:
+            st.session_state.autofill_version = 0
 
         if not is_multi_account and auto_fill_clicked and identification_number:
             af = _try_auto_fill_by_id(identification_number, bank_code, entity_name)
             if af:
                 st.session_state.autofill_data = af
+                st.session_state.autofill_version += 1
                 st.success("✅ Datos auto-completados desde el maestro de cuentas")
             else:
                 st.session_state.autofill_data = {}
+                st.session_state.autofill_version += 1
                 st.warning(
                     "⚠️ Cuenta no encontrada en el maestro. "
                     "Verifica sociedad, banco y dígito verificador."
                 )
 
         af = st.session_state.get("autofill_data", {}) if not is_multi_account else {}
+        _v = st.session_state.get("autofill_version", 0)
 
         # ── Campos auto-rellenados (expandible) ─────────────────
         if af:
             with st.expander("📋 Datos del maestro (auto-rellenados)", expanded=True):
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key="af_acct")
+                    st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key=f"af_acct_{_v}")
                 with c2:
-                    st.text_input("Tipo de cuenta", value=_fmt_account_type(af.get("account_type", "")), disabled=True, key="af_type")
+                    st.text_input("Tipo de cuenta", value=_fmt_account_type(af.get("account_type", "")), disabled=True, key=f"af_type_{_v}")
                 with c3:
-                    st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key="af_cur")
+                    st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key=f"af_cur_{_v}")
                 c4, c5, c6 = st.columns(3)
                 with c4:
-                    st.text_input("Portafolio/Personal", value=af.get("entity_type", ""), disabled=True, key="af_et")
+                    st.text_input("Portafolio/Personal", value=af.get("entity_type", ""), disabled=True, key=f"af_et_{_v}")
                 with c5:
-                    st.text_input("Persona", value=af.get("person_name", "") or "", disabled=True, key="af_person")
+                    st.text_input("Persona", value=af.get("person_name", "") or "", disabled=True, key=f"af_person_{_v}")
                 with c6:
-                    st.text_input("Código interno", value=af.get("internal_code", "") or "", disabled=True, key="af_code")
+                    st.text_input("Código interno", value=af.get("internal_code", "") or "", disabled=True, key=f"af_code_{_v}")
 
         # Resolver valores finales (del auto-fill o vacíos)
         account_number = af.get("account_number", "")
