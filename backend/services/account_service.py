@@ -35,28 +35,37 @@ class AccountService:
         """
         Upsert desde Excel maestro.
         Crea cuentas nuevas, actualiza existentes.
+        Maneja duplicados dentro del mismo Excel (misma account_number en
+        varias filas): la última fila gana.
 
         Returns:
             {"created": n, "updated": n, "errors": [...]}
         """
         stats = {"created": 0, "updated": 0, "errors": []}
 
+        # Deduplicar filas del Excel: si un account_number aparece más de
+        # una vez, quedarse con la última fila (override).
+        unique_rows: dict[str, dict] = {}
         for row in rows:
             acct_num = row.get("account_number")
             if not acct_num:
                 stats["errors"].append(f"Fila sin account_number: {row}")
                 continue
+            unique_rows[str(acct_num)] = row
 
-            existing = self.get_by_number(str(acct_num))
+        _UPDATE_FIELDS = [
+            "bank_code", "bank_name", "account_type",
+            "entity_name", "entity_type", "currency",
+            "country", "mandate_type", "is_active",
+            "person_name", "internal_code", "metadata_json",
+        ]
+
+        for acct_num, row in unique_rows.items():
+            existing = self.get_by_number(acct_num)
 
             if existing:
                 # Actualizar
-                for field in [
-                    "bank_code", "bank_name", "account_type",
-                    "entity_name", "entity_type", "currency",
-                    "country", "mandate_type", "is_active",
-                    "person_name", "internal_code", "metadata_json",
-                ]:
+                for field in _UPDATE_FIELDS:
                     val = row.get(field)
                     if val is not None:
                         setattr(existing, field, val)
@@ -65,7 +74,7 @@ class AccountService:
             else:
                 # Crear
                 account = Account(
-                    account_number=str(acct_num),
+                    account_number=acct_num,
                     bank_code=str(row.get("bank_code", "unknown")),
                     bank_name=str(row.get("bank_name", "")),
                     account_type=str(row.get("account_type", "unknown")),
@@ -81,6 +90,7 @@ class AccountService:
                     source_file_hash=source_hash,
                 )
                 self.db.add(account)
+                self.db.flush()  # Flush para que la siguiente query lo encuentre
                 stats["created"] += 1
 
         self.db.commit()
