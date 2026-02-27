@@ -485,6 +485,7 @@ def render():
                     df = pd.DataFrame(accounts)
                     # Seleccionar y renombrar columnas para mostrar
                     display_cols = {
+                        "identification_number": "Nº Identificación",
                         "account_number": "Nº Cuenta",
                         "bank_code": "Banco",
                         "account_type": "Tipo Cuenta",

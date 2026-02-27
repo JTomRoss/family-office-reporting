@@ -35,32 +35,28 @@ class AccountService:
         """
         Upsert desde Excel maestro.
         Crea cuentas nuevas, actualiza existentes.
-        Maneja duplicados dentro del mismo Excel (misma account_number en
-        varias filas): la última fila gana.
+        account_number es UNIQUE (número real de cuenta).
 
         Returns:
             {"created": n, "updated": n, "errors": [...]}
         """
         stats = {"created": 0, "updated": 0, "errors": []}
 
-        # Deduplicar filas del Excel: si un account_number aparece más de
-        # una vez, quedarse con la última fila (override).
-        unique_rows: dict[str, dict] = {}
-        for row in rows:
-            acct_num = row.get("account_number")
-            if not acct_num:
-                stats["errors"].append(f"Fila sin account_number: {row}")
-                continue
-            unique_rows[str(acct_num)] = row
-
         _UPDATE_FIELDS = [
+            "identification_number",
             "bank_code", "bank_name", "account_type",
             "entity_name", "entity_type", "currency",
             "country", "mandate_type", "is_active",
             "person_name", "internal_code", "metadata_json",
         ]
 
-        for acct_num, row in unique_rows.items():
+        for row in rows:
+            acct_num = row.get("account_number")
+            if not acct_num:
+                stats["errors"].append(f"Fila sin account_number: {row}")
+                continue
+            acct_num = str(acct_num)
+
             existing = self.get_by_number(acct_num)
 
             if existing:
@@ -75,6 +71,7 @@ class AccountService:
                 # Crear
                 account = Account(
                     account_number=acct_num,
+                    identification_number=row.get("identification_number"),
                     bank_code=str(row.get("bank_code", "unknown")),
                     bank_name=str(row.get("bank_name", "")),
                     account_type=str(row.get("account_type", "unknown")),
@@ -113,6 +110,7 @@ class AccountService:
         if not account:
             return None
         return {
+            "identification_number": account.identification_number,
             "bank_code": account.bank_code,
             "bank_name": account.bank_name,
             "account_type": account.account_type,
@@ -129,7 +127,8 @@ class AccountService:
         Ej: bank_code vacío, account_type inválido, etc.
         """
         errors = []
-        valid_types = {"custody", "current", "savings", "investment", "etf"}
+        valid_types = {"custody", "current", "savings", "investment", "etf",
+                       "brokerage", "mandato", "bonds", "checking"}
         valid_entity_types = {"sociedad", "persona"}
 
         accounts = self.db.query(Account).all()

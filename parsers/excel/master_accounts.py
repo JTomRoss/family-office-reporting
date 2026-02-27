@@ -32,13 +32,14 @@ def _strip_accents(text: str) -> str:
 class MasterAccountsParser(BaseExcelParser):
     BANK_CODE = "system"
     ACCOUNT_TYPE = "master_accounts"
-    VERSION = "2.0.0"
-    DESCRIPTION = "Parser para Excel maestro de cuentas (SSOT) – mapeo flexible"
+    VERSION = "3.0.0"
+    DESCRIPTION = "Parser para Excel maestro de cuentas (SSOT) – con número cuenta real + dígito identificación"
     SUPPORTED_EXTENSIONS = [".xlsx", ".xls", ".csv"]
 
     # ── Columnas internas que el sistema necesita ────────────────
     _EXPECTED_COLUMNS = [
         "account_number",
+        "identification_number",
         "bank_code",
         "bank_name",
         "account_type",
@@ -107,6 +108,14 @@ class MasterAccountsParser(BaseExcelParser):
         "codigo_interno": "internal_code",
         "internal_code": "internal_code",
         "codigo": "internal_code",
+        # identification_number (dígito identificación — 4 dígitos cortos para reporting)
+        "digito_identificacion": "identification_number",
+        "digito_de_identificacion": "identification_number",
+        "digito_id": "identification_number",
+        "identification_number": "identification_number",
+        "nro_identificacion": "identification_number",
+        "numero_identificacion": "identification_number",
+        "id_number": "identification_number",
         # Portafolio / Personal (columnas especiales que se procesan aparte)
         "portafolio": "_portafolio",
         "personal": "_personal",
@@ -239,8 +248,16 @@ class MasterAccountsParser(BaseExcelParser):
             if key.startswith("_extra_") and val is not None and not (isinstance(val, float) and pd.isna(val)):
                 extra[key.replace("_extra_", "")] = str(val)
 
+        # identification_number (dígito corto para reporting)
+        id_num = raw_row.get("identification_number")
+        if id_num is not None and not (isinstance(id_num, float) and pd.isna(id_num)):
+            id_num = str(int(id_num) if isinstance(id_num, float) else id_num).strip()
+        else:
+            id_num = None
+
         acct = {
             "account_number": raw_row.get("account_number"),
+            "identification_number": id_num,
             "bank_code": bank_code,
             "bank_name": str(bank_name),
             "account_type": account_type,
@@ -369,9 +386,10 @@ class MasterAccountsParser(BaseExcelParser):
         for row in result.rows:
             acct = row.data.get("account_number")
             if acct and acct in seen_accounts:
-                errors.append(f"Cuenta duplicada en maestro: {acct}")
+                errors.append(f"Número de cuenta duplicado en maestro: {acct}")
             if acct:
                 seen_accounts.add(acct)
+            # identification_number puede repetirse (es intencional)
         return errors
 
     def detect(self, filepath: Path) -> float:

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 class AccountBase(BaseModel):
     account_number: str
+    identification_number: Optional[str] = None
     bank_code: str
     bank_name: str
     account_type: str

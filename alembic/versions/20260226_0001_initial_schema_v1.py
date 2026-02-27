@@ -27,6 +27,7 @@ def upgrade() -> None:
         "accounts",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("account_number", sa.String(100), nullable=False),
+        sa.Column("identification_number", sa.String(50), nullable=True),
         sa.Column("bank_code", sa.String(50), nullable=False),
         sa.Column("bank_name", sa.String(200), nullable=False),
         sa.Column("account_type", sa.String(50), nullable=False),

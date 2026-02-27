@@ -136,6 +136,10 @@ class Account(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     account_number: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # Número de cuenta REAL (ej: U28375001). UNIQUE.
+    identification_number: Mapped[Optional[str]] = mapped_column(String(50))
+    # Dígito corto de identificación (ej: 5001). NO unique, puede repetirse.
+    # Es el que se muestra en tablas de reporting.
     bank_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     bank_name: Mapped[str] = mapped_column(String(200), nullable=False)
     account_type: Mapped[str] = mapped_column(String(50), nullable=False)
