@@ -31,6 +31,16 @@ BANCOS = {
 }
 
 
+_UPPERCASE_TYPES = {"etf"}
+
+
+def _fmt_account_type(raw: str) -> str:
+    """ETF → 'ETF', brokerage → 'Brokerage', etc."""
+    if not raw:
+        return raw
+    return raw.upper() if raw.lower() in _UPPERCASE_TYPES else raw.capitalize()
+
+
 def _try_auto_fill_by_id(identification_number: str, bank_code: str = "", entity_name: str = "") -> dict | None:
     """Intenta auto-completar metadata usando dígito verificador + banco + sociedad."""
     if not identification_number or not identification_number.strip():
@@ -158,7 +168,7 @@ def render():
                 with c1:
                     st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key="af_acct")
                 with c2:
-                    st.text_input("Tipo de cuenta", value=af.get("account_type", ""), disabled=True, key="af_type")
+                    st.text_input("Tipo de cuenta", value=_fmt_account_type(af.get("account_type", "")), disabled=True, key="af_type")
                 with c3:
                     st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key="af_cur")
                 c4, c5, c6 = st.columns(3)
@@ -438,6 +448,8 @@ def render():
                     df_display = df[available].rename(
                         columns={c: display_cols[c] for c in available}
                     )
+                    if "Tipo Cuenta" in df_display.columns:
+                        df_display["Tipo Cuenta"] = df_display["Tipo Cuenta"].apply(_fmt_account_type)
                     st.dataframe(df_display, use_container_width=True, hide_index=True)
                     st.caption(f"Total: {len(df_display)} cuentas")
 
