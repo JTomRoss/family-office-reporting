@@ -30,30 +30,18 @@ BANCOS = {
     "bice": "BICE",
 }
 
-TIPOS_CUENTA = {
-    "": "— Seleccionar —",
-    "custody": "Custodia",
-    "current": "Cuenta Corriente",
-    "savings": "Ahorro",
-    "investment": "Inversión",
-    "etf": "ETF",
-}
 
-TIPOS_ENTIDAD = {
-    "": "— Seleccionar —",
-    "sociedad": "Portafolio (Sociedad)",
-    "persona": "Personal (Persona natural)",
-}
-
-MONEDAS = ["", "USD", "EUR", "CHF", "CLP", "GBP", "JPY", "BRL", "MXN"]
-
-
-def _try_auto_fill(account_number: str) -> dict | None:
-    """Intenta auto-completar metadata desde el maestro de cuentas."""
-    if not account_number or not account_number.strip():
+def _try_auto_fill_by_id(identification_number: str, bank_code: str = "", entity_name: str = "") -> dict | None:
+    """Intenta auto-completar metadata usando dígito verificador + banco + sociedad."""
+    if not identification_number or not identification_number.strip():
         return None
     try:
-        return api_client.get(f"/accounts/{account_number.strip()}/auto-fill")
+        params = {"identification_number": identification_number.strip()}
+        if bank_code:
+            params["bank_code"] = bank_code
+        if entity_name:
+            params["entity_name"] = entity_name.strip()
+        return api_client.get("/accounts/auto-fill", params=params)
     except Exception:
         return None
 
@@ -76,7 +64,7 @@ def render():
 
         st.caption(
             "💡 **Tip:** Carga primero el maestro de cuentas (pestaña Excel) para "
-            "que el auto-relleno funcione al ingresar el número de cuenta."
+            "que el auto-relleno funcione al ingresar el dígito verificador."
         )
 
         # ── Fila 1: Tipo documento y Banco ──────────────────────
@@ -99,44 +87,58 @@ def render():
                 key="pdf_bank",
             )
 
-        # ── Fila 2: Número de cuenta + multi-cuenta ────────────
+        # ── Fila 2: Sociedad, Dígito verificador, Auto-llenar ──
         is_multi_account = st.checkbox(
             "📑 Varias cuentas en un documento (ej: JP Morgan Mandatos)",
             key="pdf_multi_account",
         )
 
         if is_multi_account:
-            account_number = "Varios"
-            sub_accounts = st.text_input(
-                "Sub-cuentas (separadas por coma) *",
-                placeholder="Ej: 2600, 3400, 9200",
-                key="pdf_sub_accounts",
-                help="El parser detectará automáticamente la información de cada sub-cuenta del PDF",
-            )
+            identification_number = "Varios"
+            col_soc, col_sub = st.columns(2)
+            with col_soc:
+                entity_name = st.text_input(
+                    "Sociedad *",
+                    placeholder="Ej: Boatview",
+                    key="pdf_entity_name",
+                )
+            with col_sub:
+                sub_accounts = st.text_input(
+                    "Sub-cuentas (dígitos verificadores, separados por coma) *",
+                    placeholder="Ej: 2600, 3400, 9200",
+                    key="pdf_sub_accounts",
+                    help="El parser detectará automáticamente la información de cada sub-cuenta del PDF",
+                )
             if sub_accounts:
                 st.caption(
                     f"🔢 Sub-cuentas: {', '.join(s.strip() for s in sub_accounts.split(',') if s.strip())}"
                 )
+            auto_fill_clicked = False
         else:
             sub_accounts = ""
-            col_acct, col_btn = st.columns([3, 1])
-            with col_acct:
-                account_number = st.text_input(
-                    "Número de cuenta *",
-                    placeholder="Ej: 1234-5678-90",
-                    key="pdf_account_number",
+            col_soc, col_id, col_btn = st.columns([2, 1, 1])
+            with col_soc:
+                entity_name = st.text_input(
+                    "Sociedad *",
+                    placeholder="Ej: Armel Holdings",
+                    key="pdf_entity_name",
+                )
+            with col_id:
+                identification_number = st.text_input(
+                    "Dígito verificador *",
+                    placeholder="Ej: 5001",
+                    key="pdf_identification_number",
                 )
             with col_btn:
                 st.markdown("<br>", unsafe_allow_html=True)  # alinear con input
                 auto_fill_clicked = st.button("🔍 Auto-llenar", key="btn_autofill")
 
         # ── Auto-fill logic ─────────────────────────────────────
-        # Almacenar datos del auto-relleno en session_state
         if "autofill_data" not in st.session_state:
             st.session_state.autofill_data = {}
 
-        if not is_multi_account and auto_fill_clicked and account_number:
-            af = _try_auto_fill(account_number)
+        if not is_multi_account and auto_fill_clicked and identification_number:
+            af = _try_auto_fill_by_id(identification_number, bank_code, entity_name)
             if af:
                 st.session_state.autofill_data = af
                 st.success("✅ Datos auto-completados desde el maestro de cuentas")
@@ -144,93 +146,36 @@ def render():
                 st.session_state.autofill_data = {}
                 st.warning(
                     "⚠️ Cuenta no encontrada en el maestro. "
-                    "Completa los campos manualmente."
+                    "Verifica sociedad, banco y dígito verificador."
                 )
 
         af = st.session_state.get("autofill_data", {}) if not is_multi_account else {}
 
-        # ── Fila 3: Sociedad / Código interno ──────────────────
-        col3, col4 = st.columns(2)
-        with col3:
-            entity_name = st.text_input(
-                "Sociedad / Nombre entidad *",
-                value=af.get("entity_name", ""),
-                placeholder="Ej: Inversiones ABC SpA",
-                key="pdf_entity_name",
-            )
-        with col4:
-            internal_code = st.text_input(
-                "Código interno",
-                placeholder="Código de referencia interno",
-                key="pdf_internal_code",
-            )
+        # ── Campos auto-rellenados (expandible) ─────────────────
+        if af:
+            with st.expander("📋 Datos del maestro (auto-rellenados)", expanded=True):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key="af_acct")
+                with c2:
+                    st.text_input("Tipo de cuenta", value=af.get("account_type", ""), disabled=True, key="af_type")
+                with c3:
+                    st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key="af_cur")
+                c4, c5, c6 = st.columns(3)
+                with c4:
+                    st.text_input("Portafolio/Personal", value=af.get("entity_type", ""), disabled=True, key="af_et")
+                with c5:
+                    st.text_input("Persona", value=af.get("person_name", "") or "", disabled=True, key="af_person")
+                with c6:
+                    st.text_input("Código interno", value=af.get("internal_code", "") or "", disabled=True, key="af_code")
 
-        # ── Fila 4: Tipo cuenta / Moneda ───────────────────────
-        col5, col6 = st.columns(2)
-        with col5:
-            acct_type_options = list(TIPOS_CUENTA.keys())
-            # Preseleccionar si auto-fill tiene dato
-            af_acct_type = af.get("account_type", "")
-            default_idx = (
-                acct_type_options.index(af_acct_type)
-                if af_acct_type in acct_type_options
-                else 0
-            )
-            account_type = st.selectbox(
-                "Tipo de cuenta *",
-                acct_type_options,
-                index=default_idx,
-                format_func=lambda x: TIPOS_CUENTA[x],
-                key="pdf_account_type",
-            )
-        with col6:
-            af_currency = af.get("currency", "")
-            cur_default = (
-                MONEDAS.index(af_currency)
-                if af_currency in MONEDAS
-                else 0
-            )
-            currency = st.selectbox(
-                "Moneda *",
-                MONEDAS,
-                index=cur_default,
-                format_func=lambda x: x if x else "— Seleccionar —",
-                key="pdf_currency",
-            )
-
-        # ── Fila 5: Portafolio/Personal / Nombre persona ──────
-        col7, col8 = st.columns(2)
-        with col7:
-            entity_type_options = list(TIPOS_ENTIDAD.keys())
-            af_entity_type = af.get("entity_type", "")
-            et_default = (
-                entity_type_options.index(af_entity_type)
-                if af_entity_type in entity_type_options
-                else 0
-            )
-            entity_type = st.selectbox(
-                "Portafolio o Personal *",
-                entity_type_options,
-                index=et_default,
-                format_func=lambda x: TIPOS_ENTIDAD[x],
-                key="pdf_entity_type",
-            )
-        with col8:
-            person_name = ""
-            if entity_type == "persona":
-                person_name = st.text_input(
-                    "Nombre persona *",
-                    placeholder="Nombre completo de la persona",
-                    key="pdf_person_name",
-                )
-            else:
-                st.text_input(
-                    "Nombre persona",
-                    value="",
-                    disabled=True,
-                    help="Solo aplica cuando es Personal",
-                    key="pdf_person_name_disabled",
-                )
+        # Resolver valores finales (del auto-fill o vacíos)
+        account_number = af.get("account_number", "")
+        account_type = af.get("account_type", "")
+        currency = af.get("currency", "")
+        entity_type = af.get("entity_type", "")
+        person_name = af.get("person_name", "") or ""
+        internal_code = af.get("internal_code", "") or ""
 
         st.markdown("---")
 
@@ -245,24 +190,16 @@ def render():
         if uploaded_files:
             st.info(f"📎 {len(uploaded_files)} archivo(s) seleccionado(s)")
 
-            # Validar campos obligatorios
+            # Validar campos obligatorios (solo banco, sociedad, dígito verificador)
             missing = []
             if not bank_code:
                 missing.append("Banco")
+            if not entity_name.strip():
+                missing.append("Sociedad")
             if is_multi_account and not sub_accounts.strip():
                 missing.append("Sub-cuentas")
-            elif not is_multi_account and not account_number.strip():
-                missing.append("Número de cuenta")
-            if not entity_name.strip():
-                missing.append("Sociedad / Nombre entidad")
-            if not account_type:
-                missing.append("Tipo de cuenta")
-            if not currency:
-                missing.append("Moneda")
-            if not entity_type:
-                missing.append("Portafolio o Personal")
-            if entity_type == "persona" and not person_name.strip():
-                missing.append("Nombre persona")
+            elif not is_multi_account and not identification_number.strip():
+                missing.append("Dígito verificador")
 
             if missing:
                 st.warning(f"⚠️ Campos obligatorios faltantes: **{', '.join(missing)}**")
@@ -286,12 +223,13 @@ def render():
                     try:
                         upload_data = {
                                 "bank_code": bank_code,
-                                "account_number": account_number.strip(),
+                                "account_number": account_number.strip() if account_number else "",
+                                "identification_number": identification_number.strip() if identification_number else "",
                                 "entity_name": entity_name.strip(),
                                 "account_type": account_type,
                                 "entity_type": entity_type,
-                                "person_name": person_name.strip() if entity_type == "persona" else "",
-                                "internal_code": internal_code.strip(),
+                                "person_name": person_name.strip() if person_name else "",
+                                "internal_code": internal_code.strip() if internal_code else "",
                                 "currency": currency,
                         }
                         if is_multi_account and sub_accounts.strip():

@@ -36,6 +36,26 @@ def check_classification(db: Session = Depends(get_db)):
     return service.detect_classification_errors()
 
 
+@router.get("/auto-fill")
+def auto_fill_by_id(
+    identification_number: str,
+    bank_code: str | None = None,
+    entity_name: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Auto-completa metadata buscando por dígito verificador + banco + sociedad."""
+    service = AccountService(db)
+    metadata = service.auto_fill_by_identification(
+        identification_number, bank_code, entity_name
+    )
+    if not metadata:
+        raise HTTPException(
+            status_code=404,
+            detail="Cuenta no encontrada en maestro con esos datos",
+        )
+    return metadata
+
+
 @router.get("/{account_number}")
 def get_account(account_number: str, db: Session = Depends(get_db)):
     """Obtiene una cuenta por número."""
@@ -48,7 +68,7 @@ def get_account(account_number: str, db: Session = Depends(get_db)):
 
 @router.get("/{account_number}/auto-fill")
 def auto_fill(account_number: str, db: Session = Depends(get_db)):
-    """Auto-completa metadata desde el maestro de cuentas."""
+    """Auto-completa metadata desde el maestro de cuentas (por account_number)."""
     service = AccountService(db)
     metadata = service.auto_fill_metadata(account_number)
     if not metadata:

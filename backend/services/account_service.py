@@ -31,6 +31,22 @@ class AccountService:
             .first()
         )
 
+    def get_by_identification(
+        self,
+        identification_number: str,
+        bank_code: str | None = None,
+        entity_name: str | None = None,
+    ) -> Optional[Account]:
+        """Busca cuenta por dígito verificador, opcionalmente filtrado por banco/sociedad."""
+        query = self.db.query(Account).filter(
+            Account.identification_number == identification_number
+        )
+        if bank_code:
+            query = query.filter(Account.bank_code == bank_code)
+        if entity_name:
+            query = query.filter(Account.entity_name == entity_name)
+        return query.first()
+
     def upsert_from_master(self, rows: list[dict], source_hash: str) -> dict:
         """
         Upsert desde Excel maestro.
@@ -103,13 +119,34 @@ class AccountService:
 
     def auto_fill_metadata(self, account_number: str) -> Optional[dict]:
         """
-        Auto-completa metadata desde el maestro.
-        Usado durante carga de documentos.
+        Auto-completa metadata desde el maestro (por account_number).
         """
         account = self.get_by_number(account_number)
         if not account:
             return None
+        return self._account_to_autofill(account)
+
+    def auto_fill_by_identification(
+        self,
+        identification_number: str,
+        bank_code: str | None = None,
+        entity_name: str | None = None,
+    ) -> Optional[dict]:
+        """
+        Auto-completa metadata desde el maestro usando dígito verificador.
+        Usado en la carga de PDFs donde el usuario ingresa banco + sociedad + ID.
+        """
+        account = self.get_by_identification(
+            identification_number, bank_code, entity_name
+        )
+        if not account:
+            return None
+        return self._account_to_autofill(account)
+
+    @staticmethod
+    def _account_to_autofill(account: Account) -> dict:
         return {
+            "account_number": account.account_number,
             "identification_number": account.identification_number,
             "bank_code": account.bank_code,
             "bank_name": account.bank_name,
@@ -119,6 +156,8 @@ class AccountService:
             "currency": account.currency,
             "country": account.country,
             "mandate_type": account.mandate_type,
+            "person_name": account.person_name,
+            "internal_code": account.internal_code,
         }
 
     def detect_classification_errors(self) -> list[dict]:
