@@ -34,10 +34,12 @@ Sistema de **reporting financiero interno** para un Family Office chileno. La ap
 ### Entorno local
 - **venv**: `.venv/` (activar con `.\.venv\Scripts\Activate.ps1` en Windows)
 - **Instalar**: `pip install -e ".[dev]"`
-- **Backend**: puerto **8000** → `python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload`
-- **Frontend**: puerto **8501** → `python -m streamlit run frontend/app.py --server.port 8501`
+- **Iniciar app**: `.\scripts\start.ps1` (levanta backend 8000 + frontend 8501, SIN --reload)
+- **Detener app**: `.\scripts\stop.ps1`
+- **Reiniciar tras cambios**: `.\scripts\stop.ps1 ; .\scripts\start.ps1`
 - **Tests**: `python -m pytest tests/ -x -q`
 - **Git**: repo `JTomRoss/family-office-reporting` (privado), branch `master`
+- ⚠️ **NUNCA** usar `--reload` ni `--log-level debug`. Ver sección 10.
 
 ---
 
