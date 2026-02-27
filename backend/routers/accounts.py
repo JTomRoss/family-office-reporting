@@ -54,3 +54,21 @@ def auto_fill(account_number: str, db: Session = Depends(get_db)):
     if not metadata:
         raise HTTPException(status_code=404, detail="Cuenta no encontrada en maestro")
     return metadata
+
+
+@router.delete("/")
+def delete_all_accounts(db: Session = Depends(get_db)):
+    """Elimina TODAS las cuentas del maestro y datos dependientes."""
+    from backend.db.models import Account, DailyPosition, DailyMovement, MonthlyClosing
+    db.query(DailyPosition).delete()
+    db.query(DailyMovement).delete()
+    db.query(MonthlyClosing).delete()
+    # Desvincular documentos de las cuentas (no borrar los docs)
+    from backend.db.models import RawDocument
+    db.query(RawDocument).filter(RawDocument.account_id.isnot(None)).update(
+        {"account_id": None}, synchronize_session=False
+    )
+    count = db.query(Account).count()
+    db.query(Account).delete()
+    db.commit()
+    return {"status": "deleted_all_accounts", "count": count}

@@ -240,13 +240,36 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/")
-def delete_all_documents(db: Session = Depends(get_db)):
-    """Elimina TODOS los documentos y sus registros relacionados. Usar con cuidado."""
-    from backend.db.models import RawDocument, ParsedStatement, ValidationLog
+def delete_all_documents(
+    include_accounts: bool = True,
+    db: Session = Depends(get_db),
+):
+    """Elimina TODOS los documentos y sus registros relacionados.
+    
+    Si include_accounts=True (default), también elimina todas las cuentas
+    del maestro, ya que fueron cargadas desde un documento Excel.
+    """
+    from backend.db.models import (
+        RawDocument, ParsedStatement, ValidationLog,
+        Account, DailyPosition, DailyMovement, MonthlyClosing,
+    )
     # Eliminar dependientes primero para evitar FK constraints
     db.query(ValidationLog).filter(ValidationLog.raw_document_id.isnot(None)).delete()
     db.query(ParsedStatement).delete()
-    count = db.query(RawDocument).count()
+    doc_count = db.query(RawDocument).count()
     db.query(RawDocument).delete()
+
+    acct_count = 0
+    if include_accounts:
+        db.query(DailyPosition).delete()
+        db.query(DailyMovement).delete()
+        db.query(MonthlyClosing).delete()
+        acct_count = db.query(Account).count()
+        db.query(Account).delete()
+
     db.commit()
-    return {"status": "deleted_all", "count": count}
+    return {
+        "status": "deleted_all",
+        "documents_deleted": doc_count,
+        "accounts_deleted": acct_count,
+    }

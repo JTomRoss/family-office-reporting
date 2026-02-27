@@ -501,6 +501,16 @@ def render():
                     )
                     st.dataframe(df_display, use_container_width=True, hide_index=True)
                     st.caption(f"Total: {len(df_display)} cuentas")
+
+                    # Botón eliminar cuentas
+                    if st.button("🗑️ Eliminar todas las cuentas", type="secondary", key="del_accounts"):
+                        try:
+                            result = api_client.delete("/accounts/")
+                            ct = result.get("count", 0)
+                            st.success(f"✅ {ct} cuentas eliminadas del maestro")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
                 else:
                     st.info("No hay cuentas cargadas aún. Sube el Excel maestro arriba.")
             except Exception as e:
@@ -547,18 +557,55 @@ def render():
             docs = api_client.get("/documents/", params=params)
 
             if docs:
-                st.dataframe(docs, use_container_width=True)
+                import pandas as pd
+                df_docs = pd.DataFrame(docs)
 
-                # Botones de acción
-                col1, col2 = st.columns([1, 5])
-                with col1:
-                    if st.button("🗑️ Eliminar todo", type="secondary"):
-                        try:
-                            api_client.delete("/documents/")
-                            st.success("✅ Todos los documentos eliminados")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
+                # Renombrar columnas para display
+                col_rename = {
+                    "id": "ID",
+                    "filename": "Archivo",
+                    "file_type": "Tipo",
+                    "bank_code": "Banco",
+                    "status": "Estado",
+                    "uploaded_at": "Subido",
+                }
+                show_cols = [c for c in col_rename if c in df_docs.columns]
+                df_show = df_docs[show_cols].rename(columns=col_rename)
+                st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+                # ── Eliminación individual ──────────────────────
+                st.markdown("##### Eliminar documento específico")
+                doc_options = {
+                    d["id"]: f"ID {d['id']} — {d['filename']} ({d.get('file_type', '')})"
+                    for d in docs
+                }
+                selected_id = st.selectbox(
+                    "Seleccionar documento",
+                    options=list(doc_options.keys()),
+                    format_func=lambda x: doc_options[x],
+                    key="doc_select_delete",
+                )
+                if st.button("🗑️ Eliminar seleccionado", key="btn_del_one"):
+                    try:
+                        api_client.delete(f"/documents/{selected_id}")
+                        st.success(f"✅ Documento ID {selected_id} eliminado")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+                # ── Eliminación masiva ──────────────────────────
+                st.markdown("---")
+                if st.button("🗑️ Eliminar TODO (documentos + cuentas)", type="secondary"):
+                    try:
+                        result = api_client.delete("/documents/")
+                        d_ct = result.get("documents_deleted", 0)
+                        a_ct = result.get("accounts_deleted", 0)
+                        st.success(
+                            f"✅ Eliminados: {d_ct} documentos, {a_ct} cuentas"
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
             else:
                 st.info("No hay documentos cargados con los filtros seleccionados.")
 
