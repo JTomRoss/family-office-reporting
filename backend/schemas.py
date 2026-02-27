@@ -23,8 +23,10 @@ class AccountBase(BaseModel):
     entity_name: str
     entity_type: str
     currency: str
-    country: str
+    country: Optional[str] = ""
     mandate_type: Optional[str] = None
+    person_name: Optional[str] = None
+    internal_code: Optional[str] = None
     is_active: bool = True
 
 
@@ -52,6 +54,7 @@ class DocumentUploadResponse(BaseModel):
     status: str
     is_duplicate: bool = False
     message: str = ""
+    existing_metadata: Optional[dict] = None  # Metadata del doc existente si es duplicado
 
 
 class DocumentListItem(BaseModel):

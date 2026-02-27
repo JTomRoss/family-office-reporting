@@ -50,6 +50,7 @@ class ParseResult:
 
     # Metadatos del statement
     account_number: Optional[str] = None
+    account_numbers: list[str] = field(default_factory=list)  # Multi-cuenta (ej: JP Morgan Mandatos)
     bank_code: Optional[str] = None
     statement_date: Optional[date] = None
     period_start: Optional[date] = None
@@ -78,7 +79,7 @@ class ParseResult:
 
     @property
     def is_success(self) -> bool:
-        return self.status == ParserStatus.SUCCESS
+        return self.status in (ParserStatus.SUCCESS, ParserStatus.PARTIAL)
 
     @property
     def row_count(self) -> int:
@@ -190,9 +191,11 @@ class BaseParser(ABC):
             errors.append("CONTRACT: source_file_hash es requerido")
 
         # Si es SUCCESS, debe tener datos mínimos
-        if result.status == ParserStatus.SUCCESS:
-            if not result.account_number:
-                errors.append("CONTRACT: account_number es requerido para SUCCESS")
+        # (Solo para parsers de banco; system parsers como master_accounts
+        #  no tienen account_number/currency a nivel de ParseResult)
+        if result.status == ParserStatus.SUCCESS and self.BANK_CODE != "system":
+            if not result.account_number and not result.account_numbers:
+                errors.append("CONTRACT: account_number o account_numbers es requerido para SUCCESS")
             if not result.currency:
                 errors.append("CONTRACT: currency es requerido para SUCCESS")
             if result.statement_date is None and result.row_count == 0:

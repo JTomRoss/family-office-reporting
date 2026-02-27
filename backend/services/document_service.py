@@ -156,7 +156,9 @@ class DocumentService:
             # Intentar parser específico
             account_type = doc.file_type.replace("pdf_", "").replace("excel_", "")
             parser = registry.get_parser(doc.bank_code, account_type)
-
+        # Para excel_master, buscar el parser de sistema
+        if parser is None and doc.file_type == "excel_master":
+            parser = registry.get_parser("system", "master_accounts")
         if parser is None:
             # Auto-detectar
             parser = registry.get_parser_for_file(filepath)
@@ -197,6 +199,44 @@ class DocumentService:
 
             self.db.commit()
 
+            # ── Si es excel_master, alimentar AccountService ────
+            master_stats = None
+            if doc.file_type == "excel_master" and result.is_success:
+                try:
+                    from backend.services.account_service import AccountService
+                    acct_service = AccountService(self.db)
+                    # Convertir ParsedRow.data a lista de dicts
+                    account_rows = []
+                    for row in result.rows:
+                        # Limpiar NaN de pandas
+                        clean = {}
+                        for k, v in row.data.items():
+                            try:
+                                import math
+                                if isinstance(v, float) and math.isnan(v):
+                                    continue
+                            except (TypeError, ValueError):
+                                pass
+                            clean[k] = v
+                        account_rows.append(clean)
+
+                    master_stats = acct_service.upsert_from_master(
+                        rows=account_rows,
+                        source_hash=result.source_file_hash,
+                    )
+                    self._log_validation(
+                        "master_check", "info",
+                        f"Maestro procesado: {master_stats['created']} creadas, "
+                        f"{master_stats['updated']} actualizadas, {len(master_stats['errors'])} errores",
+                        raw_document_id=doc.id,
+                    )
+                except Exception as master_err:
+                    self._log_validation(
+                        "master_check", "error",
+                        f"Error procesando maestro de cuentas: {master_err}",
+                        raw_document_id=doc.id,
+                    )
+
             # ── Auto-invalidar cache tras ingesta exitosa ────────
             if result.is_success:
                 try:
@@ -222,12 +262,15 @@ class DocumentService:
                 source_module=parser.get_parser_name(),
             )
 
-            return {
+            resp = {
                 "status": result.status.value,
                 "rows_parsed": result.row_count,
                 "warnings": result.warnings,
                 "errors": result.errors,
             }
+            if master_stats is not None:
+                resp["master_stats"] = master_stats
+            return resp
 
         except Exception as e:
             doc.status = "error"
@@ -275,6 +318,45 @@ class DocumentService:
             f"Documento eliminado: {doc.filename} (id={document_id})",
         )
         return True
+
+    def reclassify_document(self, document_id: int, metadata: dict) -> dict | None:
+        """
+        Reclasifica un documento existente con nueva metadata.
+        Actualiza bank_code y resetea status para reprocesamiento.
+        """
+        doc = self.db.query(RawDocument).filter(RawDocument.id == document_id).first()
+        if not doc:
+            return None
+
+        old_bank = doc.bank_code
+        new_bank = metadata.get("bank_code")
+
+        # Actualizar campos disponibles en RawDocument
+        if new_bank:
+            doc.bank_code = new_bank
+
+        # Resetear a uploaded para que se pueda reprocesar
+        doc.status = "uploaded"
+        doc.error_message = None
+        doc.processed_at = None
+
+        self.db.commit()
+        self.db.refresh(doc)
+
+        self._log_validation(
+            "load", "info",
+            f"Documento reclasificado: {doc.filename} "
+            f"(bank: {old_bank}→{new_bank}, id={document_id})",
+            raw_document_id=document_id,
+        )
+
+        return {
+            "status": "reclassified",
+            "id": document_id,
+            "filename": doc.filename,
+            "bank_code": doc.bank_code,
+            "new_status": doc.status,
+        }
 
     def _ensure_parser_version(self, parser) -> ParserVersion:
         """Registra o recupera la versión del parser."""

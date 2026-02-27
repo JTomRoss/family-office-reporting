@@ -55,6 +55,7 @@ class AccountService:
                     "bank_code", "bank_name", "account_type",
                     "entity_name", "entity_type", "currency",
                     "country", "mandate_type", "is_active",
+                    "person_name", "internal_code", "metadata_json",
                 ]:
                     val = row.get(field)
                     if val is not None:
@@ -69,11 +70,14 @@ class AccountService:
                     bank_name=str(row.get("bank_name", "")),
                     account_type=str(row.get("account_type", "unknown")),
                     entity_name=str(row.get("entity_name", "")),
-                    entity_type=str(row.get("entity_type", "")),
+                    entity_type=str(row.get("entity_type", "sociedad")),
                     currency=str(row.get("currency", "USD")),
                     country=str(row.get("country", "")),
                     mandate_type=row.get("mandate_type"),
+                    person_name=row.get("person_name"),
+                    internal_code=row.get("internal_code"),
                     is_active=bool(row.get("is_active", True)),
+                    metadata_json=row.get("metadata_json"),
                     source_file_hash=source_hash,
                 )
                 self.db.add(account)

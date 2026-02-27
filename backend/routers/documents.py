@@ -22,6 +22,14 @@ async def upload_document(
     file_type: str = Form(...),
     bank_code: Optional[str] = Form(None),
     account_id: Optional[int] = Form(None),
+    account_number: Optional[str] = Form(None),
+    entity_name: Optional[str] = Form(None),
+    account_type: Optional[str] = Form(None),
+    entity_type: Optional[str] = Form(None),
+    person_name: Optional[str] = Form(None),
+    internal_code: Optional[str] = Form(None),
+    currency: Optional[str] = Form(None),
+    sub_accounts: Optional[str] = Form(None),  # Comma-separated for multi-account docs
     period_year: Optional[int] = Form(None),
     period_month: Optional[int] = Form(None),
     db: Session = Depends(get_db),
@@ -53,6 +61,20 @@ async def upload_document(
             period_month=period_month,
         )
 
+        # Si es duplicado, incluir metadata existente para que la UI pueda mostrarla
+        existing_meta = None
+        if is_duplicate:
+            existing_meta = {
+                "bank_code": doc.bank_code,
+                "account_number": getattr(doc, "account_number", None),
+                "entity_name": getattr(doc, "entity_name", None),
+                "account_type": getattr(doc, "account_type", None),
+                "entity_type": getattr(doc, "entity_type", None),
+                "currency": getattr(doc, "currency", None),
+                "file_type": doc.file_type,
+                "status": doc.status,
+            }
+
         return DocumentUploadResponse(
             id=doc.id,
             filename=doc.filename,
@@ -61,7 +83,66 @@ async def upload_document(
             status=doc.status,
             is_duplicate=is_duplicate,
             message="Documento duplicado, no se procesó" if is_duplicate else "Cargado correctamente",
+            existing_metadata=existing_meta,
         )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.post("/upload-and-process")
+async def upload_and_process(
+    file: UploadFile = File(...),
+    file_type: str = Form(...),
+    bank_code: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Sube Y procesa un documento en un solo paso.
+    Útil para Excel maestro y otros archivos que deben procesarse inmediatamente.
+    """
+    service = DocumentService(db)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        doc, is_duplicate = service.upload_document(
+            temp_filepath=tmp_path,
+            original_filename=file.filename,
+            file_type=file_type,
+            bank_code=bank_code,
+        )
+
+        if is_duplicate:
+            # Aunque sea duplicado, si es maestro, reprocesar
+            if file_type == "excel_master":
+                process_result = service.process_document(doc.id)
+                return {
+                    "id": doc.id,
+                    "filename": doc.filename,
+                    "is_duplicate": True,
+                    "message": "Maestro duplicado, reprocesado",
+                    "process_result": process_result,
+                }
+            return {
+                "id": doc.id,
+                "filename": doc.filename,
+                "is_duplicate": True,
+                "message": "Documento duplicado",
+            }
+
+        # Procesar inmediatamente
+        process_result = service.process_document(doc.id)
+
+        return {
+            "id": doc.id,
+            "filename": doc.filename,
+            "is_duplicate": False,
+            "message": "Cargado y procesado correctamente",
+            "process_result": process_result,
+        }
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -119,6 +200,23 @@ def process_document(
     return service.process_document(document_id)
 
 
+@router.post("/{document_id}/reclassify")
+def reclassify_document(
+    document_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+):
+    """
+    Reclasifica un documento existente con nueva metadata.
+    Usado cuando el usuario carga un duplicado con clasificación diferente.
+    """
+    service = DocumentService(db)
+    result = service.reclassify_document(document_id, body)
+    if not result:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    return result
+
+
 @router.get("/", response_model=list[DocumentListItem])
 def list_documents(
     file_type: Optional[str] = None,
@@ -143,8 +241,11 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/")
 def delete_all_documents(db: Session = Depends(get_db)):
-    """Elimina TODOS los documentos. Usar con cuidado."""
-    from backend.db.models import RawDocument
+    """Elimina TODOS los documentos y sus registros relacionados. Usar con cuidado."""
+    from backend.db.models import RawDocument, ParsedStatement, ValidationLog
+    # Eliminar dependientes primero para evitar FK constraints
+    db.query(ValidationLog).filter(ValidationLog.raw_document_id.isnot(None)).delete()
+    db.query(ParsedStatement).delete()
     count = db.query(RawDocument).count()
     db.query(RawDocument).delete()
     db.commit()

@@ -174,7 +174,12 @@ class JPMorganEtfParser(BaseParser):
             result.closing_balance = _parse_usd(total_m.group(2))
 
         if accounts:
-            result.account_number = accounts[0]["account_number"]
+            if len(accounts) > 1:
+                # Multi-cuenta (ej: Mandatos agrupa 2600, 3400, 9200)
+                result.account_number = "Varios"
+                result.account_numbers = [a["account_number"] for a in accounts]
+            else:
+                result.account_number = accounts[0]["account_number"]
             result.qualitative_data["accounts"] = accounts
 
     # ── Consolidated Summary ─────────────────────────────────────

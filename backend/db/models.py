@@ -30,6 +30,10 @@ class AccountType(str, PyEnum):
     SAVINGS = "savings"
     INVESTMENT = "investment"
     ETF = "etf"
+    BROKERAGE = "brokerage"
+    MANDATO = "mandato"
+    BONDS = "bonds"
+    CHECKING = "checking"
 
 
 class EntityType(str, PyEnum):
@@ -141,9 +145,13 @@ class Account(Base):
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
     # "sociedad", "persona"
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
-    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[Optional[str]] = mapped_column(String(100), default="")
     mandate_type: Mapped[Optional[str]] = mapped_column(String(100))
     # "discretionary", "advisory", "execution_only"
+    person_name: Mapped[Optional[str]] = mapped_column(String(200))
+    # Nombre persona (cuando entity_type=persona)
+    internal_code: Mapped[Optional[str]] = mapped_column(String(100))
+    # Código interno de referencia
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     metadata_json: Mapped[Optional[str]] = mapped_column(Text)
     # JSON libre para campos extra del maestro
@@ -215,8 +223,12 @@ class RawDocument(Base):
     # Relationships
     account: Mapped[Optional["Account"]] = relationship(back_populates="raw_documents")
     parser_version: Mapped[Optional["ParserVersion"]] = relationship()
-    parsed_statements: Mapped[list["ParsedStatement"]] = relationship(back_populates="raw_document")
-    validation_logs: Mapped[list["ValidationLog"]] = relationship(back_populates="raw_document")
+    parsed_statements: Mapped[list["ParsedStatement"]] = relationship(
+        back_populates="raw_document", cascade="all, delete-orphan"
+    )
+    validation_logs: Mapped[list["ValidationLog"]] = relationship(
+        back_populates="raw_document", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("ix_raw_docs_bank_period", "bank_code", "period_year", "period_month"),
