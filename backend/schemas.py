@@ -132,6 +132,7 @@ class FilterParams(BaseModel):
     entity_names: list[str] = []
     account_types: list[str] = []
     currencies: list[str] = []
+    fecha: Optional[str] = None  # "YYYY-MM" para filtro ETF
 
 
 class SummaryRow(BaseModel):

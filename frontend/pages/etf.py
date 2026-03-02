@@ -2,11 +2,10 @@
 Página ETF.
 
 Estructura:
-- Bancos x sociedades (totales)
-- Composición instrumentos %
-- Composición instrumentos montos
-- Evolución mensual
-- Rentabilidad mensual / YTD
+- Filtro Fecha (YYYY-MM), Banco, Sociedad
+- Tabla Bancos × Sociedades (solo filtro Fecha)
+- 2 gráficos torta: distribución por sociedades + por instrumentos (solo Fecha)
+- Tabla ETF montos: instrumentos × meses (Fecha + Banco + Sociedad)
 """
 
 import streamlit as st
@@ -14,157 +13,176 @@ import plotly.graph_objects as go
 import pandas as pd
 
 from frontend import api_client
-from frontend.components.filters import render_filters
+from frontend.components.filters import (
+    render_fecha_filter,
+    BANK_DISPLAY_NAMES,
+)
 
 
 MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
           "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+SOCIETY_COLUMNS = [
+    "Boatview JPM", "Boatview GS", "Telmar",
+    "Armel Holdings", "Ect Internacional", "Total",
+]
+
+
+def _fmt_bank(code):
+    return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
 
 
 def render():
     st.title("📈 ETF")
     st.markdown("---")
 
-    # ── Filtros ──────────────────────────────────────────────────
+    # ── Obtener opciones de filtro ───────────────────────────────
     try:
         filter_opts = api_client.get("/accounts/filter-options")
     except Exception:
         filter_opts = {"bank_codes": [], "entity_names": []}
 
-    # Solo banco, sociedad y año (tipo cuenta/moneda/país no aplican)
-    filter_opts = {
-        "bank_codes": filter_opts.get("bank_codes", []),
-        "entity_names": filter_opts.get("entity_names", []),
-        "years": [str(y) for y in range(2020, 2027)],
-    }
-    selections = render_filters(filter_opts, key_prefix="etf")
+    # Obtener fechas disponibles para ETF
+    try:
+        etf_dates = api_client.get("/data/etf-dates")
+    except Exception:
+        etf_dates = {"dates": []}
+
+    available_dates = etf_dates.get("dates", [])
+
+    # ── Renderizar filtros ───────────────────────────────────────
+    st.markdown("### 🔍 Filtros")
+
+    fcol1, fcol2, fcol3 = st.columns(3)
+
+    with fcol1:
+        fecha = render_fecha_filter(available_dates, key_prefix="etf")
+
+    with fcol2:
+        bank_options = filter_opts.get("bank_codes", [])
+        selected_banks = st.multiselect(
+            "Banco",
+            options=bank_options,
+            format_func=_fmt_bank,
+            key="etf_banco_filter",
+        )
+
+    with fcol3:
+        entity_options = filter_opts.get("entity_names", [])
+        selected_entities = st.multiselect(
+            "Sociedad",
+            options=entity_options,
+            key="etf_sociedad_filter",
+        )
 
     st.markdown("---")
 
     # ── Obtener datos del backend ────────────────────────────────
     try:
         data = api_client.post("/data/etf", json={
-            "years": [int(y) for y in selections.get("years", [])],
-            "bank_codes": selections.get("bank_codes", []),
-            "entity_names": selections.get("entity_names", []),
+            "fecha": fecha,
+            "bank_codes": selected_banks,
+            "entity_names": selected_entities,
         })
     except Exception as e:
         data = {}
         st.error(f"Error obteniendo datos: {e}")
 
-    bank_entity_totals = data.get("bank_entity_totals", [])
-    composition_pct = data.get("composition_pct", [])
-    composition_amounts = data.get("composition_amounts", [])
-    monthly_evolution = data.get("monthly_evolution", [])
-    returns_table = data.get("returns_table", [])
+    bank_society_table = data.get("bank_society_table", {})
+    society_totals = data.get("society_totals", {})
+    composition_by_society = data.get("composition_by_society", [])
+    composition_by_instrument = data.get("composition_by_instrument", [])
+    montos_table = data.get("montos_table", [])
+    selected_year = data.get("selected_year")
 
-    # ── Bancos × Sociedades (totales) ────────────────────────────
-    st.subheader("Bancos × Sociedades (Totales)")
-    if bank_entity_totals:
-        df_totals = pd.DataFrame(bank_entity_totals)
-        # Formatear valores
-        if "net_value" in df_totals.columns:
-            df_totals["net_value"] = df_totals["net_value"].apply(
-                lambda x: f"{float(x):,.2f}" if x else ""
-            )
-        df_totals.columns = [
-            c.replace("_", " ").title() for c in df_totals.columns
-        ]
-        st.dataframe(df_totals, use_container_width=True, height=250)
+    # ── Bancos × Sociedades ──────────────────────────────────────
+    st.subheader("Bancos × Sociedades")
+    st.caption("Solo afectado por el filtro Fecha.")
+
+    if bank_society_table:
+        table_rows = []
+        for banco, society_vals in bank_society_table.items():
+            row = {"Banco": _fmt_bank(banco)}
+            for col in SOCIETY_COLUMNS:
+                val = society_vals.get(col, 0)
+                row[col] = f"{val:,.2f}" if val else ""
+            table_rows.append(row)
+
+        # Fila total
+        total_row = {"Banco": "TOTAL"}
+        grand_total = 0.0
+        for col in SOCIETY_COLUMNS[:-1]:
+            val = society_totals.get(col, 0)
+            total_row[col] = f"{val:,.2f}" if val else ""
+            grand_total += float(val or 0)
+        total_row["Total"] = f"{grand_total:,.2f}"
+        table_rows.append(total_row)
+
+        df_bs = pd.DataFrame(table_rows, columns=["Banco"] + SOCIETY_COLUMNS)
+        st.dataframe(df_bs, use_container_width=True, height=250)
     else:
-        st.info("Sin datos. Cargue cartolas ETF y aplique filtros.")
+        st.info("Sin datos. Seleccione una fecha con datos ETF.")
 
     st.markdown("---")
 
-    # ── Composición instrumentos ─────────────────────────────────
+    # ── Gráficos de torta ────────────────────────────────────────
+    st.subheader("Distribución")
+    st.caption("Solo afectado por el filtro Fecha.")
+
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Composición ETF (%)")
-        if composition_pct:
-            labels = [c["etf_name"][:30] for c in composition_pct]
-            values = [float(c["weight_pct"]) for c in composition_pct]
+        st.markdown("**Por Sociedades**")
+        if composition_by_society:
+            labels = [c["label"] for c in composition_by_society]
+            values = [float(c["value"]) for c in composition_by_society]
             fig = go.Figure(data=[go.Pie(
-                labels=labels,
-                values=values,
-                hole=0.4,
+                labels=labels, values=values, hole=0.4,
             )])
-            fig.update_layout(height=350)
+            fig.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20))
             st.plotly_chart(fig, use_container_width=True)
         else:
-            fig = go.Figure(data=[go.Pie(
-                labels=["Sin datos"],
-                values=[1],
-                hole=0.4,
-            )])
-            fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            st.info("Sin datos de composición por sociedades.")
 
     with col2:
-        st.subheader("Composición ETF (Montos)")
-        if composition_amounts:
-            df_comp = pd.DataFrame(composition_amounts)
-            if "market_value" in df_comp.columns:
-                df_comp["market_value"] = df_comp["market_value"].apply(
-                    lambda x: f"{float(x):,.2f}" if x else ""
-                )
-            df_comp.columns = [
-                c.replace("_", " ").title() for c in df_comp.columns
-            ]
-            st.dataframe(df_comp, use_container_width=True, height=350)
+        st.markdown("**Por Instrumentos**")
+        if composition_by_instrument:
+            labels = [c["label"][:35] for c in composition_by_instrument]
+            values = [float(c["value"]) for c in composition_by_instrument]
+            fig = go.Figure(data=[go.Pie(
+                labels=labels, values=values, hole=0.4,
+            )])
+            fig.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20))
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Sin composiciones")
+            st.info("Sin datos de composición por instrumentos.")
 
     st.markdown("---")
 
-    # ── Evolución mensual ────────────────────────────────────────
-    st.subheader("Evolución Mensual")
-    if monthly_evolution:
-        evo_months = [
-            f"{MONTHS[e['month'] - 1]} {str(e['year'])[-2:]}"
-            for e in monthly_evolution
-        ]
-        evo_values = [float(e["total_value"]) for e in monthly_evolution]
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=evo_months, y=evo_values,
-            mode="lines+markers",
-            name="Total ETF",
-            line=dict(color="steelblue", width=2),
-        ))
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=MONTHS, y=[0] * 12,
-            mode="lines+markers",
-            name="Total ETF",
-        ))
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
+    # ── ETF Montos (instrumentos × meses) ────────────────────────
+    year_label = str(selected_year) if selected_year else ""
+    st.subheader(f"ETF Montos {year_label}")
+    st.caption("Afectado por filtros Fecha, Banco y Sociedad. Columnas = meses del año.")
 
-    st.markdown("---")
+    if montos_table:
+        df_montos = pd.DataFrame(montos_table)
 
-    # ── Rentabilidad mensual / YTD ───────────────────────────────
-    st.subheader("Rentabilidad Mensual / YTD")
-    st.caption("Submotores independientes: JPMorgan y Goldman Sachs")
-    if returns_table:
-        df_ret = pd.DataFrame(returns_table)
-        # Renombrar columnas
-        col_map = {
-            "bank_code": "Banco",
-            "entity_name": "Sociedad",
-            "year": "Año",
-            "month": "Mes",
-            "net_value": "Valor Neto",
-            "monthly_return_pct": "Rent. Mensual %",
-        }
-        df_ret = df_ret.rename(columns=col_map)
-        if "Valor Neto" in df_ret.columns:
-            df_ret["Valor Neto"] = df_ret["Valor Neto"].apply(
-                lambda x: f"{float(x):,.2f}" if x else ""
-            )
-        st.dataframe(df_ret, use_container_width=True, height=300)
+        # Renombrar columnas de meses a Ene, Feb, etc.
+        col_rename = {"instrumento": "Instrumento"}
+        for m in range(1, 13):
+            mk = f"{m:02d}"
+            if mk in df_montos.columns:
+                suffix = f" {str(selected_year)[-2:]}" if selected_year else ""
+                col_rename[mk] = f"{MONTHS[m - 1]}{suffix}"
+        df_montos = df_montos.rename(columns=col_rename)
+
+        # Formatear columnas numéricas
+        for col in df_montos.columns:
+            if col != "Instrumento":
+                df_montos[col] = df_montos[col].apply(
+                    lambda x: f"{float(x):,.2f}" if x and float(x) != 0 else ""
+                )
+
+        st.dataframe(df_montos, use_container_width=True, height=400)
     else:
-        st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
+        st.info("Sin datos de montos ETF.")

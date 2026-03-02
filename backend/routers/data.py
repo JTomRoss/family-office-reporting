@@ -95,63 +95,90 @@ def get_summary(
 ):
     """
     Retorna datos para la pestaña Resumen.
-    Consulta monthly_closings con joins a accounts.
+    Formato: una fila por cuenta por mes (tabla vertical).
+    Columnas: fecha, sociedad, banco, id, moneda, ending_value,
+              movimientos, profit, rent_mensual_pct, rent_mensual_sin_caja_pct.
     """
+    # Query base: todos los monthly_closings con filtros de cuenta
     query = (
         db.query(MonthlyClosing, Account)
         .join(Account, MonthlyClosing.account_id == Account.id)
     )
-
-    # Filtros de cuenta
     query = _apply_account_filters(query, filters)
 
-    # Filtro de año
-    if filters.years:
-        query = query.filter(MonthlyClosing.year.in_(filters.years))
-
-    results = query.order_by(
-        Account.entity_name, Account.bank_code, MonthlyClosing.year, MonthlyClosing.month
+    # Traer TODOS los meses de las cuentas filtradas (para cálculo de return)
+    all_results = query.order_by(
+        Account.id, MonthlyClosing.year, MonthlyClosing.month
     ).all()
 
-    # Agrupar por cuenta para generar filas de tabla
-    rows_by_account: dict[int, dict] = {}
-    for mc, acct in results:
-        key = acct.id
-        if key not in rows_by_account:
-            rows_by_account[key] = {
-                "entity_name": acct.entity_name,
-                "bank_code": acct.bank_code,
-                "account_number": acct.account_number,
-                "identification_number": acct.identification_number or "",
+    # Agrupar por cuenta, ordenadas cronológicamente
+    by_account: dict[int, list[tuple]] = {}
+    for mc, acct in all_results:
+        by_account.setdefault(acct.id, []).append((mc, acct))
+
+    # Determinar qué meses incluir según filtro de años
+    year_filter = set(filters.years) if filters.years else None
+
+    rows: list[dict] = []
+    for acct_id, entries in by_account.items():
+        entries.sort(key=lambda x: (x[0].year, x[0].month))
+        for i, (mc, acct) in enumerate(entries):
+            # Solo incluir meses que coincidan con el filtro de años
+            if year_filter and mc.year not in year_filter:
+                continue
+
+            curr_val = float(mc.net_value) if mc.net_value else 0
+            prev_val = float(entries[i - 1][0].net_value or 0) if i > 0 else None
+
+            # Rentabilidad mensual %
+            monthly_ret = None
+            if prev_val and prev_val > 0:
+                monthly_ret = round(((curr_val - prev_val) / prev_val) * 100, 4)
+
+            # Movimientos: change_in_value del modelo, o diferencia
+            movimientos = None
+            if mc.change_in_value is not None:
+                movimientos = float(mc.change_in_value)
+            elif prev_val is not None:
+                movimientos = curr_val - prev_val
+
+            # Profit: income del modelo, o igual a movimientos
+            profit = None
+            if mc.income is not None:
+                profit = float(mc.income)
+            elif movimientos is not None:
+                profit = movimientos
+
+            # Sin caja: igual para cuentas no-cash, None para cash
+            is_cash = acct.account_type in ("current", "savings")
+
+            rows.append({
+                "fecha": f"{mc.year}-{mc.month:02d}",
+                "sociedad": acct.entity_name,
+                "banco": acct.bank_code,
+                "id": acct.identification_number or acct.account_number,
+                "moneda": mc.currency,
+                "ending_value": curr_val,
+                "movimientos": movimientos,
+                "profit": profit,
+                "rent_mensual_pct": monthly_ret,
+                "rent_mensual_sin_caja_pct": monthly_ret if not is_cash else None,
                 "account_type": acct.account_type,
-                "currency": acct.currency,
-                "month_values": {},
-            }
-        month_key = f"{mc.year}-{mc.month:02d}"
-        rows_by_account[key]["month_values"][month_key] = (
-            str(mc.net_value) if mc.net_value is not None else None
-        )
+            })
 
-    rows = list(rows_by_account.values())
+    rows.sort(key=lambda r: (r["fecha"], r["sociedad"], r["banco"]))
 
-    # Calcular totales por mes
-    totals: dict[str, str] = {}
-    if rows:
-        all_months = set()
-        for r in rows:
-            all_months.update(r["month_values"].keys())
-        for mk in sorted(all_months):
-            total = sum(
-                float(r["month_values"].get(mk, 0) or 0)
-                for r in rows
-            )
-            totals[mk] = f"{total:.2f}"
+    # Totales por mes (para gráficos)
+    totals: dict[str, float] = {}
+    for r in rows:
+        mk = r["fecha"]
+        totals[mk] = totals.get(mk, 0) + (r["ending_value"] or 0)
 
     filter_options = _get_filter_options(db)
 
     return {
         "rows": rows,
-        "totals": totals,
+        "totals": {mk: f"{v:.2f}" for mk, v in totals.items()},
         "filter_options": filter_options,
         "active_filters": filters.model_dump(),
     }
@@ -215,8 +242,55 @@ def get_mandates(
 
 
 # ═══════════════════════════════════════════════════════════════════
-# ETF
+# ETF – Helpers
 # ═══════════════════════════════════════════════════════════════════
+
+SOCIETY_MAPPING = [
+    ("Boatview JPM", lambda en, bc: "boatview" in en.lower() and bc == "jpmorgan"),
+    ("Boatview GS", lambda en, bc: "boatview" in en.lower() and bc == "goldman_sachs"),
+    ("Telmar", lambda en, bc: "telmar" in en.lower()),
+    ("Armel Holdings", lambda en, bc: "armel" in en.lower()),
+    ("Ect Internacional", lambda en, bc: "ecoterra" in en.lower()),
+]
+
+SOCIETY_COLS = ["Boatview JPM", "Boatview GS", "Telmar",
+                "Armel Holdings", "Ect Internacional"]
+
+
+def _get_society_label(entity_name: str, bank_code: str) -> str:
+    """Map (entity_name, bank_code) → etiqueta de sociedad para tabla ETF."""
+    for label, matcher in SOCIETY_MAPPING:
+        if matcher(entity_name, bank_code):
+            return label
+    return entity_name
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ETF – Endpoints
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/etf-dates")
+def get_etf_dates(db: Session = Depends(get_db)):
+    """Retorna fechas YYYY-MM disponibles con datos ETF."""
+    # Desde monthly_closings de cuentas ETF
+    mc_dates = (
+        db.query(MonthlyClosing.year, MonthlyClosing.month)
+        .join(Account, MonthlyClosing.account_id == Account.id)
+        .filter(Account.account_type == "etf")
+        .distinct()
+        .all()
+    )
+    # Desde etf_compositions
+    comp_dates = (
+        db.query(EtfComposition.year, EtfComposition.month)
+        .distinct()
+        .all()
+    )
+    all_dates = set()
+    for y, m in mc_dates + comp_dates:
+        all_dates.add(f"{y}-{m:02d}")
+    return {"dates": sorted(all_dates, reverse=True)}
+
 
 @router.post("/etf")
 def get_etf(
@@ -225,142 +299,138 @@ def get_etf(
 ):
     """
     Retorna datos para la pestaña ETF.
-    Usa monthly_closings para evolución y etf_compositions para detalle.
+
+    Secciones:
+    1) bank_society_table: Bancos×Sociedades (solo filtro fecha)
+    2) composition_by_society: torta por sociedades (solo filtro fecha)
+    3) composition_by_instrument: torta por instrumentos (solo filtro fecha)
+    4) montos_table: instrumentos×meses del año (filtros fecha+banco+sociedad)
     """
-    # --- Evolución mensual (monthly_closings para cuentas ETF) ---
+    # Parsear fecha seleccionada
+    sel_year, sel_month = None, None
+    if filters.fecha:
+        parts = filters.fecha.split("-")
+        sel_year, sel_month = int(parts[0]), int(parts[1])
+    elif filters.years:
+        sel_year = max(filters.years)
+
+    # ── 1) Bancos × Sociedades (solo filtro fecha) ──────────────
     mc_query = (
         db.query(MonthlyClosing, Account)
         .join(Account, MonthlyClosing.account_id == Account.id)
         .filter(Account.account_type == "etf")
     )
-    mc_query = _apply_account_filters(mc_query, filters)
-    if filters.years:
-        mc_query = mc_query.filter(MonthlyClosing.year.in_(filters.years))
-
-    mc_results = mc_query.order_by(
-        MonthlyClosing.year, MonthlyClosing.month
-    ).all()
-
-    # Evolución mensual: total por mes
-    monthly_evolution: list[dict] = []
-    totals_by_month: dict[str, float] = {}
-    for mc, acct in mc_results:
-        mk = f"{mc.year}-{mc.month:02d}"
-        val = float(mc.net_value) if mc.net_value else 0
-        totals_by_month[mk] = totals_by_month.get(mk, 0) + val
-
-    for mk in sorted(totals_by_month.keys()):
-        parts = mk.split("-")
-        monthly_evolution.append({
-            "year": int(parts[0]),
-            "month": int(parts[1]),
-            "total_value": f"{totals_by_month[mk]:.2f}",
-        })
-
-    # Bancos x Sociedades (último mes)
-    bank_entity_totals: list[dict] = []
-    if mc_results:
-        latest_year = max(mc.year for mc, _ in mc_results)
-        latest_month = max(
-            mc.month for mc, _ in mc_results if mc.year == latest_year
+    if sel_year and sel_month:
+        mc_query = mc_query.filter(
+            MonthlyClosing.year == sel_year,
+            MonthlyClosing.month == sel_month,
         )
-        for mc, acct in mc_results:
-            if mc.year == latest_year and mc.month == latest_month:
-                bank_entity_totals.append({
-                    "bank_code": acct.bank_code,
-                    "entity_name": acct.entity_name,
-                    "account_number": acct.account_number,
-                    "net_value": str(mc.net_value) if mc.net_value else None,
-                    "currency": mc.currency,
-                })
+    elif sel_year:
+        mc_query = mc_query.filter(MonthlyClosing.year == sel_year)
 
-    # --- Composición ETF (etf_compositions) ---
+    mc_results = mc_query.all()
+
+    # Pivotear: {bank_code: {society_label: total, ...}}
+    bank_society_data: dict[str, dict[str, float]] = {}
+    society_totals: dict[str, float] = {}
+
+    for mc, acct in mc_results:
+        society = _get_society_label(acct.entity_name, acct.bank_code)
+        bank = acct.bank_code
+        val = float(mc.net_value or 0)
+
+        if bank not in bank_society_data:
+            bank_society_data[bank] = {s: 0.0 for s in SOCIETY_COLS}
+        if society in bank_society_data[bank]:
+            bank_society_data[bank][society] += val
+        else:
+            bank_society_data[bank][society] = val
+
+        # Total por sociedad
+        society_totals[society] = society_totals.get(society, 0) + val
+
+    # Agregar columna Total a cada banco
+    for bank, vals in bank_society_data.items():
+        vals["Total"] = sum(vals.values())
+
+    # ── 2-3) Composición (solo filtro fecha) ─────────────────────
     comp_query = (
         db.query(EtfComposition, Account)
         .join(Account, EtfComposition.account_id == Account.id)
     )
-    if filters.bank_codes:
-        comp_query = comp_query.filter(Account.bank_code.in_(filters.bank_codes))
-    if filters.entity_names:
-        comp_query = comp_query.filter(Account.entity_name.in_(filters.entity_names))
-    if filters.years:
-        comp_query = comp_query.filter(EtfComposition.year.in_(filters.years))
+    if sel_year and sel_month:
+        comp_query = comp_query.filter(
+            EtfComposition.year == sel_year,
+            EtfComposition.month == sel_month,
+        )
+    elif sel_year:
+        comp_query = comp_query.filter(EtfComposition.year == sel_year)
 
-    comp_results = comp_query.order_by(
-        EtfComposition.year, EtfComposition.month, EtfComposition.etf_name
-    ).all()
+    comp_results = comp_query.all()
 
-    # Composiciones: últimos mes disponible
-    composition_pct: list[dict] = []
-    composition_amounts: list[dict] = []
-    if comp_results:
-        latest_yr = max(c.year for c, _ in comp_results)
-        latest_mo = max(c.month for c, _ in comp_results if c.year == latest_yr)
+    # Por sociedad
+    by_society: dict[str, float] = {}
+    # Por instrumento
+    by_instrument: dict[str, float] = {}
 
-        latest_comps = [
-            (c, a) for c, a in comp_results
-            if c.year == latest_yr and c.month == latest_mo
-        ]
-        total_val = sum(float(c.market_value or 0) for c, _ in latest_comps)
-
-        for comp, acct in latest_comps:
-            mv = float(comp.market_value or 0)
-            pct = (mv / total_val * 100) if total_val > 0 else 0
-            composition_pct.append({
-                "etf_code": comp.etf_code,
-                "etf_name": comp.etf_name,
-                "weight_pct": f"{pct:.2f}",
-            })
-            composition_amounts.append({
-                "etf_code": comp.etf_code,
-                "etf_name": comp.etf_name,
-                "market_value": str(comp.market_value) if comp.market_value else "0",
-                "currency": comp.currency,
-            })
-
-    # Composición por mes (para gráfico stacked)
-    comp_by_month: dict[str, dict[str, float]] = {}
     for comp, acct in comp_results:
-        mk = f"{comp.year}-{comp.month:02d}"
-        if mk not in comp_by_month:
-            comp_by_month[mk] = {}
-        code = comp.etf_code
-        comp_by_month[mk][code] = comp_by_month[mk].get(code, 0) + float(
-            comp.market_value or 0
+        society = _get_society_label(acct.entity_name, comp.bank_code)
+        mv = float(comp.market_value or 0)
+        by_society[society] = by_society.get(society, 0) + mv
+        by_instrument[comp.etf_name] = by_instrument.get(comp.etf_name, 0) + mv
+
+    composition_by_society = [
+        {"label": k, "value": round(v, 2)}
+        for k, v in sorted(by_society.items(), key=lambda x: -x[1])
+    ]
+    composition_by_instrument = [
+        {"label": k, "value": round(v, 2)}
+        for k, v in sorted(by_instrument.items(), key=lambda x: -x[1])
+    ]
+
+    # ── 4) Montos: instrumentos × meses del año (todos los filtros) ──
+    montos_query = (
+        db.query(EtfComposition, Account)
+        .join(Account, EtfComposition.account_id == Account.id)
+    )
+    if sel_year:
+        montos_query = montos_query.filter(EtfComposition.year == sel_year)
+    if filters.bank_codes:
+        montos_query = montos_query.filter(
+            Account.bank_code.in_(filters.bank_codes)
+        )
+    if filters.entity_names:
+        montos_query = montos_query.filter(
+            Account.entity_name.in_(filters.entity_names)
         )
 
-    # Rentabilidad mensual (basada en cambio de net_value)
-    returns_table: list[dict] = []
-    # Agrupar monthly_closings por cuenta
-    by_account: dict[int, list] = {}
-    for mc, acct in mc_results:
-        by_account.setdefault(acct.id, []).append((mc, acct))
+    montos_results = montos_query.order_by(EtfComposition.month).all()
 
-    for acct_id, entries in by_account.items():
-        entries.sort(key=lambda x: (x[0].year, x[0].month))
-        acct = entries[0][1]
-        for i, (mc, _) in enumerate(entries):
-            prev_val = float(entries[i - 1][0].net_value or 0) if i > 0 else None
-            curr_val = float(mc.net_value or 0)
-            ret = None
-            if prev_val and prev_val > 0:
-                ret = ((curr_val - prev_val) / prev_val) * 100
-            returns_table.append({
-                "bank_code": acct.bank_code,
-                "entity_name": acct.entity_name,
-                "year": mc.year,
-                "month": mc.month,
-                "net_value": f"{curr_val:.2f}",
-                "monthly_return_pct": f"{ret:.2f}" if ret is not None else None,
-            })
+    # Pivotear: instrumento → {mes: monto}
+    montos_data: dict[str, dict[int, float]] = {}
+    for comp, acct in montos_results:
+        name = comp.etf_name
+        if name not in montos_data:
+            montos_data[name] = {}
+        montos_data[name][comp.month] = (
+            montos_data[name].get(comp.month, 0) + float(comp.market_value or 0)
+        )
+
+    montos_table = []
+    for name in sorted(montos_data.keys()):
+        row = {"instrumento": name}
+        for m in range(1, 13):
+            row[f"{m:02d}"] = round(montos_data[name].get(m, 0), 2)
+        montos_table.append(row)
 
     return {
-        "bank_entity_totals": bank_entity_totals,
-        "composition_pct": composition_pct,
-        "composition_amounts": composition_amounts,
-        "composition_by_month": comp_by_month,
-        "monthly_evolution": monthly_evolution,
-        "returns_table": returns_table,
+        "bank_society_table": bank_society_data,
+        "society_totals": society_totals,
+        "composition_by_society": composition_by_society,
+        "composition_by_instrument": composition_by_instrument,
+        "montos_table": montos_table,
+        "selected_year": sel_year,
+        "selected_month": sel_month,
     }
 
 

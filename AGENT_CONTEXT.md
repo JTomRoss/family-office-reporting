@@ -1,7 +1,7 @@
 # AGENT_CONTEXT — Family Office Reporting System
 
 > **Propósito**: Este archivo es el SSOT de contexto para cualquier agente AI que trabaje en este proyecto. Léelo COMPLETO antes de hacer cualquier cambio.
-> **Última actualización**: 2026-03-02
+> **Última actualización**: 2026-03-02 (Summary + ETF redesign)
 
 ---
 
@@ -205,9 +205,10 @@ UI (PDFs tab) → POST /documents/upload-and-process
 | GET | /accounts/ | Listar cuentas maestro |
 | GET | /accounts/filter-options | Opciones de filtro para UI |
 | GET | /accounts/{number}/auto-fill | Auto-completar metadata |
-| POST | /data/summary | **Funcional** — datos pestaña Resumen (monthly_closings + accounts) |
+| POST | /data/summary | **Funcional** — filas verticales: fecha/sociedad/banco/ID/moneda/ending_value/movimientos/profit/rent% |
 | POST | /data/mandates | Parcial — filtra account_type='mandato', sin datos aún |
-| POST | /data/etf | **Funcional** — evolución, composición, rentabilidad ETF |
+| GET | /data/etf-dates | **Funcional** — fechas YYYY-MM disponibles con datos ETF |
+| POST | /data/etf | **Funcional** — bank×society table, composición por sociedad/instrumento, montos×meses |
 | POST | /data/personal | **STUB** — datos pestaña Personal |
 
 ---
@@ -218,9 +219,9 @@ UI (PDFs tab) → POST /documents/upload-and-process
 |---|---|---|
 | 🏠 Inicio | `pages/home.py` | Funcional |
 | 📁 Carga | `pages/upload.py` | **Funcional** — 3 tabs: PDFs, Excel, Docs cargados. Upload+process automático. Botón "Procesar pendientes". |
-| 📋 Resumen | `pages/summary.py` | **Funcional** — gráficos + tabla con datos reales de monthly_closings |
+| 📋 Resumen | `pages/summary.py` | **Funcional** — tabla vertical (fecha/soc/banco/ID/moneda/valor/mov/profit/rent%), rango personalizado, detalle cartolas |
 | 📑 Mandatos | `pages/mandates.py` | Scaffold (espera datos de mandatos cargados) |
-| 📈 ETF | `pages/etf.py` | **Funcional** — composición, evolución mensual, rentabilidad desde DB |
+| 📈 ETF | `pages/etf.py` | **Funcional** — filtro Fecha YYYY-MM, tabla Bancos×Sociedades (cols fijas), 2 tortas (soc+instr), tabla montos×meses |
 | 👤 Personal | `pages/personal.py` | Scaffold (espera /data/personal) |
 | ⚙️ Operacional | `pages/operational.py` | Scaffold |
 
@@ -267,8 +268,9 @@ UI (PDFs tab) → POST /documents/upload-and-process
 - Eliminación de documentos con cascade correcto + multi-select checkbox
 - **Data pipeline completo**: ParseResult → DataLoadingService → parsed_statements + monthly_closings + etf_compositions
 - **Endpoints `/data/summary` y `/data/etf` funcionales** con queries reales a BD
-- **Frontend summary y ETF** con gráficos y tablas reales
-- Filtros UI: BANK_DISPLAY_NAMES, filtros reducidos por pestaña
+- **Summary redesign**: tabla vertical (meses en filas), columnas fijas (Fecha, Sociedad, Banco, ID, Moneda, Ending Value, Movimientos, Profit, Rent. Mensual %, Rent. Mensual sin Caja %). Endpoint retorna filas planas, no agrupadas. Rango Personalizado y Detalle Cartolas ahora funcionales (antes eran scaffolds vacíos con `pd.DataFrame()`).
+- **ETF redesign**: filtro Fecha (YYYY-MM selectbox via `render_fecha_filter`), tabla Bancos×Sociedades con columnas fijas (Boatview JPM, Boatview GS, Telmar, Armel Holdings, Ect Internacional, Total), 2 gráficos torta (por sociedades + por instrumentos), tabla ETF Montos (instrumentos×meses Ene-Dic). Society mapping via `SOCIETY_MAPPING` en data.py.
+- Filtros UI: BANK_DISPLAY_NAMES, filtros reducidos por pestaña, `render_fecha_filter` para ETF
 - 43 cuentas en maestro, campo `identification_number` (dígito verificador, no unique)
 - Botón "Procesar pendientes" en tab documentos
 - 93 tests passing

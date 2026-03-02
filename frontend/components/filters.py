@@ -138,3 +138,31 @@ def render_date_range_filter(
         m_end = st.selectbox("Mes fin", list(range(1, 13)), index=11, key=f"{key_prefix}_m_end")
 
     return y_start, m_start, y_end, m_end
+
+
+def render_fecha_filter(
+    available_dates: list[str],
+    key_prefix: str = "fecha",
+) -> Optional[str]:
+    """
+    Renderiza un selectbox de fecha YYYY-MM para la pestaña ETF.
+
+    Args:
+        available_dates: Lista de strings "YYYY-MM" disponibles.
+        key_prefix: Prefijo de key para widget Streamlit.
+
+    Returns:
+        String "YYYY-MM" seleccionado, o None si no hay datos.
+    """
+    if not available_dates:
+        st.warning("No hay fechas disponibles")
+        return None
+
+    sorted_dates = sorted(available_dates, reverse=True)
+
+    selected = st.selectbox(
+        "📅 Fecha",
+        options=sorted_dates,
+        key=f"{key_prefix}_fecha",
+    )
+    return selected
