@@ -20,15 +20,6 @@ from frontend.components.filters import render_filters
 MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
           "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-# ETFs válidos
-VALID_ETFS = [
-    "IWDA – iShares Core MSCI World",
-    "IEMA – iShares MSCI EM-ACC",
-    "IHYA – iShares USD HY Corp Bond",
-    "VDCA – Vanguard USD Corp 1-3",
-    "VDPA – Vanguard USD Corp Bond",
-]
-
 
 def render():
     st.title("📈 ETF")
@@ -50,9 +41,38 @@ def render():
 
     st.markdown("---")
 
+    # ── Obtener datos del backend ────────────────────────────────
+    try:
+        data = api_client.post("/data/etf", json={
+            "years": [int(y) for y in selections.get("years", [])],
+            "bank_codes": selections.get("bank_codes", []),
+            "entity_names": selections.get("entity_names", []),
+        })
+    except Exception as e:
+        data = {}
+        st.error(f"Error obteniendo datos: {e}")
+
+    bank_entity_totals = data.get("bank_entity_totals", [])
+    composition_pct = data.get("composition_pct", [])
+    composition_amounts = data.get("composition_amounts", [])
+    monthly_evolution = data.get("monthly_evolution", [])
+    returns_table = data.get("returns_table", [])
+
     # ── Bancos × Sociedades (totales) ────────────────────────────
     st.subheader("Bancos × Sociedades (Totales)")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=250)
+    if bank_entity_totals:
+        df_totals = pd.DataFrame(bank_entity_totals)
+        # Formatear valores
+        if "net_value" in df_totals.columns:
+            df_totals["net_value"] = df_totals["net_value"].apply(
+                lambda x: f"{float(x):,.2f}" if x else ""
+            )
+        df_totals.columns = [
+            c.replace("_", " ").title() for c in df_totals.columns
+        ]
+        st.dataframe(df_totals, use_container_width=True, height=250)
+    else:
+        st.info("Sin datos. Cargue cartolas ETF y aplique filtros.")
 
     st.markdown("---")
 
@@ -61,44 +81,90 @@ def render():
 
     with col1:
         st.subheader("Composición ETF (%)")
-        fig = go.Figure(data=[go.Pie(
-            labels=[etf.split(" – ")[0] for etf in VALID_ETFS],
-            values=[0] * len(VALID_ETFS),
-            hole=0.4,
-        )])
-        fig.update_layout(height=350)
-        st.plotly_chart(fig, use_container_width=True)
+        if composition_pct:
+            labels = [c["etf_name"][:30] for c in composition_pct]
+            values = [float(c["weight_pct"]) for c in composition_pct]
+            fig = go.Figure(data=[go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.4,
+            )])
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            fig = go.Figure(data=[go.Pie(
+                labels=["Sin datos"],
+                values=[1],
+                hole=0.4,
+            )])
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.subheader("Composición ETF (Montos)")
-        fig = go.Figure()
-        for etf in VALID_ETFS:
-            code = etf.split(" – ")[0]
-            fig.add_trace(go.Bar(name=code, x=MONTHS, y=[0] * 12))
-        fig.update_layout(barmode="stack", height=350)
-        st.plotly_chart(fig, use_container_width=True)
+        if composition_amounts:
+            df_comp = pd.DataFrame(composition_amounts)
+            if "market_value" in df_comp.columns:
+                df_comp["market_value"] = df_comp["market_value"].apply(
+                    lambda x: f"{float(x):,.2f}" if x else ""
+                )
+            df_comp.columns = [
+                c.replace("_", " ").title() for c in df_comp.columns
+            ]
+            st.dataframe(df_comp, use_container_width=True, height=350)
+        else:
+            st.info("Sin composiciones")
 
     st.markdown("---")
 
     # ── Evolución mensual ────────────────────────────────────────
     st.subheader("Evolución Mensual")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=MONTHS, y=[0] * 12,
-        mode="lines+markers",
-        name="Total ETF",
-    ))
-    fig.update_layout(height=300)
-    st.plotly_chart(fig, use_container_width=True)
+    if monthly_evolution:
+        evo_months = [
+            f"{MONTHS[e['month'] - 1]} {str(e['year'])[-2:]}"
+            for e in monthly_evolution
+        ]
+        evo_values = [float(e["total_value"]) for e in monthly_evolution]
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=evo_months, y=evo_values,
+            mode="lines+markers",
+            name="Total ETF",
+            line=dict(color="steelblue", width=2),
+        ))
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=MONTHS, y=[0] * 12,
+            mode="lines+markers",
+            name="Total ETF",
+        ))
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
 
     # ── Rentabilidad mensual / YTD ───────────────────────────────
     st.subheader("Rentabilidad Mensual / YTD")
     st.caption("Submotores independientes: JPMorgan y Goldman Sachs")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
-
-    # ── Info ETFs válidos ────────────────────────────────────────
-    with st.expander("ℹ️ ETFs válidos"):
-        for etf in VALID_ETFS:
-            st.markdown(f"- {etf}")
+    if returns_table:
+        df_ret = pd.DataFrame(returns_table)
+        # Renombrar columnas
+        col_map = {
+            "bank_code": "Banco",
+            "entity_name": "Sociedad",
+            "year": "Año",
+            "month": "Mes",
+            "net_value": "Valor Neto",
+            "monthly_return_pct": "Rent. Mensual %",
+        }
+        df_ret = df_ret.rename(columns=col_map)
+        if "Valor Neto" in df_ret.columns:
+            df_ret["Valor Neto"] = df_ret["Valor Neto"].apply(
+                lambda x: f"{float(x):,.2f}" if x else ""
+            )
+        st.dataframe(df_ret, use_container_width=True, height=300)
+    else:
+        st.dataframe(pd.DataFrame(), use_container_width=True, height=300)

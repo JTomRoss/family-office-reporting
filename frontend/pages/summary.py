@@ -54,19 +54,43 @@ def render():
             "years": [int(y) for y in selections.get("years", [])],
             "bank_codes": selections.get("bank_codes", []),
             "entity_names": selections.get("entity_names", []),
+            "account_types": selections.get("account_types", []),
         })
     except Exception as e:
-        data = {"rows": [], "message": f"Error: {e}"}
+        data = {"rows": [], "totals": {}, "message": f"Error: {e}"}
+
+    rows = data.get("rows", [])
+    totals = data.get("totals", {})
+
+    # Determinar meses con datos
+    all_months_keys = set()
+    for r in rows:
+        all_months_keys.update(r.get("month_values", {}).keys())
+    sorted_months = sorted(all_months_keys)
 
     # ── Gráficos (3 gráficos, 12 meses siempre visibles) ────────
     st.subheader("📊 Evolución 12 meses")
+
+    # Preparar datos de gráficos desde totals
+    chart_months = []
+    chart_values = []
+    for mk in sorted_months:
+        parts = mk.split("-")
+        month_idx = int(parts[1]) - 1
+        chart_months.append(MONTHS[month_idx])
+        chart_values.append(float(totals.get(mk, 0)))
+
+    # Si no hay datos, mostrar 12 meses vacíos
+    if not chart_months:
+        chart_months = MONTHS
+        chart_values = [0] * 12
 
     chart_col1, chart_col2, chart_col3 = st.columns(3)
 
     with chart_col1:
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=MONTHS, y=[0] * 12,
+            x=chart_months, y=chart_values,
             name="Total Assets",
             marker_color="steelblue",
         ))
@@ -78,9 +102,16 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
     with chart_col2:
+        # Profit mensual = diferencias entre meses consecutivos
+        profit_values = []
+        for i, v in enumerate(chart_values):
+            if i == 0:
+                profit_values.append(0)
+            else:
+                profit_values.append(v - chart_values[i - 1])
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=MONTHS, y=[0] * 12,
+            x=chart_months, y=profit_values,
             name="Profit",
             marker_color="mediumseagreen",
         ))
@@ -92,9 +123,18 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
     with chart_col3:
+        # Rentabilidad % mensual
+        ret_values = []
+        for i, v in enumerate(chart_values):
+            if i == 0 or chart_values[i - 1] == 0:
+                ret_values.append(0)
+            else:
+                ret_values.append(
+                    ((v - chart_values[i - 1]) / chart_values[i - 1]) * 100
+                )
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=MONTHS, y=[0] * 12,
+            x=chart_months, y=ret_values,
             mode="lines+markers",
             name="Rentabilidad",
             line=dict(color="coral"),
@@ -115,8 +155,26 @@ def render():
         st.subheader("Tabla Resumen")
         st.caption("Diciembre año previo → Diciembre actual. Dic previo rellena columnas excepto rentabilidad.")
 
-        if data.get("rows"):
-            df = pd.DataFrame(data["rows"])
+        if rows:
+            # Construir DataFrame con columnas: Sociedad, Banco, Cuenta, Moneda, + mes columns
+            table_data = []
+            for r in rows:
+                row_dict = {
+                    "Sociedad": r["entity_name"],
+                    "Banco": r["bank_code"],
+                    "ID": r.get("identification_number", ""),
+                    "Tipo": r["account_type"],
+                    "Moneda": r["currency"],
+                }
+                for mk in sorted_months:
+                    parts = mk.split("-")
+                    month_label = f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}"
+                    val = r.get("month_values", {}).get(mk)
+                    row_dict[month_label] = (
+                        f"{float(val):,.2f}" if val else ""
+                    )
+                table_data.append(row_dict)
+            df = pd.DataFrame(table_data)
             st.dataframe(df, use_container_width=True, height=400)
         else:
             st.info("Sin datos. Cargue documentos y aplique filtros.")

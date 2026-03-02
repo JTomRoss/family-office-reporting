@@ -251,7 +251,7 @@ def render():
                             upload_data["sub_accounts"] = sub_accounts.strip()
 
                         result = api_client.upload_file(
-                            "/documents/upload",
+                            "/documents/upload-and-process",
                             filepath=tmp_path,
                             filename=file.name,
                             file_type=pdf_type,
@@ -318,7 +318,26 @@ def render():
                                     help="No hacer nada, mantener el documento como está",
                                 )
                         else:
-                            st.success(f"✅ {file.name}: Cargado (ID: {result.get('id')})")
+                            proc = result.get("process_result", {})
+                            proc_status = proc.get("status", "")
+                            loading = proc.get("loading_stats", {})
+                            mc = loading.get("monthly_closings", 0)
+                            ec = loading.get("etf_compositions", 0)
+                            rows = proc.get("rows_parsed", 0)
+                            if proc_status in ("success", "partial"):
+                                detail = f"{rows} filas parseadas"
+                                if mc:
+                                    detail += f", {mc} cierres mensuales"
+                                if ec:
+                                    detail += f", {ec} composiciones ETF"
+                                st.success(f"✅ {file.name}: {detail}")
+                            elif proc_status == "error":
+                                st.error(
+                                    f"❌ {file.name}: "
+                                    f"{proc.get('errors', ['error desconocido'])}"
+                                )
+                            else:
+                                st.success(f"✅ {file.name}: Cargado (ID: {result.get('id')})")
 
                     except Exception as e:
                         st.error(f"❌ {file.name}: {e}")
@@ -550,7 +569,7 @@ def render():
                 selected_mask = edited_df["Eliminar"] == True
                 selected_count = selected_mask.sum()
 
-                col_del, col_info = st.columns([1, 3])
+                col_del, col_reproc, col_info = st.columns([1, 1, 2])
                 with col_del:
                     if st.button(
                         f"🗑️ Eliminar seleccionados ({selected_count})",
@@ -566,6 +585,23 @@ def render():
                             except Exception:
                                 pass
                         st.success(f"✅ {deleted} documento(s) eliminado(s)")
+                        st.rerun()
+                with col_reproc:
+                    # Contar docs uploaded (no procesados)
+                    unprocessed = df_docs[df_docs["status"] == "uploaded"]
+                    if st.button(
+                        f"🔄 Procesar pendientes ({len(unprocessed)})",
+                        disabled=len(unprocessed) == 0,
+                        key="btn_process_all",
+                    ):
+                        processed = 0
+                        for doc_id in unprocessed["id"].tolist():
+                            try:
+                                api_client.post(f"/documents/{doc_id}/process")
+                                processed += 1
+                            except Exception:
+                                pass
+                        st.success(f"✅ {processed} documento(s) procesado(s)")
                         st.rerun()
                 with col_info:
                     if selected_count > 0:

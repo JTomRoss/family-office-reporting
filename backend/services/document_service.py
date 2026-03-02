@@ -199,6 +199,31 @@ class DocumentService:
 
             self.db.commit()
 
+            # ── Cargar datos parseados a tablas de reporting ────
+            loading_stats = None
+            if doc.file_type != "excel_master" and result.is_success:
+                try:
+                    from backend.services.data_loading_service import DataLoadingService
+                    loader = DataLoadingService(self.db)
+                    loading_stats = loader.load_parse_result(
+                        result=result,
+                        raw_document=doc,
+                        parser_version_id=parser_version.id,
+                    )
+                    self._log_validation(
+                        "load", "info",
+                        f"Datos cargados: {loading_stats['parsed_statements']} statements, "
+                        f"{loading_stats['monthly_closings']} closings, "
+                        f"{loading_stats['etf_compositions']} compositions",
+                        raw_document_id=doc.id,
+                    )
+                except Exception as load_err:
+                    self._log_validation(
+                        "load", "error",
+                        f"Error cargando datos de reporting: {load_err}",
+                        raw_document_id=doc.id,
+                    )
+
             # ── Si es excel_master, alimentar AccountService ────
             master_stats = None
             if doc.file_type == "excel_master" and result.is_success:
@@ -270,6 +295,8 @@ class DocumentService:
             }
             if master_stats is not None:
                 resp["master_stats"] = master_stats
+            if loading_stats is not None:
+                resp["loading_stats"] = loading_stats
             return resp
 
         except Exception as e:
