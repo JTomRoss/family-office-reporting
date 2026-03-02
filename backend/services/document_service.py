@@ -327,16 +327,34 @@ class DocumentService:
         return query.order_by(RawDocument.uploaded_at.desc()).all()
 
     def delete_document(self, document_id: int) -> bool:
-        """Elimina un documento y su archivo raw."""
+        """Elimina un documento, sus registros dependientes, y su archivo raw."""
+        from backend.db.models import MonthlyClosing, EtfComposition, Reconciliation
+
         doc = self.db.query(RawDocument).filter(RawDocument.id == document_id).first()
         if not doc:
             return False
+
+        # Eliminar registros que referencian este documento (sin cascade en ORM)
+        self.db.query(Reconciliation).filter(
+            Reconciliation.monthly_closing_id.in_(
+                self.db.query(MonthlyClosing.id).filter(
+                    MonthlyClosing.source_document_id == document_id
+                )
+            )
+        ).delete(synchronize_session=False)
+        self.db.query(MonthlyClosing).filter(
+            MonthlyClosing.source_document_id == document_id
+        ).delete(synchronize_session=False)
+        self.db.query(EtfComposition).filter(
+            EtfComposition.source_document_id == document_id
+        ).delete(synchronize_session=False)
 
         # Eliminar archivo físico
         filepath = _to_absolute(doc.filepath)
         if filepath.exists():
             filepath.unlink()
 
+        # parsed_statements y validation_logs se eliminan por cascade
         self.db.delete(doc)
         self.db.commit()
 
