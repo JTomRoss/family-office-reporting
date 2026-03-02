@@ -1,6 +1,7 @@
 """
 Parser: Goldman Sachs – ETF Brokerage Statement (PDF).
-v2.0.0 – Real extraction using PyMuPDF (fitz).
+v2.1.0 – Real extraction using PyMuPDF (fitz).
+         Fix: strip XXX-XX mask, set period dates, populate activity data.
 
 CRITICAL: pdfplumber CANNOT extract text from GS PDFs.
 Must use ``fitz`` (PyMuPDF).
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import re
 import logging
+from datetime import date as date_type, datetime
 from pathlib import Path
 from decimal import Decimal
 from typing import Any
@@ -40,7 +42,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsEtfParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "etf"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas ETF Goldman Sachs – Brokerage Statement (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -136,19 +138,24 @@ class GoldmanSachsEtfParser(BaseParser):
             if strategy:
                 qualitative["asset_strategy"] = strategy
 
-            # 5) Holdings (pages 11+)
-            holdings = extract_holdings(page_texts)
-            for h in holdings:
-                confidence = 0.85
-                w: list[str] = []
-                if not h.get("market_value"):
-                    w.append("Missing market_value")
-                    confidence = 0.60
-                rows.append(ParsedRow(
-                    data={k: str(v) if isinstance(v, Decimal) else v for k, v in h.items()},
-                    confidence=confidence,
-                    warnings=w,
-                ))
+            # 5) Asset Strategy → generate instrument rows (correct per-instrument data)
+            # asset_strategy has the accurate per-instrument market values;
+            # extract_holdings is too fragile for GS format.
+            if strategy:
+                for s in strategy:
+                    name = s.get("name", "")
+                    mv = s.get("market_value")
+                    if not name or mv is None:
+                        continue
+                    rows.append(ParsedRow(
+                        data={
+                            "instrument": name,
+                            "market_value": str(mv),
+                            "percentage": s.get("percentage", ""),
+                            "asset_class": s.get("category", ""),
+                        },
+                        confidence=0.90,
+                    ))
 
             # 6) Cash activity — look for closing balance
             for i, pt in enumerate(page_texts):
@@ -178,7 +185,70 @@ class GoldmanSachsEtfParser(BaseParser):
         if not balances.get("account_number"):
             warnings.append("Could not extract portfolio number")
 
-        return ParseResult(
+        # ── Derive period_start/period_end from period dict ──────
+        period_start_date = None
+        period_end_date = None
+        if period:
+            period_end_date = self._parse_gs_date(period.get("end"))
+            period_start_date = self._parse_gs_date(period.get("start"))
+
+        # ── Set closing/opening balance from overview data ───────
+        closing_bal = None
+        opening_bal = None
+        pa = balances.get("portfolio_activity", {})
+        ir = balances.get("investment_results", {})
+        if pa.get("closing_value"):
+            closing_bal = pa["closing_value"]
+        elif balances.get("total_portfolio"):
+            closing_bal = balances["total_portfolio"]
+        if pa.get("opening_value"):
+            opening_bal = pa["opening_value"]
+        elif ir.get("beginning_market_value"):
+            opening_bal = ir["beginning_market_value"]
+
+        # ── Populate account_monthly_activity for DataLoadingService ──
+        acct_num = balances.get("account_number")
+        if acct_num and ir:
+            # utilidad = investment_results (profit)
+            utilidad = ir.get("investment_results", Decimal("0"))
+            # movimientos = net_deposits_withdrawals
+            net_contrib = ir.get("net_deposits_withdrawals", Decimal("0"))
+            qualitative["account_monthly_activity"] = [{
+                "account_number": acct_num,
+                "net_contributions": str(net_contrib) if net_contrib is not None else "0",
+                "utilidad": str(utilidad) if utilidad is not None else "0",
+                "income_distributions": str(pa.get("interest_received", Decimal("0"))),
+                "change_investment": str(pa.get("change_in_value", Decimal("0"))),
+                "accrual_beginning": None,
+                "accrual_ending": None,
+            }]
+        elif acct_num and pa:
+            # Fallback: utilidad = closing - opening - net_deposits
+            net_dep = Decimal("0")
+            if ir:
+                net_dep = ir.get("net_deposits_withdrawals", Decimal("0")) or Decimal("0")
+            op = opening_bal or Decimal("0")
+            cl = closing_bal or Decimal("0")
+            utilidad = cl - op - net_dep
+            qualitative["account_monthly_activity"] = [{
+                "account_number": acct_num,
+                "net_contributions": str(net_dep),
+                "utilidad": str(utilidad),
+                "income_distributions": "0",
+                "change_investment": str(pa.get("change_in_value", Decimal("0"))),
+                "accrual_beginning": None,
+                "accrual_ending": None,
+            }]
+
+        # ── Populate accounts for ending/beginning value ─────────
+        if acct_num:
+            qualitative["accounts"] = [{
+                "account_number": acct_num,
+                "beginning_value": str(opening_bal) if opening_bal else None,
+                "ending_value": str(closing_bal) if closing_bal else None,
+            }]
+
+        result = ParseResult(
             status=status,
             parser_name=self.get_parser_name(),
             parser_version=self.VERSION,
@@ -187,10 +257,28 @@ class GoldmanSachsEtfParser(BaseParser):
             rows=rows,
             balances=balances,
             qualitative_data=qualitative,
-            account_number=balances.get("account_number"),
+            account_number=acct_num,
             currency="USD",
+            period_start=period_start_date,
+            period_end=period_end_date,
+            statement_date=period_end_date,
+            opening_balance=opening_bal,
+            closing_balance=closing_bal,
             warnings=warnings,
         )
+        return result
+
+    @staticmethod
+    def _parse_gs_date(date_str: str | None) -> date_type | None:
+        """Parse 'December 31, 2025' → date(2025, 12, 31)."""
+        if not date_str:
+            return None
+        for fmt in ("%B %d, %Y", "%B %d %Y"):
+            try:
+                return datetime.strptime(date_str.replace(",", "").strip(), "%B %d %Y").date()
+            except ValueError:
+                continue
+        return None
 
     # ── validate ──────────────────────────────────────────────────────
     def validate(self, result: ParseResult) -> list[str]:

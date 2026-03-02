@@ -69,16 +69,9 @@ def _style_right(df, num_cols=None):
     cols_present = [c for c in num_cols if c in df.columns]
     if not cols_present:
         return df.style.format({c: "{}" for c in df.columns})
-    styles = []
-    for col in cols_present:
-        idx = df.columns.get_loc(col)
-        styles.append({
-            "selector": f"td.col{idx}",
-            "props": "text-align: right",
-        })
-    return df.style.set_table_styles(styles, overwrite=False).format(
-        {c: "{}" for c in df.columns}
-    )
+    return df.style.set_properties(
+        subset=cols_present, **{"text-align": "right"}
+    ).format({c: "{}" for c in df.columns})
 
 
 def _build_ym_options():
@@ -112,7 +105,13 @@ def render():
     }
 
     # ── Renderizar filtros ───────────────────────────────────────
-    selections = render_filters(filter_opts, key_prefix="summary")
+    def _fmt_account_type(t: str) -> str:
+        return t.replace("_", " ").title()
+
+    selections = render_filters(
+        filter_opts, key_prefix="summary",
+        format_labels={"account_types": _fmt_account_type},
+    )
 
     st.markdown("---")
 
@@ -227,6 +226,7 @@ def render():
                 _style_right(df_summary),
                 use_container_width=True,
                 height=530,
+                hide_index=True,
             )
         else:
             st.info("Sin datos. Cargue documentos y aplique filtros.")
@@ -311,6 +311,7 @@ def render():
                 ).format({c: "{}" for c in df_range.columns}),
                 use_container_width=True,
                 height=280,
+                hide_index=True,
             )
         else:
             st.info("Sin datos en el rango seleccionado.")
@@ -341,6 +342,7 @@ def render():
             _style_right(df_detail),
             use_container_width=True,
             height=300,
+            hide_index=True,
         )
     else:
         st.info("Sin datos. Cargue cartolas para ver el detalle.")

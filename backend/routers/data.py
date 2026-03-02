@@ -319,21 +319,48 @@ SOCIETY_COLS = ["Boatview JPM", "Boatview GS", "Telmar",
 
 # Diccionario de consolidación de nombres de instrumentos ETF
 INSTRUMENT_NAME_MAP: dict[str, str] = {
+    # ── IWDA ──
     "IWDA": "IWDA",
     "ISHARES CORE MSCI WORLD": "IWDA",
+    "P ISHARES CORE MSCI WORLD": "IWDA",
+    # ── IEMA ──
     "IEMA": "IEMA",
     "ISHARES MSCI EM-ACC": "IEMA",
+    "ISHARES MSCI EM ACC": "IEMA",
+    "P ISHARES MSCI EM-ACC": "IEMA",
+    # ── IHYA ──
     "IHYA": "IHYA",
     "ISHARES USD HY CORP USD ACC": "IHYA",
     "ISHARES USD HIGH YIELD CORP BOND": "IHYA",
+    "P ISHARES USD HY CORP USD ACC": "IHYA",
+    # ── VDCA ──
     "VDCA": "VDCA",
     "VAND USDCP1-3 USDA": "VDCA",
+    "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF": "VDCA",
+    # ── VDPA ──
     "VDPA": "VDPA",
     "VANG USDCPBD USDA": "VDPA",
+    # ── VUCP (Goldman Sachs) ──
+    "VUCP": "VUCP",
+    "USD CORPORATE BOND UCITS ETF": "VUCP",
+    "USD CORPORATE BOND UCITS ETF (VUCP)": "VUCP",
+    # ── VDCA (including GS name variant) ──
+    "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF": "VDCA",
+    "VANGUARD FUNDS PLC-VANGUARD US CMN CLASS ETF": "VDCA",
+    "VANGUARD FUNDS PLC - VANGUARD CMN CLASS ETF STAMP": "VDCA",
+    # ── SPDR ──
+    "SPDR": "SPDR",
+    "SPDR BLOOMBERG 1-10 YEAR U.S.": "SPDR",
+    # ── Goldman Sachs ETF name variants ──
+    "MSCI WORLD INDEX FUND (ISHARES)": "IWDA",
+    "MSCI EMERGING MARKETS INDEX FUND (ISHARES)": "IEMA",
+    "ISHARES III PLC-ISHARES MSCI EMERGING MARKETS ETF": "IEMA",
+    "MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)": "IHYA",
+    "ISHARES II PLC-ISHARES $ HIGH YIELD CORP BOND UCITS ETF": "IHYA",
 }
 
 # Orden fijo de instrumentos
-INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
+INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "VUCP", "SPDR", "IHYA", "Money Market"]
 
 # Instrumentos considerados caja/money market
 CASH_INSTRUMENTS = {"Money Market"}
@@ -549,13 +576,20 @@ def get_etf(
     ).all()
 
     # Agrupar por sociedad × (year, month)
+    # Track both net_value and utilidad (income) for correct return calculation
     soc_month_val: dict[str, dict[tuple, float]] = {}
+    soc_month_util: dict[str, dict[tuple, float]] = {}
     for mc, acct in mc_year_results:
         society = _get_society_label(acct.entity_name, acct.bank_code)
         key = (mc.year, mc.month)
         if society not in soc_month_val:
             soc_month_val[society] = {}
+            soc_month_util[society] = {}
         soc_month_val[society][key] = soc_month_val[society].get(key, 0) + float(mc.net_value or 0)
+        # utilidad = income field (parsed as utilidad from account_monthly_activity)
+        utilidad = float(mc.income or 0) if mc.income is not None else None
+        if utilidad is not None:
+            soc_month_util[society][key] = soc_month_util[society].get(key, 0) + utilidad
 
     # Calcular monthly return % y YTD
     society_returns_monthly: list[dict] = []
@@ -565,6 +599,7 @@ def get_etf(
         monthly_row = {"sociedad": soc}
         ytd_row = {"sociedad": soc}
         vals = soc_month_val.get(soc, {})
+        utils = soc_month_util.get(soc, {})
 
         # Base para YTD = dic del año anterior
         base_val = vals.get((sel_year - 1, 12)) if sel_year else None
@@ -575,17 +610,24 @@ def get_etf(
             prev_key = (sel_year, m - 1) if m > 1 else (sel_year - 1, 12) if sel_year else None
             prev = vals.get(prev_key) if prev_key else None
 
-            # Monthly return
+            # Monthly return = utilidad / prev_ending_value (same as Summary)
             ret = None
-            if curr is not None and prev is not None and prev > 0:
+            util = utils.get((sel_year, m)) if sel_year else None
+            if util is not None and prev is not None and prev > 0:
+                ret = round((util / prev) * 100, 4)
+            elif curr is not None and prev is not None and prev > 0:
+                # Fallback: simple price change if no utilidad data
                 ret = round(((curr - prev) / prev) * 100, 4)
 
             monthly_row[f"{m:02d}"] = ret
 
-            # YTD return
-            ytd_ret = None
-            if curr is not None and base_val is not None and base_val > 0:
-                ytd_ret = round(((curr - base_val) / base_val) * 100, 4)
+            # YTD return = compounded monthly returns
+            # Accumulate: (1+r1)(1+r2)...(1+rn) - 1
+            if ret is not None:
+                cumulative_return = (1 + cumulative_return / 100) * (1 + ret / 100) * 100 - 100
+                ytd_ret = round(cumulative_return, 4)
+            else:
+                ytd_ret = round(cumulative_return, 4) if cumulative_return != 0 else None
 
             ytd_row[f"{m:02d}"] = ytd_ret
 

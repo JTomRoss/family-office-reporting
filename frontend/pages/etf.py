@@ -186,6 +186,7 @@ def render():
             _style_right_align(df_instr, SOCIETY_COLUMNS),
             use_container_width=True,
             height=35 * (len(instr_rows) + 1) + 20,
+            hide_index=True,
         )
     else:
         st.info("Sin datos. Seleccione una fecha con datos ETF.")
@@ -235,6 +236,7 @@ def render():
             _style_right_align(df_pct, SOCIETY_COLUMNS),
             use_container_width=True,
             height=35 * (len(pct_rows) + 1) + 20,
+            hide_index=True,
         )
     else:
         st.info("Sin datos de pesos %.")
@@ -304,6 +306,7 @@ def render():
                 _style_right_align(df_rng, ["Ending Value", "Utilidad", "Rent. (%)"]),
                 use_container_width=True,
                 height=300,
+                hide_index=True,
             )
         else:
             st.info("Sin datos en rango.")
@@ -341,6 +344,7 @@ def render():
             _style_right_align(df_montos, month_cols),
             use_container_width=True,
             height=35 * (len(society_montos_table) + 1) + 20,
+            hide_index=True,
         )
     else:
         st.info("Sin datos de montos por sociedad.")
@@ -381,6 +385,7 @@ def render():
             _style_right_align(df_ret, ret_cols),
             use_container_width=True,
             height=35 * (len(returns_data) + 1) + 20,
+            hide_index=True,
         )
     else:
         st.info("Sin datos de rentabilidad.")

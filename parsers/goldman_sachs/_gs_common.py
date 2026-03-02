@@ -122,9 +122,14 @@ def extract_period(text: str) -> dict[str, str] | None:
 # ---------------------------------------------------------------------------
 
 def extract_portfolio_number(text: str) -> str | None:
-    """Extract 'Portfolio No: XXX-XX452-2' pattern."""
+    """Extract 'Portfolio No: XXX-XX452-2' → '452-2' (strip mask)."""
     m = re.search(r"Portfolio\s+No:\s*([\w-]+)", text)
-    return m.group(1).strip() if m else None
+    if not m:
+        return None
+    raw = m.group(1).strip()
+    # GS PDFs mask account numbers with XXX-XX prefix; strip it
+    stripped = re.sub(r"^[Xx]{2,}-[Xx]{2,}", "", raw)
+    return stripped if stripped else raw
 
 
 # ---------------------------------------------------------------------------
