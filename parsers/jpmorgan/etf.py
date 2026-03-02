@@ -72,7 +72,7 @@ def _extract_all_text(filepath: Path) -> list[str]:
 class JPMorganEtfParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "etf"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas ETF JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -116,7 +116,10 @@ class JPMorganEtfParser(BaseParser):
         # 4) Per-account YTD (usually page 4)
         self._extract_account_ytd(pages, result)
 
-        # 5) Holdings from detail pages
+        # 5) Per-account CURRENT PERIOD activity (from individual account pages)
+        self._extract_per_account_monthly_activity(pages, result)
+
+        # 6) Holdings from detail pages
         self._extract_holdings(pages, result)
 
         if not result.account_number and not result.rows:
@@ -283,6 +286,146 @@ class JPMorganEtfParser(BaseParser):
             if income:
                 result.qualitative_data["income_summary"] = income
             break
+
+    # ── Per-account monthly (current period) activity ──────────
+
+    def _extract_per_account_monthly_activity(
+        self, pages: list[str], result: ParseResult
+    ) -> None:
+        """
+        Extract CURRENT PERIOD Portfolio Activity from individual account pages.
+
+        Each account section has its own Account Summary with:
+        - Asset allocation (beginning/ending accruals)
+        - Portfolio Activity with Current Period and YTD columns
+          (we take the FIRST number = current period)
+
+        Stores list of dicts in qualitative_data["account_monthly_activity"]:
+          account_number, net_contributions, income_distributions,
+          change_investment, accrual_beginning, accrual_ending, utilidad
+        """
+        activities: list[dict] = []
+        current_account: Optional[str] = None
+        # Track which pages belong to an account's Account Summary
+        i = 0
+        while i < len(pages):
+            text = pages[i]
+
+            # Detect account number
+            acct_m = re.search(r"ACCT\.\s+([A-Z0-9]+)", text)
+            if acct_m:
+                current_account = acct_m.group(1)
+
+            # Only process Account Summary pages (Portfolio Activity section)
+            if current_account and "Portfolio Activity" in text and "Period" in text:
+                # Check this is an account-specific page, not the consolidated one
+                if "Consolidated Summary" in text:
+                    i += 1
+                    continue
+
+                acct_data = self._parse_account_activity_page(
+                    text, current_account
+                )
+                if acct_data:
+                    # Avoid duplicates (same account may span multiple pages)
+                    existing = [
+                        a for a in activities
+                        if a["account_number"] == current_account
+                    ]
+                    if not existing:
+                        activities.append(acct_data)
+
+            i += 1
+
+        if activities:
+            result.qualitative_data["account_monthly_activity"] = activities
+
+    def _parse_account_activity_page(
+        self, text: str, account_number: str
+    ) -> Optional[dict]:
+        """Parse a single account's Portfolio Activity page for current-period values."""
+        data: dict = {"account_number": account_number}
+
+        # ── Accruals from Asset Allocation section ───────────────
+        # Pattern: "Accruals  <beginning>  <ending>  <change>"
+        # Must NOT be in the Portfolio Activity section (those only show ending)
+        accrual_beginning: Optional[Decimal] = None
+        accrual_ending: Optional[Decimal] = None
+
+        # Find accruals in the Asset Allocation table (before Portfolio Activity)
+        activity_pos = text.find("Portfolio Activity")
+        search_text = text[:activity_pos] if activity_pos > 0 else text
+
+        accrual_m = re.search(
+            r"Accruals\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+"
+            r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
+            search_text,
+        )
+        if accrual_m:
+            accrual_beginning = _parse_usd(accrual_m.group(1))
+            accrual_ending = _parse_usd(accrual_m.group(2))
+
+        data["accrual_beginning"] = str(accrual_beginning) if accrual_beginning else None
+        data["accrual_ending"] = str(accrual_ending) if accrual_ending else None
+
+        # ── Portfolio Activity current period values ─────────────
+        # Each line has: <label>  <current_period>  <ytd>
+        # We want the FIRST number (current period)
+
+        # Net Contributions/Withdrawals — may be $xxx or ($xxx) or plain number
+        # Handle dollar sign inside/outside parens: ($2,728,400.00), $2,228,400.00
+        net_contrib_m = re.search(
+            r"Net Contributions/Withdrawals\s+"
+            r"(\$?\(?\$?[\d,]+\.\d{2}\)?)",
+            text,
+        )
+        net_contributions: Optional[Decimal] = None
+        if net_contrib_m:
+            net_contributions = _parse_usd(net_contrib_m.group(1))
+
+        # Income & Distributions — current period (first number after label)
+        income_m = re.search(
+            r"Income & Distributions\s+([\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        income_distributions: Optional[Decimal] = None
+        if income_m:
+            income_distributions = _parse_usd(income_m.group(1))
+
+        # Change In Investment Value — current period (first number)
+        change_m = re.search(
+            r"Change [Ii]n Investment Value\s+"
+            r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        change_investment: Optional[Decimal] = None
+        if change_m:
+            change_investment = _parse_usd(change_m.group(1))
+
+        # Sanity check: need at least net_contributions to be useful
+        if net_contributions is None and income_distributions is None:
+            return None
+
+        data["net_contributions"] = str(net_contributions) if net_contributions is not None else None
+        data["income_distributions"] = str(income_distributions) if income_distributions is not None else None
+        data["change_investment"] = str(change_investment) if change_investment is not None else None
+
+        # ── Compute utilidad ─────────────────────────────────────
+        # utilidad = Income & Distributions + Change In Investment Value
+        #          + accrual_ending - accrual_beginning
+        utilidad = Decimal("0")
+        if income_distributions is not None:
+            utilidad += income_distributions
+        if change_investment is not None:
+            utilidad += change_investment
+        if accrual_ending is not None:
+            utilidad += accrual_ending
+        if accrual_beginning is not None:
+            utilidad -= accrual_beginning
+
+        data["utilidad"] = str(utilidad)
+
+        return data
 
     # ── Holdings detail ──────────────────────────────────────────
 

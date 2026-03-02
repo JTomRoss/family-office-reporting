@@ -274,6 +274,7 @@ class DataLoadingService:
         # Income y cambios de valor
         income = account_values.get("income")
         change_in_value = account_values.get("change_investment")
+        accrual = account_values.get("accrual")
 
         # Asset allocation (nivel consolidado)
         asset_alloc = result.qualitative_data.get("asset_allocation")
@@ -297,6 +298,7 @@ class DataLoadingService:
             existing.currency = result.currency or account.currency
             existing.income = income
             existing.change_in_value = change_in_value
+            existing.accrual = accrual
             existing.asset_allocation_json = asset_alloc_json
             existing.source_document_id = doc.id
             if opening_bal is not None:
@@ -313,6 +315,7 @@ class DataLoadingService:
                 currency=result.currency or account.currency,
                 income=income,
                 change_in_value=change_in_value,
+                accrual=accrual,
                 asset_allocation_json=asset_alloc_json,
                 source_document_id=doc.id,
             )
@@ -325,7 +328,13 @@ class DataLoadingService:
     ) -> dict:
         """
         Extrae valores específicos de una cuenta desde qualitative_data.
-        Para reportes multi-cuenta (JPMorgan), busca en account_ytd e income_summary.
+        Para reportes multi-cuenta (JPMorgan), busca en account_monthly_activity,
+        account_ytd e income_summary.
+
+        Prioridad para income/change_investment:
+        1. account_monthly_activity (período actual — JPMorgan ETF v2.1+)
+        2. account_ytd (YTD fallback)
+        3. income_summary
         """
         values: dict = {}
 
@@ -336,16 +345,36 @@ class DataLoadingService:
                 values["ending_value"] = _safe_decimal(acct_info.get("ending_value"))
                 break
 
-        # -- account_ytd --
-        for ytd in result.qualitative_data.get("account_ytd", []):
-            if ytd.get("account_number") == account.account_number:
-                if "beginning_value" not in values:
-                    values["beginning_value"] = _safe_decimal(ytd.get("beginning_value"))
-                if "ending_value" not in values:
-                    values["ending_value"] = _safe_decimal(ytd.get("ending_value"))
-                values["income"] = _safe_decimal(ytd.get("income"))
-                values["change_investment"] = _safe_decimal(ytd.get("change_investment"))
+        # -- account_monthly_activity (current period — highest priority) --
+        for monthly in result.qualitative_data.get("account_monthly_activity", []):
+            if monthly.get("account_number") == account.account_number:
+                # utilidad = Income & Distrib + Change Invest + accrual_end - accrual_beg
+                utilidad = _safe_decimal(monthly.get("utilidad"))
+                if utilidad is not None:
+                    values["income"] = utilidad
+                # net_contributions = movimientos
+                net_contrib = _safe_decimal(monthly.get("net_contributions"))
+                if net_contrib is not None:
+                    values["change_investment"] = net_contrib
+                # accrual
+                accrual_ending = _safe_decimal(monthly.get("accrual_ending"))
+                if accrual_ending is not None:
+                    values["accrual"] = accrual_ending
                 break
+
+        # -- account_ytd (fallback if monthly not available) --
+        if "income" not in values or "change_investment" not in values:
+            for ytd in result.qualitative_data.get("account_ytd", []):
+                if ytd.get("account_number") == account.account_number:
+                    if "beginning_value" not in values:
+                        values["beginning_value"] = _safe_decimal(ytd.get("beginning_value"))
+                    if "ending_value" not in values:
+                        values["ending_value"] = _safe_decimal(ytd.get("ending_value"))
+                    if "income" not in values:
+                        values["income"] = _safe_decimal(ytd.get("income"))
+                    if "change_investment" not in values:
+                        values["change_investment"] = _safe_decimal(ytd.get("change_investment"))
+                    break
 
         # -- income_summary --
         for inc in result.qualitative_data.get("income_summary", []):
