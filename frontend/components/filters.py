@@ -13,9 +13,37 @@ import streamlit as st
 from typing import Optional
 
 
+# ── Display names for bank codes ─────────────────────────────────
+BANK_DISPLAY_NAMES: dict[str, str] = {
+    "jpmorgan": "JP Morgan",
+    "ubs": "UBS Suiza",
+    "ubs_miami": "UBS Miami",
+    "goldman_sachs": "Goldman Sachs",
+    "bbh": "BBH",
+    "bice": "BICE",
+}
+
+
+def _default_format(value: str) -> str:
+    """Formatea un valor crudo para mostrar en la UI."""
+    return value
+
+
+def _format_bank_code(code: str) -> str:
+    """goldman_sachs → 'Goldman Sachs', etc."""
+    return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
+
+
+# Map de filter_name → función de formato
+_FORMAT_FUNCS: dict[str, callable] = {
+    "bank_codes": _format_bank_code,
+}
+
+
 def render_filters(
     filter_options: dict[str, list[str]],
     key_prefix: str = "filter",
+    format_labels: dict[str, callable] | None = None,
 ) -> dict[str, list[str]]:
     """
     Renderiza el bloque de filtros estándar.
@@ -41,11 +69,13 @@ def render_filters(
 
     # ── Filtros multi-selección ──────────────────────────────────
     selections = {}
+    _fmts = {**_FORMAT_FUNCS, **(format_labels or {})}
 
     filter_cols = st.columns(len(filter_options))
     for idx, (filter_name, options) in enumerate(filter_options.items()):
         with filter_cols[idx]:
             label = filter_name.replace("_", " ").title()
+            fmt_fn = _fmts.get(filter_name, _default_format)
 
             if clear_all:
                 default = []
@@ -58,6 +88,7 @@ def render_filters(
                 label,
                 options=options,
                 default=default if all(d in options for d in default) else [],
+                format_func=fmt_fn,
                 key=f"{key_prefix}_{filter_name}",
             )
             selections[filter_name] = selected
@@ -67,7 +98,8 @@ def render_filters(
     for name, selected in selections.items():
         if selected:
             label = name.replace("_", " ").title()
-            values = ", ".join(str(v) for v in selected[:5])
+            fmt_fn = _fmts.get(name, _default_format)
+            values = ", ".join(fmt_fn(str(v)) for v in selected[:5])
             if len(selected) > 5:
                 values += f" (+{len(selected) - 5} más)"
             active_parts.append(f"**{label}:** {values}")

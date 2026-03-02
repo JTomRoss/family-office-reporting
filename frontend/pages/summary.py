@@ -33,11 +33,15 @@ def render():
             "bank_codes": [],
             "entity_names": [],
             "account_types": [],
-            "currencies": [],
         }
 
-    # Agregar año
-    filter_opts["years"] = [str(y) for y in range(2020, 2027)]
+    # Solo banco, sociedad, tipo cuenta y año (moneda/país no aplican)
+    filter_opts = {
+        "bank_codes": filter_opts.get("bank_codes", []),
+        "entity_names": filter_opts.get("entity_names", []),
+        "account_types": filter_opts.get("account_types", []),
+        "years": [str(y) for y in range(2020, 2027)],
+    }
 
     # ── Renderizar filtros ───────────────────────────────────────
     selections = render_filters(filter_opts, key_prefix="summary")

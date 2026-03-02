@@ -527,27 +527,49 @@ def render():
                 }
                 show_cols = [c for c in col_rename if c in df_docs.columns]
                 df_show = df_docs[show_cols].rename(columns=col_rename)
-                st.dataframe(df_show, use_container_width=True, hide_index=True)
 
-                # ── Eliminación individual ──────────────────────
-                st.markdown("##### Eliminar documento específico")
-                doc_options = {
-                    d["id"]: f"ID {d['id']} — {d['filename']} ({d.get('file_type', '')})"
-                    for d in docs
-                }
-                selected_id = st.selectbox(
-                    "Seleccionar documento",
-                    options=list(doc_options.keys()),
-                    format_func=lambda x: doc_options[x],
-                    key="doc_select_delete",
+                # Agregar columna de selección para eliminación
+                df_show.insert(len(df_show.columns), "Eliminar", False)
+
+                edited_df = st.data_editor(
+                    df_show,
+                    use_container_width=True,
+                    hide_index=True,
+                    disabled=[c for c in df_show.columns if c != "Eliminar"],
+                    column_config={
+                        "Eliminar": st.column_config.CheckboxColumn(
+                            "🗑️",
+                            help="Selecciona los documentos a eliminar",
+                            default=False,
+                        ),
+                    },
+                    key="doc_table_editor",
                 )
-                if st.button("🗑️ Eliminar seleccionado", key="btn_del_one"):
-                    try:
-                        api_client.delete(f"/documents/{selected_id}")
-                        st.success(f"✅ Documento ID {selected_id} eliminado")
+
+                # ── Eliminar seleccionados ──────────────────────
+                selected_mask = edited_df["Eliminar"] == True
+                selected_count = selected_mask.sum()
+
+                col_del, col_info = st.columns([1, 3])
+                with col_del:
+                    if st.button(
+                        f"🗑️ Eliminar seleccionados ({selected_count})",
+                        disabled=selected_count == 0,
+                        key="btn_del_selected",
+                    ):
+                        selected_ids = df_docs.loc[selected_mask.values, "id"].tolist()
+                        deleted = 0
+                        for doc_id in selected_ids:
+                            try:
+                                api_client.delete(f"/documents/{doc_id}")
+                                deleted += 1
+                            except Exception:
+                                pass
+                        st.success(f"✅ {deleted} documento(s) eliminado(s)")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                with col_info:
+                    if selected_count > 0:
+                        st.caption(f"📌 {selected_count} documento(s) seleccionado(s)")
 
                 # ── Eliminación masiva ──────────────────────────
                 st.markdown("---")

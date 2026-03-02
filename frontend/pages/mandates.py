@@ -29,9 +29,14 @@ def render():
     try:
         filter_opts = api_client.get("/accounts/filter-options")
     except Exception:
-        filter_opts = {"bank_codes": [], "entity_names": [], "currencies": []}
+        filter_opts = {"bank_codes": [], "entity_names": []}
 
-    filter_opts["years"] = [str(y) for y in range(2020, 2027)]
+    # Solo banco, sociedad y año (tipo cuenta/moneda/país no aplican)
+    filter_opts = {
+        "bank_codes": filter_opts.get("bank_codes", []),
+        "entity_names": filter_opts.get("entity_names", []),
+        "years": [str(y) for y in range(2020, 2027)],
+    }
     selections = render_filters(filter_opts, key_prefix="mandates")
 
     st.markdown("---")
