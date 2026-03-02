@@ -205,10 +205,10 @@ UI (PDFs tab) → POST /documents/upload-and-process
 | GET | /accounts/ | Listar cuentas maestro |
 | GET | /accounts/filter-options | Opciones de filtro para UI |
 | GET | /accounts/{number}/auto-fill | Auto-completar metadata |
-| POST | /data/summary | **Funcional** — filas verticales: fecha/sociedad/banco/ID/moneda/ending_value/movimientos/profit/rent% |
+| POST | /data/summary | **Funcional** — filas verticales + chart_data consolidado (fecha/ending/mov/profit/rent%) |
 | POST | /data/mandates | Parcial — filtra account_type='mandato', sin datos aún |
 | GET | /data/etf-dates | **Funcional** — fechas YYYY-MM disponibles con datos ETF |
-| POST | /data/etf | **Funcional** — bank×society table, composición por sociedad/instrumento, montos×meses |
+| POST | /data/etf | **Funcional** — instruments×societies (montos+pesos%), composición pies, society montos×meses, society returns (mensual+YTD) |
 | POST | /data/personal | **STUB** — datos pestaña Personal |
 
 ---
@@ -219,9 +219,9 @@ UI (PDFs tab) → POST /documents/upload-and-process
 |---|---|---|
 | 🏠 Inicio | `pages/home.py` | Funcional |
 | 📁 Carga | `pages/upload.py` | **Funcional** — 3 tabs: PDFs, Excel, Docs cargados. Upload+process automático. Botón "Procesar pendientes". |
-| 📋 Resumen | `pages/summary.py` | **Funcional** — tabla vertical (fecha/soc/banco/ID/moneda/valor/mov/profit/rent%), rango personalizado, detalle cartolas |
+| 📋 Resumen | `pages/summary.py` | **Funcional** — tabla vertical + gráficos (ending/profit/rent%) desde chart_data, rango personalizado consolidado, detalle cartolas, right-align |
 | 📑 Mandatos | `pages/mandates.py` | Scaffold (espera datos de mandatos cargados) |
-| 📈 ETF | `pages/etf.py` | **Funcional** — filtro Fecha YYYY-MM, tabla Bancos×Sociedades (cols fijas), 2 tortas (soc+instr), tabla montos×meses |
+| 📈 ETF | `pages/etf.py` | **Funcional** — filtros (Fecha/Banco/Sociedad/ConSinCaja), instrumentos×sociedades (montos+pesos%), 2 tortas+rango, society montos×meses, retornos Mensual/YTD |
 | 👤 Personal | `pages/personal.py` | Scaffold (espera /data/personal) |
 | ⚙️ Operacional | `pages/operational.py` | Scaffold |
 
@@ -268,8 +268,22 @@ UI (PDFs tab) → POST /documents/upload-and-process
 - Eliminación de documentos con cascade correcto + multi-select checkbox
 - **Data pipeline completo**: ParseResult → DataLoadingService → parsed_statements + monthly_closings + etf_compositions
 - **Endpoints `/data/summary` y `/data/etf` funcionales** con queries reales a BD
-- **Summary redesign**: tabla vertical (meses en filas), columnas fijas (Fecha, Sociedad, Banco, ID, Moneda, Ending Value, Movimientos, Profit, Rent. Mensual %, Rent. Mensual sin Caja %). Endpoint retorna filas planas, no agrupadas. Rango Personalizado y Detalle Cartolas ahora funcionales (antes eran scaffolds vacíos con `pd.DataFrame()`).
-- **ETF redesign**: filtro Fecha (YYYY-MM selectbox via `render_fecha_filter`), tabla Bancos×Sociedades con columnas fijas (Boatview JPM, Boatview GS, Telmar, Armel Holdings, Ect Internacional, Total), 2 gráficos torta (por sociedades + por instrumentos), tabla ETF Montos (instrumentos×meses Ene-Dic). Society mapping via `SOCIETY_MAPPING` en data.py.
+- **Summary redesign**: tabla vertical (meses en filas), columnas fijas (Fecha, Sociedad, Banco, ID, Moneda, Ending Value, Movimientos, Profit, Rent. Mensual %, Rent. Mensual sin Caja %). Gráficos usan `chart_data` consolidado (NO diffs de totals). Rango Personalizado = tabla consolidada con selectores año/mes. Detalle Cartolas = tabla por cartola.
+- **ETF redesign v2**: filtro Fecha (YYYY-MM), Banco, Sociedad, Con/Sin Caja. Tablas con datos alineados a la derecha.
+  - Tabla 1: Instrumentos × Sociedades (montos), solo Fecha
+  - Tabla 2: Instrumentos × Sociedades (pesos %), sin caja excluye Money Market
+  - 2 tortas + Rango Personalizado en tercios
+  - Tabla Sociedades × Meses (montos)
+  - Tabla Rentabilidad × Sociedad con toggle Mensual/YTD
+- **Diccionario de instrumentos ETF** (consolidación de nombres, en `INSTRUMENT_NAME_MAP` de data.py):
+  - IWDA = ISHARES CORE MSCI WORLD
+  - IEMA = ISHARES MSCI EM-ACC
+  - IHYA = ISHARES USD HY CORP USD ACC = ISHARES USD HIGH YIELD CORP BOND
+  - VDCA = VAND USDCP1-3 USDA
+  - VDPA = VANG USDCPBD USDA
+  - Money Market = sweep, liquidity, cash, depósito
+  - Orden fijo: IWDA, IEMA, VDCA, VDPA, IHYA, Money Market
+- Society mapping via `SOCIETY_MAPPING` en data.py.
 - Filtros UI: BANK_DISPLAY_NAMES, filtros reducidos por pestaña, `render_fecha_filter` para ETF
 - 43 cuentas en maestro, campo `identification_number` (dígito verificador, no unique)
 - Botón "Procesar pendientes" en tab documentos

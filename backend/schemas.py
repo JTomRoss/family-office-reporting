@@ -133,6 +133,7 @@ class FilterParams(BaseModel):
     account_types: list[str] = []
     currencies: list[str] = []
     fecha: Optional[str] = None  # "YYYY-MM" para filtro ETF
+    sin_caja: bool = False  # True = excluir caja/money market de cálculos %
 
 
 class SummaryRow(BaseModel):

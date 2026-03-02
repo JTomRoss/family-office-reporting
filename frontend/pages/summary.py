@@ -3,10 +3,10 @@ Página Resumen – Vista consolidada con filtros multi-selección.
 
 Estructura:
 - Filtros multi-selección (banco, sociedad, tipo cuenta, año)
-- 3 gráficos (Total Assets, Profit, Rentabilidad)
+- 3 gráficos (Total Assets, Profit, Rentabilidad) consolidados
 - Tabla resumen VERTICAL (meses en filas, columnas fijas)
-- Tabla rango personalizado (mismo formato, filtrado por fecha)
-- Tabla detalle cartolas (mismo formato, por cartola individual)
+- Tabla rango personalizado (selectores año/mes inicio y fin)
+- Tabla detalle cartolas (mismo formato vertical, por cartola)
 """
 
 import streamlit as st
@@ -50,6 +50,13 @@ def _fmt_bank(code):
     return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
 
 
+# Columnas numéricas que se alinean a la derecha
+_NUM_COLS = [
+    "Ending Value", "Movimientos", "Profit",
+    "Rent. Mensual (%)", "Rent. Mensual sin Caja (%)",
+]
+
+
 def _build_table(rows):
     """Build a display DataFrame from summary rows."""
     if not rows:
@@ -70,6 +77,26 @@ def _build_table(rows):
             "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
         })
     return pd.DataFrame(table_data)
+
+
+def _right_align_config(df):
+    """Return column_config dict to right-align numeric columns."""
+    cfg = {}
+    for col in df.columns:
+        if col in _NUM_COLS:
+            cfg[col] = st.column_config.TextColumn(col, width="medium")
+    return cfg
+
+
+def _style_right(df):
+    """Return a Styler that right-aligns numeric columns."""
+    styles = []
+    for col in df.columns:
+        if col in _NUM_COLS:
+            styles.append({"selector": f"td.col{df.columns.get_loc(col)}", "props": "text-align: right"})
+    return df.style.set_table_styles(styles, overwrite=False).format(
+        {c: "{}" for c in df.columns}
+    )
 
 
 def render():
@@ -107,36 +134,38 @@ def render():
             "account_types": selections.get("account_types", []),
         })
     except Exception as e:
-        data = {"rows": [], "totals": {}}
+        data = {"rows": [], "chart_data": []}
         st.error(f"Error: {e}")
 
     rows = data.get("rows", [])
-    totals = data.get("totals", {})
+    chart_data = data.get("chart_data", [])
 
-    # Meses ordenados
-    sorted_months = sorted(totals.keys()) if totals else []
-
-    # ── Gráficos (3 gráficos) ───────────────────────────────────
+    # ── Gráficos (3 gráficos — datos consolidados) ──────────────
     st.subheader("📊 Evolución 12 meses")
 
     chart_months = []
-    chart_values = []
-    for mk in sorted_months:
-        parts = mk.split("-")
-        month_idx = int(parts[1]) - 1
-        chart_months.append(f"{MONTHS[month_idx]} {parts[0][-2:]}")
-        chart_values.append(float(totals.get(mk, 0)))
+    chart_ev = []
+    chart_profit = []
+    chart_ret = []
+    for cd in chart_data:
+        parts = cd["fecha"].split("-")
+        chart_months.append(f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}")
+        chart_ev.append(cd["ending_value"])
+        chart_profit.append(cd["profit"])
+        chart_ret.append(cd["rent_pct"] if cd["rent_pct"] is not None else 0)
 
     if not chart_months:
         chart_months = MONTHS
-        chart_values = [0] * 12
+        chart_ev = [0] * 12
+        chart_profit = [0] * 12
+        chart_ret = [0] * 12
 
     chart_col1, chart_col2, chart_col3 = st.columns(3)
 
     with chart_col1:
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=chart_months, y=chart_values,
+            x=chart_months, y=chart_ev,
             name="Total Assets",
             marker_color="steelblue",
         ))
@@ -148,13 +177,9 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
     with chart_col2:
-        profit_values = [
-            (chart_values[i] - chart_values[i - 1]) if i > 0 else 0
-            for i in range(len(chart_values))
-        ]
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=chart_months, y=profit_values,
+            x=chart_months, y=chart_profit,
             name="Profit",
             marker_color="mediumseagreen",
         ))
@@ -166,14 +191,9 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
     with chart_col3:
-        ret_values = [
-            (((chart_values[i] - chart_values[i - 1]) / chart_values[i - 1]) * 100)
-            if i > 0 and chart_values[i - 1] != 0 else 0
-            for i in range(len(chart_values))
-        ]
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=chart_months, y=ret_values,
+            x=chart_months, y=chart_ret,
             mode="lines+markers",
             name="Rentabilidad",
             line=dict(color="coral"),
@@ -187,45 +207,59 @@ def render():
 
     st.markdown("---")
 
-    # ── Tabla Resumen (VERTICAL) ─────────────────────────────────
-    st.subheader("📋 Tabla Resumen")
-    st.caption(
-        "Formato vertical: un registro por cuenta por mes. "
-        "Columnas: Fecha · Sociedad · Banco · ID · Moneda · "
-        "Ending Value · Movimientos · Profit · Rent. Mensual (%) · "
-        "Rent. Mensual sin Caja (%)"
-    )
+    # ── Tablas: 60% Resumen | 40% Rango ─────────────────────────
+    col_table1, col_table2 = st.columns([6, 4])
 
-    df_summary = _build_table(rows)
-    if not df_summary.empty:
-        st.dataframe(df_summary, use_container_width=True, height=400)
-    else:
-        st.info("Sin datos. Cargue documentos y aplique filtros.")
+    with col_table1:
+        st.subheader("📋 Tabla Resumen")
+        df_summary = _build_table(rows)
+        if not df_summary.empty:
+            st.dataframe(
+                _style_right(df_summary),
+                use_container_width=True,
+                height=400,
+            )
+        else:
+            st.info("Sin datos. Cargue documentos y aplique filtros.")
 
-    st.markdown("---")
+    with col_table2:
+        st.subheader("📅 Rango Personalizado")
+        y_start, m_start, y_end, m_end = render_date_range_filter(
+            key_prefix="summary_range"
+        )
+        st.info(
+            f"Rango: {MONTHS[m_start - 1]} {y_start} → {MONTHS[m_end - 1]} {y_end}"
+        )
 
-    # ── Rango Personalizado ──────────────────────────────────────
-    st.subheader("📅 Rango Personalizado")
-    y_start, m_start, y_end, m_end = render_date_range_filter(
-        key_prefix="summary_range"
-    )
-    st.info(
-        f"Rango: {MONTHS[m_start - 1]} {y_start} → {MONTHS[m_end - 1]} {y_end}"
-    )
+        # Consolidar por mes dentro del rango
+        range_start = f"{y_start}-{m_start:02d}"
+        range_end = f"{y_end}-{m_end:02d}"
+        range_cd = [
+            cd for cd in chart_data
+            if range_start <= cd["fecha"] <= range_end
+        ]
 
-    # Filtrar rows por rango de fechas
-    range_start = f"{y_start}-{m_start:02d}"
-    range_end = f"{y_end}-{m_end:02d}"
-    range_rows = [
-        r for r in rows
-        if range_start <= r["fecha"] <= range_end
-    ]
-
-    df_range = _build_table(range_rows)
-    if not df_range.empty:
-        st.dataframe(df_range, use_container_width=True, height=300)
-    else:
-        st.info("Sin datos en el rango seleccionado.")
+        if range_cd:
+            range_table = []
+            for cd in range_cd:
+                parts = cd["fecha"].split("-")
+                range_table.append({
+                    "Mes": f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}",
+                    "Ending Value": _fmt_number(cd["ending_value"]),
+                    "Movimientos": _fmt_number(cd["movimientos"]),
+                    "Profit": _fmt_number(cd["profit"]),
+                    "Rent. (%)": _fmt_pct(cd["rent_pct"]),
+                })
+            df_range = pd.DataFrame(range_table)
+            # Right-align numeric cols
+            ncols = ["Ending Value", "Movimientos", "Profit", "Rent. (%)"]
+            st.dataframe(
+                df_range.style.format({c: "{}" for c in df_range.columns}),
+                use_container_width=True,
+                height=300,
+            )
+        else:
+            st.info("Sin datos en el rango seleccionado.")
 
     st.markdown("---")
 
@@ -234,6 +268,10 @@ def render():
     st.caption("Detalle individual de cada cartola (cuenta/período).")
 
     if not df_summary.empty:
-        st.dataframe(df_summary, use_container_width=True, height=300)
+        st.dataframe(
+            _style_right(df_summary),
+            use_container_width=True,
+            height=300,
+        )
     else:
         st.info("Sin datos. Cargue cartolas para ver el detalle.")
