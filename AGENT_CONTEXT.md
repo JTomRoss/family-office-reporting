@@ -1,7 +1,7 @@
 # AGENT_CONTEXT — Family Office Reporting System
 
 > **Propósito**: Este archivo es el SSOT de contexto para cualquier agente AI que trabaje en este proyecto. Léelo COMPLETO antes de hacer cualquier cambio.
-> **Última actualización**: 2026-02-27
+> **Última actualización**: 2026-03-02
 
 ---
 
@@ -57,7 +57,7 @@ backend/           → API REST. Toda lógica de negocio vive aquí.
   config.py        → Rutas, settings, constantes.
   schemas.py       → Pydantic schemas (contrato API).
   routers/         → health, documents, accounts, data
-  services/        → document_service, account_service, cache_service
+  services/        → document_service, account_service, data_loading_service, cache_service
   db/              → models.py (SQLAlchemy ORM), session.py, init_db.py
 
 parsers/           → Sistema de plugins aislados. Un parser = un archivo.
@@ -177,14 +177,16 @@ UI (Excel/CSV tab) → POST /documents/upload-and-process
 
 ### 6.2 Carga de cartola PDF
 ```
-UI (PDFs tab) → POST /documents/upload
-  → Metadata manual: banco, cuenta, sociedad, tipo cuenta,
-    moneda, portafolio/personal, nombre persona, código interno
-  → Auto-fill disponible: GET /accounts/{account_number}/auto-fill
-  → Soporte multi-cuenta (checkbox "Varios" + sub-cuentas)
+UI (PDFs tab) → POST /documents/upload-and-process
+  → Metadata manual: banco, sociedad, dígito verificador (auto-fill)
+  → Auto-fill: GET /accounts/auto-fill?identification_number=&bank_code=&entity_name=
+  → Solo 3 campos requeridos: banco, sociedad, dígito verificador
   → Detección de duplicados con opciones: Reclasificar / Omitir
   → DocumentService.upload_document() → RawDocument en BD
-  → (procesamiento posterior vía POST /documents/{id}/process)
+  → DocumentService.process_document()
+    → Parser.safe_parse() → ParseResult
+    → DataLoadingService.load_parse_result()
+      → parsed_statements, monthly_closings, etf_compositions
 ```
 
 ### 6.3 Endpoints principales
@@ -203,9 +205,9 @@ UI (PDFs tab) → POST /documents/upload
 | GET | /accounts/ | Listar cuentas maestro |
 | GET | /accounts/filter-options | Opciones de filtro para UI |
 | GET | /accounts/{number}/auto-fill | Auto-completar metadata |
-| POST | /data/summary | **STUB** — datos pestaña Resumen |
-| POST | /data/mandates | **STUB** — datos pestaña Mandatos |
-| POST | /data/etf | **STUB** — datos pestaña ETF |
+| POST | /data/summary | **Funcional** — datos pestaña Resumen (monthly_closings + accounts) |
+| POST | /data/mandates | Parcial — filtra account_type='mandato', sin datos aún |
+| POST | /data/etf | **Funcional** — evolución, composición, rentabilidad ETF |
 | POST | /data/personal | **STUB** — datos pestaña Personal |
 
 ---
@@ -215,25 +217,21 @@ UI (PDFs tab) → POST /documents/upload
 | Página | Archivo | Estado |
 |---|---|---|
 | 🏠 Inicio | `pages/home.py` | Funcional |
-| 📁 Carga | `pages/upload.py` | **Funcional** — 3 tabs: PDFs, Excel, Docs cargados |
-| 📋 Resumen | `pages/summary.py` | Scaffold (espera /data/summary) |
-| 📑 Mandatos | `pages/mandates.py` | Scaffold (espera /data/mandates) |
-| 📈 ETF | `pages/etf.py` | Scaffold (espera /data/etf) |
+| 📁 Carga | `pages/upload.py` | **Funcional** — 3 tabs: PDFs, Excel, Docs cargados. Upload+process automático. Botón "Procesar pendientes". |
+| 📋 Resumen | `pages/summary.py` | **Funcional** — gráficos + tabla con datos reales de monthly_closings |
+| 📑 Mandatos | `pages/mandates.py` | Scaffold (espera datos de mandatos cargados) |
+| 📈 ETF | `pages/etf.py` | **Funcional** — composición, evolución mensual, rentabilidad desde DB |
 | 👤 Personal | `pages/personal.py` | Scaffold (espera /data/personal) |
 | ⚙️ Operacional | `pages/operational.py` | Scaffold |
 
 ### Campos de la página de carga PDF:
-- Tipo de documento (cartola / reporte)
-- Banco * (jpmorgan, ubs, ubs_miami, goldman_sachs, bbh, bice)
-- Número de cuenta * (o checkbox "Varios" + sub-cuentas para multi-cuenta)
-- Botón Auto-llenar (desde maestro)
-- Sociedad / Nombre entidad *
-- Código interno
-- Tipo de cuenta * (custody, current, savings, investment, etf)
-- Moneda * (USD, EUR, CHF, CLP, etc.)
-- Portafolio o Personal * (sociedad / persona)
-- Nombre persona * (condicional: solo si es "persona")
+- Fila 1: Tipo de documento (cartola / reporte) | Banco * (jpmorgan, ubs, ubs_miami, goldman_sachs, bbh, bice)
+- Fila 2: Sociedad * | Dígito verificador * | Botón Auto-llenar
+- Solo 3 campos requeridos: banco, sociedad, dígito verificador
+- Auto-fill: busca en maestro por identification_number + bank_code + entity_name
+- Campos auto-llenados (deshabilitados): cuenta, tipo cuenta, moneda, tipo entidad, persona, código interno
 - **Año y mes NO se piden** — el parser los extrae del PDF
+- PDFs se procesan automáticamente al subir (upload-and-process)
 
 ---
 
@@ -258,35 +256,37 @@ UI (PDFs tab) → POST /documents/upload
 ### ✅ Completado
 - Scaffolding completo (40+ archivos)
 - 12 hardening fixes (audit completo)
-- 14 parsers funcionales (10 PDF v2.0.0 + 4 Excel v1.0.0)
+- 14 parsers funcionales (10 PDF v2.0.0 + 4 Excel v1.0.0, master_accounts v3.0.0)
 - Goldman Sachs resuelto con PyMuPDF fallback
-- Página de carga con todos los campos de clasificación
-- Auto-fill desde maestro de cuentas
+- Página de carga simplificada (3 campos requeridos + auto-fill por dígito verificador)
+- Auto-fill por `identification_number` + banco + sociedad
 - Multi-cuenta ("Varios") con sub-cuentas
-- Upload + proceso automático del maestro
+- Upload + proceso automático del maestro Y de PDFs (upload-and-process)
 - Detección de duplicados con interacción de usuario (Reclasificar/Omitir)
 - Tabla maestro visible tras carga de Excel
-- Eliminación de documentos con cascade correcto
+- Eliminación de documentos con cascade correcto + multi-select checkbox
+- **Data pipeline completo**: ParseResult → DataLoadingService → parsed_statements + monthly_closings + etf_compositions
+- **Endpoints `/data/summary` y `/data/etf` funcionales** con queries reales a BD
+- **Frontend summary y ETF** con gráficos y tablas reales
+- Filtros UI: BANK_DISPLAY_NAMES, filtros reducidos por pestaña
+- 43 cuentas en maestro, campo `identification_number` (dígito verificador, no unique)
+- Botón "Procesar pendientes" en tab documentos
+- 93 tests passing
 
 ### 🔲 Pendiente
-- **Endpoints `/data/*` son STUBS** — necesitan implementación real
-- **Proceso de cartolas PDF** — los PDFs se suben pero el flujo completo (parse → monthly_closings → reconciliación) no está conectado end-to-end
+- **Endpoint `/data/personal`** es STUB — necesita implementación
+- **Endpoint `/data/mandates`** parcialmente implementado — sin datos de mandatos cargados aún
 - **Cargas masivas Excel** (posiciones, movimientos, precios) → no se alimentan las tablas diarias
 - **Cálculos de profit, allocation, reconciliación** — la lógica existe en `calculations/` pero no está wired a los endpoints
-- **Dashboards** — las páginas de Resumen, Mandatos, ETF, Personal están en scaffold
+- **Dashboard Personal** — scaffold, espera endpoint
+- **Dashboard Operacional** — scaffold
 - **Cache Parquet** — la infraestructura existe pero no se usa aún
 - **Alembic** — configurado pero sin migraciones ejecutadas formalmente
+- **Reconciliación** — la lógica existe pero no está conectada al flujo
 
-### 🔧 Cambios no commiteados
-Los siguientes archivos tienen cambios desde el último commit (`c0215c9`):
-- `backend/db/models.py` — cascade en relationships
-- `backend/routers/documents.py` — nuevos campos, reclassify, upload-and-process
-- `backend/schemas.py` — existing_metadata en DocumentUploadResponse
-- `backend/services/document_service.py` — proceso maestro, fix parser lookup
-- `frontend/pages/upload.py` — rediseño completo con todos los campos
-- `parsers/base.py` — account_numbers list, contract validation
-- `parsers/jpmorgan/brokerage.py` — multi-cuenta Varios
-- `parsers/jpmorgan/etf.py` — multi-cuenta Varios
+### 🔧 Estado Git
+- Todo commiteado y pusheado a `origin/master`
+- Último commit: `feat: data pipeline - ParseResult to reporting tables`
 
 ---
 
@@ -363,11 +363,12 @@ python -m streamlit run frontend/app.py --server.port 8501 --server.headless tru
 |---|---|---|
 | `backend/db/models.py` | 12 modelos ORM + 8 enums | ~670 |
 | `backend/schemas.py` | Pydantic contracts (API) | ~210 |
-| `backend/services/document_service.py` | Upload, process, list, delete, reclassify | ~360 |
+| `backend/services/document_service.py` | Upload, process (+DataLoadingService), list, delete, reclassify | ~430 |
+| `backend/services/data_loading_service.py` | ParseResult → parsed_statements, monthly_closings, etf_compositions | ~340 |
 | `backend/services/account_service.py` | Maestro: upsert, auto-fill, filter options | ~160 |
 | `backend/routers/documents.py` | CRUD documentos + upload-and-process | ~190 |
-| `backend/routers/data.py` | **STUBS** — summary, mandates, etf, personal | ~160 |
-| `frontend/pages/upload.py` | Página de carga (3 tabs) | ~450 |
+| `backend/routers/data.py` | summary + etf funcionales, mandates parcial, personal stub | ~280 |
+| `frontend/pages/upload.py` | Página de carga (3 tabs) — upload-and-process, multi-select delete | ~610 |
 | `frontend/api_client.py` | HTTP client UI→Backend | ~68 |
 | `parsers/base.py` | BaseParser ABC + ParseResult + ParsedRow | ~255 |
 | `parsers/registry.py` | Auto-discovery de plugins | ~193 |
