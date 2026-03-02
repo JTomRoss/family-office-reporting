@@ -94,115 +94,151 @@ def get_summary(
     db: Session = Depends(get_db),
 ):
     """
-    Retorna datos para la pestaña Resumen.
-    Formato: una fila por cuenta por mes (tabla vertical).
-    Columnas: fecha, sociedad, banco, id, moneda, ending_value,
-              movimientos, profit, rent_mensual_pct, rent_mensual_sin_caja_pct.
+    Retorna datos consolidados para la pestaña Resumen.
+
+    Retorna:
+      - consolidated_rows: 13 filas (dic año anterior + 12 meses del año).
+        Cada fila: fecha, ending_value, movimientos, utilidad,
+        rent_mensual_pct, rent_mensual_sin_caja_pct, is_prev_year.
+      - chart_data: solo los 12 meses del año (sin dic anterior).
+      - rows: detalle por cuenta (para Detalle Cartolas).
     """
-    # Query base: todos los monthly_closings con filtros de cuenta
+    # Años solicitados y año anterior para dic base
+    req_years = set(filters.years) if filters.years else set()
+    fetch_years = set(req_years)
+    if req_years:
+        fetch_years.add(min(req_years) - 1)
+
+    # Query base con filtros de cuenta
     query = (
         db.query(MonthlyClosing, Account)
         .join(Account, MonthlyClosing.account_id == Account.id)
     )
     query = _apply_account_filters(query, filters)
+    if fetch_years:
+        query = query.filter(MonthlyClosing.year.in_(fetch_years))
 
-    # Traer TODOS los meses de las cuentas filtradas (para cálculo de return)
     all_results = query.order_by(
         Account.id, MonthlyClosing.year, MonthlyClosing.month
     ).all()
 
-    # Agrupar por cuenta, ordenadas cronológicamente
+    # Agrupar por cuenta
     by_account: dict[int, list[tuple]] = {}
     for mc, acct in all_results:
         by_account.setdefault(acct.id, []).append((mc, acct))
 
-    # Determinar qué meses incluir según filtro de años
-    year_filter = set(filters.years) if filters.years else None
+    # Acumular datos por mes para consolidación y generar detalle
+    month_agg: dict[str, dict] = {}
+    detail_rows: list[dict] = []
+    prev_dec = f"{min(req_years) - 1}-12" if req_years else None
 
-    rows: list[dict] = []
     for acct_id, entries in by_account.items():
         entries.sort(key=lambda x: (x[0].year, x[0].month))
-        for i, (mc, acct) in enumerate(entries):
-            # Solo incluir meses que coincidan con el filtro de años
-            if year_filter and mc.year not in year_filter:
-                continue
+        acct = entries[0][1]
+        is_cash = acct.account_type in ("current", "savings")
 
+        for i, (mc, _) in enumerate(entries):
+            fecha = f"{mc.year}-{mc.month:02d}"
             curr_val = float(mc.net_value) if mc.net_value else 0
             prev_val = float(entries[i - 1][0].net_value or 0) if i > 0 else None
 
-            # Rentabilidad mensual %
-            monthly_ret = None
-            if prev_val and prev_val > 0:
-                monthly_ret = round(((curr_val - prev_val) / prev_val) * 100, 4)
+            movimientos = (
+                float(mc.change_in_value)
+                if mc.change_in_value is not None
+                else (curr_val - prev_val if prev_val is not None else None)
+            )
+            utilidad = (
+                float(mc.income)
+                if mc.income is not None
+                else movimientos
+            )
 
-            # Movimientos: change_in_value del modelo, o diferencia
-            movimientos = None
-            if mc.change_in_value is not None:
-                movimientos = float(mc.change_in_value)
-            elif prev_val is not None:
-                movimientos = curr_val - prev_val
+            # Detalle por cuenta (solo meses del año solicitado)
+            if not req_years or mc.year in req_years:
+                ret = None
+                if prev_val and prev_val > 0:
+                    ret = round(((curr_val - prev_val) / prev_val) * 100, 4)
+                detail_rows.append({
+                    "fecha": fecha,
+                    "sociedad": acct.entity_name,
+                    "banco": acct.bank_code,
+                    "id": acct.identification_number or acct.account_number,
+                    "moneda": mc.currency,
+                    "ending_value": curr_val,
+                    "movimientos": movimientos,
+                    "utilidad": utilidad,
+                    "rent_mensual_pct": ret,
+                    "rent_mensual_sin_caja_pct": ret if not is_cash else None,
+                    "account_type": acct.account_type,
+                })
 
-            # Profit: income del modelo, o igual a movimientos
-            profit = None
-            if mc.income is not None:
-                profit = float(mc.income)
-            elif movimientos is not None:
-                profit = movimientos
+            # Acumular para consolidación (todos los meses traídos)
+            if fecha not in month_agg:
+                month_agg[fecha] = {
+                    "ev": 0.0, "mov": 0.0, "util": 0.0,
+                    "ev_nc": 0.0, "util_nc": 0.0,
+                }
+            a = month_agg[fecha]
+            a["ev"] += curr_val
+            a["mov"] += (movimientos or 0)
+            a["util"] += (utilidad or 0)
+            if not is_cash:
+                a["ev_nc"] += curr_val
+                a["util_nc"] += (utilidad or 0)
 
-            # Sin caja: igual para cuentas no-cash, None para cash
-            is_cash = acct.account_type in ("current", "savings")
+    detail_rows.sort(key=lambda r: (r["fecha"], r["sociedad"], r["banco"]))
 
-            rows.append({
-                "fecha": f"{mc.year}-{mc.month:02d}",
-                "sociedad": acct.entity_name,
-                "banco": acct.bank_code,
-                "id": acct.identification_number or acct.account_number,
-                "moneda": mc.currency,
-                "ending_value": curr_val,
-                "movimientos": movimientos,
-                "profit": profit,
-                "rent_mensual_pct": monthly_ret,
-                "rent_mensual_sin_caja_pct": monthly_ret if not is_cash else None,
-                "account_type": acct.account_type,
-            })
-
-    rows.sort(key=lambda r: (r["fecha"], r["sociedad"], r["banco"]))
-
-    # Consolidar por mes para gráficos (consistente con tabla)
-    consolidated: dict[str, dict] = {}
-    for r in rows:
-        mk = r["fecha"]
-        if mk not in consolidated:
-            consolidated[mk] = {
-                "ending_value": 0.0,
-                "movimientos": 0.0,
-                "profit": 0.0,
-            }
-        consolidated[mk]["ending_value"] += (r["ending_value"] or 0)
-        consolidated[mk]["movimientos"] += (r["movimientos"] or 0)
-        consolidated[mk]["profit"] += (r["profit"] or 0)
-
-    # Calcular rentabilidad consolidada
-    sorted_mks = sorted(consolidated.keys())
+    # ── Construir filas consolidadas (13 meses) ──────────────────
+    sorted_fechas = sorted(month_agg.keys())
+    consolidated_rows: list[dict] = []
     chart_data: list[dict] = []
-    for i, mk in enumerate(sorted_mks):
-        c = consolidated[mk]
-        prev_ev = consolidated[sorted_mks[i - 1]]["ending_value"] if i > 0 else None
-        ret_pct = None
-        if prev_ev and prev_ev > 0:
-            ret_pct = round(((c["ending_value"] - prev_ev) / prev_ev) * 100, 4)
-        chart_data.append({
-            "fecha": mk,
-            "ending_value": round(c["ending_value"], 2),
-            "movimientos": round(c["movimientos"], 2),
-            "profit": round(c["profit"], 2),
-            "rent_pct": ret_pct,
-        })
+
+    for i, fecha in enumerate(sorted_fechas):
+        a = month_agg[fecha]
+        yr = int(fecha[:4])
+        is_prev = fecha == prev_dec
+
+        # Solo incluir dic anterior y meses del año solicitado
+        if req_years and yr not in req_years and not is_prev:
+            continue
+
+        # Rentabilidad: utilidad / prev_ending_value
+        rent_pct = None
+        rent_sin_caja_pct = None
+        if not is_prev and i > 0:
+            prev_f = sorted_fechas[i - 1]
+            prev_a = month_agg[prev_f]
+            if prev_a["ev"] > 0:
+                rent_pct = round(a["util"] / prev_a["ev"] * 100, 4)
+            if prev_a["ev_nc"] > 0:
+                rent_sin_caja_pct = round(a["util_nc"] / prev_a["ev_nc"] * 100, 4)
+
+        row = {
+            "fecha": fecha,
+            "ending_value": round(a["ev"], 2),
+            "movimientos": round(a["mov"], 2),
+            "utilidad": round(a["util"], 2),
+            "rent_mensual_pct": rent_pct,
+            "rent_mensual_sin_caja_pct": rent_sin_caja_pct,
+            "is_prev_year": is_prev,
+        }
+        consolidated_rows.append(row)
+
+        if not is_prev:
+            chart_data.append({
+                "fecha": fecha,
+                "ending_value": row["ending_value"],
+                "movimientos": row["movimientos"],
+                "utilidad": row["utilidad"],
+                "rent_pct": rent_pct,
+                "rent_sin_caja_pct": rent_sin_caja_pct,
+            })
 
     filter_options = _get_filter_options(db)
 
     return {
-        "rows": rows,
+        "rows": detail_rows,
+        "consolidated_rows": consolidated_rows,
         "chart_data": chart_data,
         "filter_options": filter_options,
         "active_filters": filters.model_dump(),

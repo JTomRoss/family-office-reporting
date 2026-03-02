@@ -296,12 +296,12 @@ def render():
                 rt.append({
                     "Mes": f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}",
                     "Ending Value": _fmt_num(cd["ending_value"]),
-                    "Profit": _fmt_num(cd["profit"]),
+                    "Utilidad": _fmt_num(cd["utilidad"]),
                     "Rent. (%)": _fmt_pct(cd["rent_pct"]),
                 })
             df_rng = pd.DataFrame(rt)
             st.dataframe(
-                _style_right_align(df_rng, ["Ending Value", "Profit", "Rent. (%)"]),
+                _style_right_align(df_rng, ["Ending Value", "Utilidad", "Rent. (%)"]),
                 use_container_width=True,
                 height=300,
             )

@@ -3,10 +3,10 @@ Página Resumen – Vista consolidada con filtros multi-selección.
 
 Estructura:
 - Filtros multi-selección (banco, sociedad, tipo cuenta, año)
-- 3 gráficos (Total Assets, Profit, Rentabilidad) consolidados
-- Tabla resumen VERTICAL (meses en filas, columnas fijas)
-- Tabla rango personalizado (selectores año/mes inicio y fin)
-- Tabla detalle cartolas (mismo formato vertical, por cartola)
+- 3 gráficos (Total Assets, Utilidad, Rentabilidad) consolidados
+- Tabla Resumen consolidada (13 meses: dic anterior + 12 del año)
+- Rango Personalizado (2 selectores YYYY-MM, KPIs verticales)
+- Detalle Cartolas (tabla por cuenta)
 """
 
 import streamlit as st
@@ -16,7 +16,6 @@ import pandas as pd
 from frontend import api_client
 from frontend.components.filters import (
     render_filters,
-    render_date_range_filter,
     BANK_DISPLAY_NAMES,
 )
 
@@ -50,53 +49,45 @@ def _fmt_bank(code):
     return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
 
 
-# Columnas numéricas que se alinean a la derecha
+def _fecha_label(fecha_str):
+    """'2025-03' → 'Mar 25'"""
+    parts = fecha_str.split("-")
+    return f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}"
+
+
+# ── Columnas numéricas que se alinean a la derecha ───────────────
 _NUM_COLS = [
-    "Ending Value", "Movimientos", "Profit",
+    "Ending Value", "Movimientos", "Utilidad",
     "Rent. Mensual (%)", "Rent. Mensual sin Caja (%)",
 ]
 
 
-def _build_table(rows):
-    """Build a display DataFrame from summary rows."""
-    if not rows:
-        return pd.DataFrame()
-
-    table_data = []
-    for r in rows:
-        table_data.append({
-            "Fecha": r["fecha"],
-            "Sociedad": r["sociedad"],
-            "Banco": _fmt_bank(r["banco"]),
-            "ID": r["id"],
-            "Moneda": r["moneda"],
-            "Ending Value": _fmt_number(r["ending_value"]),
-            "Movimientos": _fmt_number(r["movimientos"]),
-            "Profit": _fmt_number(r["profit"]),
-            "Rent. Mensual (%)": _fmt_pct(r["rent_mensual_pct"]),
-            "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
-        })
-    return pd.DataFrame(table_data)
-
-
-def _right_align_config(df):
-    """Return column_config dict to right-align numeric columns."""
-    cfg = {}
-    for col in df.columns:
-        if col in _NUM_COLS:
-            cfg[col] = st.column_config.TextColumn(col, width="medium")
-    return cfg
-
-
-def _style_right(df):
+def _style_right(df, num_cols=None):
     """Return a Styler that right-aligns numeric columns."""
+    if num_cols is None:
+        num_cols = _NUM_COLS
+    cols_present = [c for c in num_cols if c in df.columns]
+    if not cols_present:
+        return df.style.format({c: "{}" for c in df.columns})
     styles = []
-    for col in df.columns:
-        if col in _NUM_COLS:
-            styles.append({"selector": f"td.col{df.columns.get_loc(col)}", "props": "text-align: right"})
+    for col in cols_present:
+        idx = df.columns.get_loc(col)
+        styles.append({
+            "selector": f"td.col{idx}",
+            "props": "text-align: right",
+        })
     return df.style.set_table_styles(styles, overwrite=False).format(
         {c: "{}" for c in df.columns}
     )
+
+
+def _build_ym_options():
+    """Generate YYYY-MM options from 2020-01 to 2027-12."""
+    opts = []
+    for y in range(2020, 2028):
+        for m in range(1, 13):
+            opts.append(f"{y}-{m:02d}")
+    return opts
 
 
 def render():
@@ -134,10 +125,11 @@ def render():
             "account_types": selections.get("account_types", []),
         })
     except Exception as e:
-        data = {"rows": [], "chart_data": []}
+        data = {"rows": [], "consolidated_rows": [], "chart_data": []}
         st.error(f"Error: {e}")
 
-    rows = data.get("rows", [])
+    detail_rows = data.get("rows", [])
+    consolidated_rows = data.get("consolidated_rows", [])
     chart_data = data.get("chart_data", [])
 
     # ── Gráficos (3 gráficos — datos consolidados) ──────────────
@@ -145,19 +137,18 @@ def render():
 
     chart_months = []
     chart_ev = []
-    chart_profit = []
+    chart_util = []
     chart_ret = []
     for cd in chart_data:
-        parts = cd["fecha"].split("-")
-        chart_months.append(f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}")
+        chart_months.append(_fecha_label(cd["fecha"]))
         chart_ev.append(cd["ending_value"])
-        chart_profit.append(cd["profit"])
+        chart_util.append(cd["utilidad"])
         chart_ret.append(cd["rent_pct"] if cd["rent_pct"] is not None else 0)
 
     if not chart_months:
         chart_months = MONTHS
         chart_ev = [0] * 12
-        chart_profit = [0] * 12
+        chart_util = [0] * 12
         chart_ret = [0] * 12
 
     chart_col1, chart_col2, chart_col3 = st.columns(3)
@@ -179,12 +170,12 @@ def render():
     with chart_col2:
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            x=chart_months, y=chart_profit,
-            name="Profit",
+            x=chart_months, y=chart_util,
+            name="Utilidad",
             marker_color="mediumseagreen",
         ))
         fig.update_layout(
-            title="Profit Mensual",
+            title="Utilidad Mensual",
             height=300,
             margin=dict(l=20, r=20, t=40, b=20),
         )
@@ -207,56 +198,119 @@ def render():
 
     st.markdown("---")
 
-    # ── Tablas: 60% Resumen | 40% Rango ─────────────────────────
+    # ── Tablas: Resumen | Rango Personalizado ────────────────────
     col_table1, col_table2 = st.columns([6, 4])
 
+    # ── Tabla Resumen (consolidada, 13 meses) ────────────────────
     with col_table1:
         st.subheader("📋 Tabla Resumen")
-        df_summary = _build_table(rows)
-        if not df_summary.empty:
+        if consolidated_rows:
+            table_data = []
+            for cr in consolidated_rows:
+                is_prev = cr.get("is_prev_year", False)
+                table_data.append({
+                    "Fecha": _fecha_label(cr["fecha"]),
+                    "Ending Value": _fmt_number(cr["ending_value"]),
+                    "Movimientos": _fmt_number(cr["movimientos"]),
+                    "Utilidad": _fmt_number(cr["utilidad"]),
+                    "Rent. Mensual (%)": (
+                        "" if is_prev
+                        else _fmt_pct(cr["rent_mensual_pct"])
+                    ),
+                    "Rent. Mensual sin Caja (%)": (
+                        "" if is_prev
+                        else _fmt_pct(cr["rent_mensual_sin_caja_pct"])
+                    ),
+                })
+            df_summary = pd.DataFrame(table_data)
             st.dataframe(
                 _style_right(df_summary),
                 use_container_width=True,
-                height=400,
+                height=530,
             )
         else:
             st.info("Sin datos. Cargue documentos y aplique filtros.")
 
+    # ── Rango Personalizado ──────────────────────────────────────
     with col_table2:
         st.subheader("📅 Rango Personalizado")
-        y_start, m_start, y_end, m_end = render_date_range_filter(
-            key_prefix="summary_range"
-        )
-        st.info(
-            f"Rango: {MONTHS[m_start - 1]} {y_start} → {MONTHS[m_end - 1]} {y_end}"
-        )
 
-        # Consolidar por mes dentro del rango
-        range_start = f"{y_start}-{m_start:02d}"
-        range_end = f"{y_end}-{m_end:02d}"
-        range_cd = [
-            cd for cd in chart_data
-            if range_start <= cd["fecha"] <= range_end
+        ym_options = _build_ym_options()
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            ym_start = st.selectbox(
+                "Desde",
+                options=ym_options,
+                index=ym_options.index("2025-01") if "2025-01" in ym_options else 0,
+                key="summary_range_start",
+            )
+        with rc2:
+            ym_end = st.selectbox(
+                "Hasta",
+                options=ym_options,
+                index=ym_options.index("2025-12") if "2025-12" in ym_options else len(ym_options) - 1,
+                key="summary_range_end",
+            )
+
+        # Filtrar consolidated_rows dentro del rango (excluir prev_year)
+        range_rows = [
+            cr for cr in consolidated_rows
+            if ym_start <= cr["fecha"] <= ym_end
+            and not cr.get("is_prev_year", False)
         ]
 
-        if range_cd:
-            range_table = []
-            for cd in range_cd:
-                parts = cd["fecha"].split("-")
-                range_table.append({
-                    "Mes": f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}",
-                    "Ending Value": _fmt_number(cd["ending_value"]),
-                    "Movimientos": _fmt_number(cd["movimientos"]),
-                    "Profit": _fmt_number(cd["profit"]),
-                    "Rent. (%)": _fmt_pct(cd["rent_pct"]),
-                })
-            df_range = pd.DataFrame(range_table)
-            # Right-align numeric cols
-            ncols = ["Ending Value", "Movimientos", "Profit", "Rent. (%)"]
+        # Mes anterior al inicio para Valor Inicial
+        prev_month_row = None
+        for cr in consolidated_rows:
+            if cr["fecha"] < ym_start:
+                prev_month_row = cr
+
+        if range_rows:
+            # Valor Inicial = ending_value del mes anterior al inicio
+            valor_inicial = prev_month_row["ending_value"] if prev_month_row else None
+
+            # Ending Value = ending_value del último mes del rango
+            ending_value = range_rows[-1]["ending_value"]
+
+            # Movimientos = suma de movimientos en el rango
+            total_mov = sum(r["movimientos"] for r in range_rows)
+
+            # Utilidad = suma de utilidades en el rango
+            total_util = sum(r["utilidad"] for r in range_rows)
+
+            # Rentabilidad compuesta = prod(1 + ri/100) - 1
+            compound_ret = 1.0
+            compound_ret_sc = 1.0
+            has_ret = False
+            has_ret_sc = False
+            for r in range_rows:
+                if r["rent_mensual_pct"] is not None:
+                    compound_ret *= (1 + r["rent_mensual_pct"] / 100)
+                    has_ret = True
+                if r["rent_mensual_sin_caja_pct"] is not None:
+                    compound_ret_sc *= (1 + r["rent_mensual_sin_caja_pct"] / 100)
+                    has_ret_sc = True
+
+            rent_pct = (compound_ret - 1) * 100 if has_ret else None
+            rent_sc_pct = (compound_ret_sc - 1) * 100 if has_ret_sc else None
+
+            # Tabla vertical de KPIs (2 columnas)
+            kpi_data = [
+                {"Concepto": "Valor Inicial", "Valor": _fmt_number(valor_inicial)},
+                {"Concepto": "Ending Value", "Valor": _fmt_number(ending_value)},
+                {"Concepto": "Movimientos", "Valor": _fmt_number(total_mov)},
+                {"Concepto": "Utilidad", "Valor": _fmt_number(total_util)},
+                {"Concepto": "Rentabilidad (%)", "Valor": _fmt_pct(rent_pct)},
+                {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_sc_pct)},
+            ]
+            df_range = pd.DataFrame(kpi_data)
             st.dataframe(
-                df_range.style.format({c: "{}" for c in df_range.columns}),
+                df_range.style.set_properties(
+                    subset=["Valor"],
+                    **{"text-align": "right"},
+                ).format({c: "{}" for c in df_range.columns}),
                 use_container_width=True,
-                height=300,
+                height=280,
             )
         else:
             st.info("Sin datos en el rango seleccionado.")
@@ -267,9 +321,24 @@ def render():
     st.subheader("📄 Detalle Cartolas")
     st.caption("Detalle individual de cada cartola (cuenta/período).")
 
-    if not df_summary.empty:
+    if detail_rows:
+        table_data = []
+        for r in detail_rows:
+            table_data.append({
+                "Fecha": r["fecha"],
+                "Sociedad": r["sociedad"],
+                "Banco": _fmt_bank(r["banco"]),
+                "ID": r["id"],
+                "Moneda": r["moneda"],
+                "Ending Value": _fmt_number(r["ending_value"]),
+                "Movimientos": _fmt_number(r["movimientos"]),
+                "Utilidad": _fmt_number(r["utilidad"]),
+                "Rent. Mensual (%)": _fmt_pct(r["rent_mensual_pct"]),
+                "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
+            })
+        df_detail = pd.DataFrame(table_data)
         st.dataframe(
-            _style_right(df_summary),
+            _style_right(df_detail),
             use_container_width=True,
             height=300,
         )
