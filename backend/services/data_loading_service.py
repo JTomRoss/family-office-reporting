@@ -11,6 +11,7 @@ Este servicio es la pieza que conecta el parsing con el reporting.
 
 import json
 import logging
+import calendar
 from datetime import date, timezone, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -252,6 +253,10 @@ class DataLoadingService:
         if not result.statement_date:
             return False
 
+        # UBS Suiza: quarter-end statements expose prior months in Performance table.
+        # Persist those months as official closings before handling the statement month.
+        self._upsert_ubs_historical_monthly_activity(result, doc, account)
+
         closing_date = result.period_end or result.statement_date
         year = closing_date.year
         month = closing_date.month
@@ -322,6 +327,96 @@ class DataLoadingService:
             self.db.add(mc)
 
         return True
+
+    def _upsert_ubs_historical_monthly_activity(
+        self,
+        result: ParseResult,
+        doc: RawDocument,
+        account: Account,
+    ) -> None:
+        bank_code = result.bank_code or doc.bank_code
+        if bank_code != "ubs":
+            return
+
+        history = result.qualitative_data.get("account_monthly_activity_history", [])
+        if not history:
+            return
+
+        for row in history:
+            if row.get("account_number") != account.account_number:
+                continue
+
+            try:
+                year = int(row.get("period_year"))
+                month = int(row.get("period_month"))
+            except (TypeError, ValueError):
+                continue
+            if month < 1 or month > 12:
+                continue
+
+            closing_date: date
+            period_end = row.get("period_end")
+            if period_end:
+                try:
+                    closing_date = date.fromisoformat(str(period_end))
+                except ValueError:
+                    last_day = calendar.monthrange(year, month)[1]
+                    closing_date = date(year, month, last_day)
+            else:
+                last_day = calendar.monthrange(year, month)[1]
+                closing_date = date(year, month, last_day)
+
+            ending_bal = _safe_decimal(
+                row.get("ending_value_with_accrual")
+                or row.get("ending_value")
+                or row.get("ending_value_without_accrual")
+            )
+            income = _safe_decimal(row.get("utilidad"))
+            change_in_value = _safe_decimal(row.get("net_contributions"))
+            accrual = _safe_decimal(row.get("accrual_ending"))
+
+            if ending_bal is None:
+                continue
+
+            existing = (
+                self.db.query(MonthlyClosing)
+                .filter(
+                    MonthlyClosing.account_id == account.id,
+                    MonthlyClosing.year == year,
+                    MonthlyClosing.month == month,
+                )
+                .first()
+            )
+
+            if existing:
+                existing.closing_date = closing_date
+                existing.total_assets = ending_bal
+                existing.net_value = ending_bal
+                existing.currency = result.currency or account.currency
+                if income is not None:
+                    existing.income = income
+                if change_in_value is not None:
+                    existing.change_in_value = change_in_value
+                if accrual is not None:
+                    existing.accrual = accrual
+                existing.source_document_id = doc.id
+            else:
+                self.db.add(
+                    MonthlyClosing(
+                        account_id=account.id,
+                        closing_date=closing_date,
+                        year=year,
+                        month=month,
+                        total_assets=ending_bal,
+                        total_liabilities=None,
+                        net_value=ending_bal,
+                        currency=result.currency or account.currency,
+                        income=income,
+                        change_in_value=change_in_value,
+                        accrual=accrual,
+                        source_document_id=doc.id,
+                    )
+                )
 
     def _get_account_specific_values(
         self, result: ParseResult, account: Account

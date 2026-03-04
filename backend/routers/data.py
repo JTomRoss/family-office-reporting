@@ -7,7 +7,6 @@ Consulta tablas de reporting pobladas por DataLoadingService.
 import json
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.db.models import (
@@ -16,7 +15,7 @@ from backend.db.models import (
     MonthlyClosing,
 )
 from backend.db.session import get_db
-from backend.schemas import FilterParams, SummaryResponse
+from backend.schemas import FilterParams
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -84,6 +83,83 @@ def _get_filter_options(db: Session) -> dict:
     }
 
 
+def _previous_month_key(fecha: str) -> str:
+    """Retorna la clave YYYY-MM del mes calendario anterior."""
+    year, month = (int(part) for part in fecha.split("-"))
+    if month == 1:
+        return f"{year - 1}-12"
+    return f"{year}-{month - 1:02d}"
+
+
+def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
+    """Extrae monto de caja desde asset_allocation_json de MonthlyClosing."""
+    if not asset_alloc_json:
+        return 0.0
+    try:
+        alloc = json.loads(asset_alloc_json)
+    except (TypeError, ValueError):
+        return 0.0
+
+    total = 0.0
+    if isinstance(alloc, dict):
+        items = list(alloc.items())
+        # Evitar doble conteo en bancos que reportan total + sublíneas (ej. Goldman).
+        umbrella_total = 0.0
+        for key, payload in items:
+            key_l = str(key).lower().strip()
+            if "cash, deposits" in key_l and "money market" in key_l:
+                if isinstance(payload, dict):
+                    raw = (
+                        payload.get("value")
+                        or payload.get("market_value")
+                        or payload.get("amount")
+                    )
+                else:
+                    raw = payload
+                try:
+                    umbrella_total += float(raw)
+                except (TypeError, ValueError):
+                    pass
+        if umbrella_total > 0:
+            return umbrella_total
+
+        for key, payload in items:
+            key_l = str(key).lower()
+            if "cash" not in key_l and "money market" not in key_l and "deposit" not in key_l:
+                continue
+            if isinstance(payload, dict):
+                raw = (
+                    payload.get("value")
+                    or payload.get("market_value")
+                    or payload.get("amount")
+                )
+            else:
+                raw = payload
+            try:
+                total += float(raw)
+            except (TypeError, ValueError):
+                continue
+    elif isinstance(alloc, list):
+        for row in alloc:
+            if not isinstance(row, dict):
+                continue
+            name = str(
+                row.get("asset_class")
+                or row.get("name")
+                or row.get("label")
+                or ""
+            ).lower()
+            if "cash" not in name and "money market" not in name and "deposit" not in name:
+                continue
+            raw = row.get("value") or row.get("market_value") or row.get("amount")
+            try:
+                total += float(raw)
+            except (TypeError, ValueError):
+                continue
+
+    return max(total, 0.0)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════════════
@@ -135,29 +211,67 @@ def get_summary(
     for acct_id, entries in by_account.items():
         entries.sort(key=lambda x: (x[0].year, x[0].month))
         acct = entries[0][1]
-        is_cash = acct.account_type in ("current", "savings")
+        is_cash = acct.account_type in ("current", "savings", "checking")
 
-        for i, (mc, _) in enumerate(entries):
+        account_month_values = {
+            f"{row.year}-{row.month:02d}": float(row.net_value or 0)
+            for row, _ in entries
+        }
+        account_month_cash = {}
+        for row, _ in entries:
+            key = f"{row.year}-{row.month:02d}"
+            row_val = float(row.net_value or 0)
+            if is_cash:
+                account_month_cash[key] = row_val
+            else:
+                account_month_cash[key] = _extract_cash_from_asset_allocation(row.asset_allocation_json)
+
+        for mc, _ in entries:
             fecha = f"{mc.year}-{mc.month:02d}"
             curr_val = float(mc.net_value) if mc.net_value else 0
-            prev_val = float(entries[i - 1][0].net_value or 0) if i > 0 else None
+            prev_val = account_month_values.get(_previous_month_key(fecha))
+            caja = curr_val if is_cash else _extract_cash_from_asset_allocation(mc.asset_allocation_json)
+            ev_sin_caja = max(curr_val - caja, 0.0)
+            prev_key = _previous_month_key(fecha)
+            prev_caja = account_month_cash.get(prev_key)
+            prev_ev_sin_caja = None
+            if prev_val is not None and prev_caja is not None:
+                prev_ev_sin_caja = max(prev_val - prev_caja, 0.0)
 
+            income_val = (
+                float(mc.income)
+                if mc.income is not None
+                else None
+            )
             movimientos = (
                 float(mc.change_in_value)
                 if mc.change_in_value is not None
-                else (curr_val - prev_val if prev_val is not None else None)
+                else (
+                    # Si tenemos utilidad explícita pero no movimientos explícitos,
+                    # despejamos movimientos desde identidad contable:
+                    # utilidad = ending - previous - movimientos
+                    (curr_val - prev_val - income_val)
+                    if (prev_val is not None and income_val is not None)
+                    else (curr_val - prev_val if prev_val is not None else None)
+                )
             )
             utilidad = (
-                float(mc.income)
-                if mc.income is not None
+                income_val
+                if income_val is not None
                 else movimientos
             )
 
             # Detalle por cuenta (solo meses del año solicitado)
             if not req_years or mc.year in req_years:
                 ret = None
-                if prev_val and prev_val > 0:
+                if prev_val and prev_val > 0 and utilidad is not None:
+                    ret = round((utilidad / prev_val) * 100, 4)
+                elif prev_val and prev_val > 0:
+                    # Fallback defensivo si falta utilidad.
                     ret = round(((curr_val - prev_val) / prev_val) * 100, 4)
+                ret_sc = None
+                if not is_cash and utilidad is not None and prev_ev_sin_caja and prev_ev_sin_caja > 0:
+                    ret_sc = round((utilidad / prev_ev_sin_caja) * 100, 4)
                 detail_rows.append({
                     "fecha": fecha,
                     "sociedad": acct.entity_name,
@@ -165,10 +279,11 @@ def get_summary(
                     "id": acct.identification_number or acct.account_number,
                     "moneda": mc.currency,
                     "ending_value": curr_val,
+                    "caja": caja,
                     "movimientos": movimientos,
                     "utilidad": utilidad,
                     "rent_mensual_pct": ret,
-                    "rent_mensual_sin_caja_pct": ret if not is_cash else None,
+                    "rent_mensual_sin_caja_pct": ret_sc,
                     "account_type": acct.account_type,
                 })
 
@@ -176,15 +291,15 @@ def get_summary(
             if fecha not in month_agg:
                 month_agg[fecha] = {
                     "ev": 0.0, "mov": 0.0, "util": 0.0,
-                    "ev_nc": 0.0, "util_nc": 0.0,
+                    "caja": 0.0, "ev_nc": 0.0, "util_nc": 0.0,
                 }
             a = month_agg[fecha]
             a["ev"] += curr_val
+            a["caja"] += caja
             a["mov"] += (movimientos or 0)
             a["util"] += (utilidad or 0)
-            if not is_cash:
-                a["ev_nc"] += curr_val
-                a["util_nc"] += (utilidad or 0)
+            a["ev_nc"] += ev_sin_caja
+            a["util_nc"] += (utilidad or 0)
 
     detail_rows.sort(key=lambda r: (r["fecha"], r["sociedad"], r["banco"]))
 
@@ -193,7 +308,7 @@ def get_summary(
     consolidated_rows: list[dict] = []
     chart_data: list[dict] = []
 
-    for i, fecha in enumerate(sorted_fechas):
+    for fecha in sorted_fechas:
         a = month_agg[fecha]
         yr = int(fecha[:4])
         is_prev = fecha == prev_dec
@@ -205,17 +320,17 @@ def get_summary(
         # Rentabilidad: utilidad / prev_ending_value
         rent_pct = None
         rent_sin_caja_pct = None
-        if not is_prev and i > 0:
-            prev_f = sorted_fechas[i - 1]
-            prev_a = month_agg[prev_f]
-            if prev_a["ev"] > 0:
+        if not is_prev:
+            prev_a = month_agg.get(_previous_month_key(fecha))
+            if prev_a and prev_a["ev"] > 0:
                 rent_pct = round(a["util"] / prev_a["ev"] * 100, 4)
-            if prev_a["ev_nc"] > 0:
+            if prev_a and prev_a["ev_nc"] > 0:
                 rent_sin_caja_pct = round(a["util_nc"] / prev_a["ev_nc"] * 100, 4)
 
         row = {
             "fecha": fecha,
             "ending_value": round(a["ev"], 2),
+            "caja": round(a["caja"], 2),
             "movimientos": round(a["mov"], 2),
             "utilidad": round(a["util"], 2),
             "rent_mensual_pct": rent_pct,
@@ -228,6 +343,7 @@ def get_summary(
             chart_data.append({
                 "fecha": fecha,
                 "ending_value": row["ending_value"],
+                "caja": row["caja"],
                 "movimientos": row["movimientos"],
                 "utilidad": row["utilidad"],
                 "rent_pct": rent_pct,

@@ -82,7 +82,7 @@ def _parse_date_mdy(text: str) -> Optional[date]:
 class UBSMiamiCustodyParser(BaseParser):
     BANK_CODE = "ubs_miami"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.0.0"
+    VERSION = "2.1.1"
     DESCRIPTION = "Parser para cartolas UBS Miami PMP (Portfolio Management Program)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -119,6 +119,7 @@ class UBSMiamiCustodyParser(BaseParser):
         self._extract_overview(pages, result)
         self._extract_asset_allocation(pages, result)
         self._extract_change_in_value(pages, result)
+        self._emit_account_monthly_activity(result)
         self._extract_equity_holdings(pages, result)
         self._extract_fi_holdings(pages, result)
 
@@ -142,8 +143,12 @@ class UBSMiamiCustodyParser(BaseParser):
         if m:
             result.qualitative_data["account_name"] = m.group(1).strip()
 
-        # Period: "December 2025"
-        m = re.search(r"(\w+)\s+(\d{4})\s*\n\s*ANQ", text)
+        # Period: "December 2025" (header code varies: ANQ/CNQ/AFG/CFG/etc.).
+        m = re.search(
+            r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b",
+            text,
+            flags=re.IGNORECASE,
+        )
         if m:
             month_str = m.group(1).lower()
             month = _MONTHS.get(month_str)
@@ -171,7 +176,7 @@ class UBSMiamiCustodyParser(BaseParser):
             ("net_deposits_withdrawals", r"Net deposits and\s*\n?\s*withdrawals\s+(-?\$?[\d,]+\.\d{2})"),
             ("dividend_interest", r"Dividend and\s*\n?\s*interest income\s+\$?([\d,]+\.\d{2})"),
             ("change_accrued_interest", r"Change in value of\s*\n?\s*accrued interest\s+(-?\$?[\d,]+\.\d{2})"),
-            ("change_market_value", r"Change in\s*\n?\s*market value\s+\$?([\d,]+\.\d{2})"),
+            ("change_market_value", r"Change in\s*\n?\s*market value\s+(-?\$?[\d,]+\.\d{2})"),
         ]
         for key, pat in patterns:
             m = re.search(pat, text)
@@ -229,10 +234,13 @@ class UBSMiamiCustodyParser(BaseParser):
             changes = {}
             patterns = [
                 ("opening_value", r"Opening account value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})"),
-                ("withdrawals_fees", r"Withdrawals and fees.*?\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
+                (
+                    "withdrawals_fees",
+                    r"Withdrawals and fees[\s\S]*?investments transferred[\s\S]*?out\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
+                ),
                 ("dividend_interest", r"Dividend and interest income\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
                 ("change_accrued", r"Change in value of accrued\s*\n?\s*interest\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
-                ("change_market", r"Change in market value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
+                ("change_market", r"Change in market value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("closing_value", r"Closing account value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})"),
             ]
             for key, pat in patterns:
@@ -272,6 +280,73 @@ class UBSMiamiCustodyParser(BaseParser):
             if income:
                 result.qualitative_data["income_breakdown"] = income
             break
+
+    def _emit_account_monthly_activity(self, result: ParseResult) -> None:
+        """Emite movimientos/utilidad estandarizados para DataLoadingService."""
+        if not result.account_number:
+            return
+
+        changes = result.qualitative_data.get("value_changes", {})
+        growth = result.qualitative_data.get("sources_of_growth", {})
+
+        def _month_val(key: str) -> Optional[Decimal]:
+            block = changes.get(key)
+            if isinstance(block, dict):
+                raw = block.get("month")
+                if raw is not None:
+                    return _parse_usd(str(raw))
+            return None
+
+        net_contributions = _month_val("withdrawals_fees")
+        if net_contributions is None:
+            raw = growth.get("net_deposits_withdrawals")
+            if raw is not None:
+                net_contributions = _parse_usd(str(raw))
+
+        div_int = _month_val("dividend_interest")
+        if div_int is None and growth.get("dividend_interest") is not None:
+            div_int = _parse_usd(str(growth.get("dividend_interest")))
+
+        chg_accr = _month_val("change_accrued")
+        if chg_accr is None and growth.get("change_accrued_interest") is not None:
+            chg_accr = _parse_usd(str(growth.get("change_accrued_interest")))
+
+        chg_mkt = _month_val("change_market")
+        if chg_mkt is None and growth.get("change_market_value") is not None:
+            chg_mkt = _parse_usd(str(growth.get("change_market_value")))
+
+        utilidad = None
+        if any(v is not None for v in (div_int, chg_accr, chg_mkt)):
+            utilidad = (div_int or Decimal("0")) + (chg_accr or Decimal("0")) + (chg_mkt or Decimal("0"))
+        elif (
+            result.opening_balance is not None
+            and result.closing_balance is not None
+            and net_contributions is not None
+        ):
+            utilidad = result.closing_balance - result.opening_balance - net_contributions
+
+        if net_contributions is None and utilidad is None:
+            return
+
+        result.qualitative_data["account_monthly_activity"] = [
+            {
+                "account_number": result.account_number,
+                "beginning_value": (
+                    str(result.opening_balance) if result.opening_balance is not None else None
+                ),
+                "ending_value_with_accrual": (
+                    str(result.closing_balance) if result.closing_balance is not None else None
+                ),
+                "ending_value_without_accrual": (
+                    str(result.closing_balance) if result.closing_balance is not None else None
+                ),
+                "net_contributions": (
+                    str(net_contributions) if net_contributions is not None else None
+                ),
+                "utilidad": str(utilidad) if utilidad is not None else None,
+                "source": "ubs_miami_change_in_value",
+            }
+        ]
 
     def _extract_equity_holdings(self, pages: list[str], result: ParseResult) -> None:
         """Pages 5-7: Equity positions (common stock, ETFs)."""

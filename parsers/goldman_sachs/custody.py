@@ -1,6 +1,6 @@
 """
 Parser: Goldman Sachs – Mandato / Wrap Statement (PDF).
-v2.0.0 – Real extraction using PyMuPDF (fitz).
+v2.1.0 – Real extraction using PyMuPDF (fitz).
 
 CRITICAL: pdfplumber CANNOT extract text from GS PDFs.
 Must use ``fitz`` (PyMuPDF).
@@ -27,6 +27,7 @@ from __future__ import annotations
 import re
 import logging
 from pathlib import Path
+from datetime import datetime, date
 from decimal import Decimal
 from typing import Any
 
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsCustodyParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas Goldman Sachs Mandato/Wrap (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -103,6 +104,11 @@ class GoldmanSachsCustodyParser(BaseParser):
         rows: list[ParsedRow] = []
         balances: dict[str, Any] = {}
         qualitative: dict[str, Any] = {}
+        statement_date = None
+        period_start = None
+        period_end = None
+        opening_balance = None
+        closing_balance = None
 
         try:
             page_texts = extract_page_texts_fitz(filepath)
@@ -113,6 +119,9 @@ class GoldmanSachsCustodyParser(BaseParser):
             acct = extract_portfolio_number(all_text)
             if period:
                 balances["period"] = period
+                period_start = self._parse_period_date(period.get("start"))
+                period_end = self._parse_period_date(period.get("end"))
+                statement_date = period_end or period_start
             if acct:
                 balances["account_number"] = acct
             balances["currency"] = "USD"
@@ -128,6 +137,19 @@ class GoldmanSachsCustodyParser(BaseParser):
                 overview = extract_overview(page_texts[2])
                 if overview:
                     balances.update(overview)
+                    if overview.get("asset_allocation"):
+                        qualitative["asset_allocation"] = self._json_safe(overview["asset_allocation"])
+                    activity = overview.get("portfolio_activity", {})
+                    inv_results = overview.get("investment_results", {})
+                    opening_balance = (
+                        activity.get("opening_value")
+                        or inv_results.get("beginning_market_value")
+                    )
+                    closing_balance = (
+                        activity.get("closing_value")
+                        or inv_results.get("ending_market_value")
+                        or overview.get("total_portfolio")
+                    )
 
             # 4) Tax summary (pages 4-5)
             tax_text = ""
@@ -164,6 +186,15 @@ class GoldmanSachsCustodyParser(BaseParser):
             if sub_overviews:
                 qualitative["sub_portfolio_overviews"] = sub_overviews
 
+            monthly = self._build_account_monthly_activity(
+                account_number=balances.get("account_number"),
+                opening_balance=opening_balance,
+                closing_balance=closing_balance,
+                investment_results=balances.get("investment_results", {}),
+            )
+            if monthly:
+                qualitative["account_monthly_activity"] = monthly
+
         except Exception as exc:
             logger.exception("Goldman Sachs Custody parse error: %s", exc)
             return ParseResult(
@@ -189,9 +220,99 @@ class GoldmanSachsCustodyParser(BaseParser):
             balances=balances,
             qualitative_data=qualitative,
             account_number=balances.get("account_number"),
+            statement_date=statement_date,
+            period_start=period_start,
+            period_end=period_end,
             currency="USD",
+            opening_balance=opening_balance,
+            closing_balance=closing_balance,
             warnings=warnings,
         )
+
+    @staticmethod
+    def _parse_period_date(raw: str | None) -> date | None:
+        if not raw:
+            return None
+        cleaned = raw.strip()
+        for fmt in ("%B %d, %Y", "%b %d, %Y"):
+            try:
+                return datetime.strptime(cleaned, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    @staticmethod
+    def _to_decimal(value: Any) -> Decimal | None:
+        if value is None:
+            return None
+        if isinstance(value, Decimal):
+            return value
+        return parse_usd(str(value))
+
+    @staticmethod
+    def _json_safe(value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, dict):
+            return {k: GoldmanSachsCustodyParser._json_safe(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [GoldmanSachsCustodyParser._json_safe(v) for v in value]
+        return value
+
+    def _build_account_monthly_activity(
+        self,
+        account_number: str | None,
+        opening_balance: Decimal | None,
+        closing_balance: Decimal | None,
+        investment_results: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Estandariza movimientos/utilidad para carga a monthly_closings."""
+        if not account_number:
+            return []
+
+        net_contributions = self._to_decimal(
+            investment_results.get("net_deposits_withdrawals")
+        )
+        utilidad = self._to_decimal(investment_results.get("investment_results"))
+
+        if (
+            utilidad is None
+            and opening_balance is not None
+            and closing_balance is not None
+            and net_contributions is not None
+        ):
+            utilidad = closing_balance - opening_balance - net_contributions
+
+        if (
+            net_contributions is None
+            and opening_balance is not None
+            and closing_balance is not None
+            and utilidad is not None
+        ):
+            net_contributions = closing_balance - opening_balance - utilidad
+
+        if utilidad is None and net_contributions is None:
+            return []
+
+        return [
+            {
+                "account_number": account_number,
+                "beginning_value": (
+                    str(opening_balance) if opening_balance is not None else None
+                ),
+                "ending_value_with_accrual": (
+                    str(closing_balance) if closing_balance is not None else None
+                ),
+                "ending_value_without_accrual": (
+                    str(closing_balance) if closing_balance is not None else None
+                ),
+                "net_contributions": (
+                    str(net_contributions) if net_contributions is not None else None
+                ),
+                "utilidad": str(utilidad) if utilidad is not None else None,
+                "source": "gs_investment_results",
+            }
+        ]
 
     # ── validate ──────────────────────────────────────────────────────
     def validate(self, result: ParseResult) -> list[str]:

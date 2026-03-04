@@ -341,6 +341,42 @@ UI (PDFs tab) → POST /documents/upload-and-process
 5. *NO HAY ALTERNATIVA*. No uses comandos manuales de uvicorn ni streamlit.
 6. Indica al usuario que **refresque el navegador**.
 
+### Reinicio automático (sin pedir confirmación)
+1. Si un cambio requiere reiniciar para verse, el agente debe ejecutar reinicio completo **sin preguntar**:
+   - `.\scripts\stop.ps1`
+   - esperar 2 segundos
+   - verificar puertos 8000/8501
+   - `.\scripts\start.ps1`
+2. Tras reiniciar, el agente debe avisar: **"app reiniciada, ya puedes revisar"**.
+3. Si no requiere reinicio y solo basta refrescar UI, el agente debe avisar al final: **"solo refresca navegador"**.
+4. Regla permanente: **nunca debe haber varias versiones/procesos de la app corriendo al mismo tiempo**.
+
+### Protocolo de respaldo (cuando el usuario diga "guardar", "respaldar" o similar)
+1. El agente debe **explicar primero** qué hará antes de ejecutar el respaldo.
+2. Verificar estado de app y evitar concurrencia:
+   - detener con `.\scripts\stop.ps1`
+   - verificar puertos libres (8000/8501)
+3. Verificar integridad de código:
+   - `git status` limpio o dejar commit explícito
+   - ejecutar tests (`python -m pytest tests/ -x -q`)
+4. Respaldo de datos:
+   - ejecutar `python scripts/freeze.py --label "<etiqueta>"`
+   - esto guarda snapshot de DB + raw + cache y actualiza `LATEST_VALID_BACKUP.txt`
+5. Respaldo de código:
+   - asegurar commit en `master`
+   - push de branch y push de tags (`git push origin master --tags`)
+6. Entrega obligatoria al usuario:
+   - tag generado
+   - hash commit
+   - ruta snapshot
+   - confirmación de cómo restaurar (`python scripts/restore.py --tag <tag>` o `--latest`)
+7. Al terminar respaldo, dejar app en estado operativo con `.\scripts\start.ps1`.
+
+### Prioridades de calidad (orden estricto)
+1. **Confianza de datos y cálculos** (exactitud y trazabilidad) es prioridad #1.
+2. **Estabilidad operativa** (# procesos y puertos bajo control) es prioridad #2.
+3. **Performance/experiencia de uso** es prioridad #3, sin sacrificar exactitud.
+
 ### Comandos de backend y frontend (referencia, NO usar directamente):
 ```powershell
 # Estos comandos son los que usan los scripts internamente.

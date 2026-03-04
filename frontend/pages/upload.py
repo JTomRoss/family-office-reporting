@@ -41,6 +41,12 @@ def _fmt_account_type(raw: str) -> str:
     return raw.upper() if raw.lower() in _UPPERCASE_TYPES else raw.capitalize()
 
 
+def _style_right(df):
+    return df.style.set_properties(subset=list(df.columns), **{"text-align": "right"}).format(
+        {c: "{}" for c in df.columns}
+    )
+
+
 def _try_auto_fill_by_id(identification_number: str, bank_code: str = "", entity_name: str = "") -> dict | None:
     """Intenta auto-completar metadata usando dígito verificador + banco + sociedad."""
     if not identification_number or not identification_number.strip():
@@ -474,7 +480,7 @@ def render():
                     )
                     if "Tipo Cuenta" in df_display.columns:
                         df_display["Tipo Cuenta"] = df_display["Tipo Cuenta"].apply(_fmt_account_type)
-                    st.dataframe(df_display, use_container_width=True, hide_index=True)
+                    st.table(_style_right(df_display))
                     st.caption(f"Total: {len(df_display)} cuentas")
 
                     # Botón eliminar cuentas

@@ -44,6 +44,14 @@ def _fmt_pct(val):
         return ""
 
 
+def _to_float(val):
+    """Best-effort float conversion."""
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
 def _fmt_bank(code):
     """Format bank code for display."""
     return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
@@ -56,17 +64,12 @@ def _fecha_label(fecha_str):
 
 
 # ── Columnas numéricas que se alinean a la derecha ───────────────
-_NUM_COLS = [
-    "Ending Value", "Movimientos", "Utilidad",
-    "Rent. Mensual (%)", "Rent. Mensual sin Caja (%)",
-]
-
-
-def _style_right(df, num_cols=None):
-    """Return a Styler that right-aligns numeric columns."""
-    if num_cols is None:
-        num_cols = _NUM_COLS
-    cols_present = [c for c in num_cols if c in df.columns]
+def _style_right(df, cols=None):
+    """Return a Styler that right-aligns selected columns (all by default)."""
+    if cols is None:
+        cols_present = list(df.columns)
+    else:
+        cols_present = [c for c in cols if c in df.columns]
     if not cols_present:
         return df.style.format({c: "{}" for c in df.columns})
     return df.style.set_properties(
@@ -210,6 +213,7 @@ def render():
                 table_data.append({
                     "Fecha": _fecha_label(cr["fecha"]),
                     "Ending Value": _fmt_number(cr["ending_value"]),
+                    "Caja": _fmt_number(cr.get("caja")),
                     "Movimientos": _fmt_number(cr["movimientos"]),
                     "Utilidad": _fmt_number(cr["utilidad"]),
                     "Rent. Mensual (%)": (
@@ -222,12 +226,7 @@ def render():
                     ),
                 })
             df_summary = pd.DataFrame(table_data)
-            st.dataframe(
-                _style_right(df_summary),
-                use_container_width=True,
-                height=530,
-                hide_index=True,
-            )
+            st.table(_style_right(df_summary))
         else:
             st.info("Sin datos. Cargue documentos y aplique filtros.")
 
@@ -235,7 +234,11 @@ def render():
     with col_table2:
         st.subheader("📅 Rango Personalizado")
 
-        ym_options = _build_ym_options()
+        ym_available = sorted({
+            cr["fecha"] for cr in consolidated_rows
+            if not cr.get("is_prev_year", False)
+        })
+        ym_options = ym_available if ym_available else _build_ym_options()
         rc1, rc2 = st.columns(2)
         with rc1:
             ym_start = st.selectbox(
@@ -251,6 +254,10 @@ def render():
                 index=ym_options.index("2025-12") if "2025-12" in ym_options else len(ym_options) - 1,
                 key="summary_range_end",
             )
+
+        if ym_start > ym_end:
+            st.warning("Rango inválido: 'Desde' debe ser menor o igual que 'Hasta'.")
+            return
 
         # Filtrar consolidated_rows dentro del rango (excluir prev_year)
         range_rows = [
@@ -272,23 +279,25 @@ def render():
             # Ending Value = ending_value del último mes del rango
             ending_value = range_rows[-1]["ending_value"]
 
-            # Movimientos = suma de movimientos en el rango
-            total_mov = sum(r["movimientos"] for r in range_rows)
+            # Movimientos / Utilidad: suma de los valores mensuales mostrados
+            # (misma granularidad que Tabla Resumen para evitar descuadres visibles).
+            total_mov = sum(round(_to_float(r.get("movimientos")) or 0.0, 2) for r in range_rows)
+            total_util = sum(round(_to_float(r.get("utilidad")) or 0.0, 2) for r in range_rows)
 
-            # Utilidad = suma de utilidades en el rango
-            total_util = sum(r["utilidad"] for r in range_rows)
-
-            # Rentabilidad compuesta = prod(1 + ri/100) - 1
+            # Rentabilidad compuesta sobre rentabilidades mensuales mostradas
+            # (redondeadas a 2 decimales, consistente con la tabla visible).
             compound_ret = 1.0
             compound_ret_sc = 1.0
             has_ret = False
             has_ret_sc = False
             for r in range_rows:
-                if r["rent_mensual_pct"] is not None:
-                    compound_ret *= (1 + r["rent_mensual_pct"] / 100)
+                ret_val = _to_float(r.get("rent_mensual_pct"))
+                ret_sc_val = _to_float(r.get("rent_mensual_sin_caja_pct"))
+                if ret_val is not None:
+                    compound_ret *= (1 + round(ret_val, 2) / 100)
                     has_ret = True
-                if r["rent_mensual_sin_caja_pct"] is not None:
-                    compound_ret_sc *= (1 + r["rent_mensual_sin_caja_pct"] / 100)
+                if ret_sc_val is not None:
+                    compound_ret_sc *= (1 + round(ret_sc_val, 2) / 100)
                     has_ret_sc = True
 
             rent_pct = (compound_ret - 1) * 100 if has_ret else None
@@ -304,15 +313,7 @@ def render():
                 {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_sc_pct)},
             ]
             df_range = pd.DataFrame(kpi_data)
-            st.dataframe(
-                df_range.style.set_properties(
-                    subset=["Valor"],
-                    **{"text-align": "right"},
-                ).format({c: "{}" for c in df_range.columns}),
-                use_container_width=True,
-                height=280,
-                hide_index=True,
-            )
+            st.table(_style_right(df_range))
         else:
             st.info("Sin datos en el rango seleccionado.")
 
@@ -332,17 +333,13 @@ def render():
                 "ID": r["id"],
                 "Moneda": r["moneda"],
                 "Ending Value": _fmt_number(r["ending_value"]),
+                "Caja": _fmt_number(r.get("caja")),
                 "Movimientos": _fmt_number(r["movimientos"]),
                 "Utilidad": _fmt_number(r["utilidad"]),
                 "Rent. Mensual (%)": _fmt_pct(r["rent_mensual_pct"]),
                 "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
             })
         df_detail = pd.DataFrame(table_data)
-        st.dataframe(
-            _style_right(df_detail),
-            use_container_width=True,
-            height=300,
-            hide_index=True,
-        )
+        st.table(_style_right(df_detail))
     else:
         st.info("Sin datos. Cargue cartolas para ver el detalle.")

@@ -3,7 +3,7 @@ FO Reporting – FastAPI Application (entrypoint).
 
 Este es el ÚNICO entrypoint del backend.
 Ejecutar:
-    uvicorn backend.main:app --reload --port 8000
+    uvicorn backend.main:app --host 0.0.0.0 --port 8000
 """
 
 from contextlib import asynccontextmanager

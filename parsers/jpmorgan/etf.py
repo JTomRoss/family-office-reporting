@@ -72,7 +72,7 @@ def _extract_all_text(filepath: Path) -> list[str]:
 class JPMorganEtfParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "etf"
-    VERSION = "2.1.0"
+    VERSION = "2.2.0"
     DESCRIPTION = "Parser para cartolas ETF JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -118,6 +118,7 @@ class JPMorganEtfParser(BaseParser):
 
         # 5) Per-account CURRENT PERIOD activity (from individual account pages)
         self._extract_per_account_monthly_activity(pages, result)
+        self._finalize_account_mapping(result)
 
         # 6) Holdings from detail pages
         self._extract_holdings(pages, result)
@@ -160,11 +161,14 @@ class JPMorganEtfParser(BaseParser):
             beginning = _parse_usd(m.group(2))
             ending = _parse_usd(m.group(3))
             change = _parse_usd(m.group(4))
+            if beginning == Decimal("0") and ending == Decimal("0"):
+                # Excluye sub-secciones brokerage de valor cero.
+                continue
             accounts.append({
                 "account_number": acct,
-                "beginning_value": str(beginning) if beginning else None,
-                "ending_value": str(ending) if ending else None,
-                "change": str(change) if change else None,
+                "beginning_value": str(beginning) if beginning is not None else None,
+                "ending_value": str(ending) if ending is not None else None,
+                "change": str(change) if change is not None else None,
             })
 
         # Total Value line
@@ -177,12 +181,6 @@ class JPMorganEtfParser(BaseParser):
             result.closing_balance = _parse_usd(total_m.group(2))
 
         if accounts:
-            if len(accounts) > 1:
-                # Multi-cuenta (ej: Mandatos agrupa 2600, 3400, 9200)
-                result.account_number = "Varios"
-                result.account_numbers = [a["account_number"] for a in accounts]
-            else:
-                result.account_number = accounts[0]["account_number"]
             result.qualitative_data["accounts"] = accounts
 
     # ── Consolidated Summary ─────────────────────────────────────
@@ -365,8 +363,25 @@ class JPMorganEtfParser(BaseParser):
             accrual_beginning = _parse_usd(accrual_m.group(1))
             accrual_ending = _parse_usd(accrual_m.group(2))
 
-        data["accrual_beginning"] = str(accrual_beginning) if accrual_beginning else None
-        data["accrual_ending"] = str(accrual_ending) if accrual_ending else None
+        data["accrual_beginning"] = str(accrual_beginning) if accrual_beginning is not None else None
+        data["accrual_ending"] = str(accrual_ending) if accrual_ending is not None else None
+
+        # Ending value with/without accrual (requerido por subcuenta en reporting).
+        with_accrual_m = re.search(
+            r"Market Value with Accruals\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})",
+            search_text,
+        )
+        if with_accrual_m:
+            val = _parse_usd(with_accrual_m.group(2))
+            data["ending_value_with_accrual"] = str(val) if val is not None else None
+
+        without_accrual_m = re.search(
+            r"Ending Market Value\s+\$?([\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        if without_accrual_m:
+            val = _parse_usd(without_accrual_m.group(1))
+            data["ending_value_without_accrual"] = str(val) if val is not None else None
 
         # ── Portfolio Activity current period values ─────────────
         # Each line has: <label>  <current_period>  <ytd>
@@ -428,6 +443,36 @@ class JPMorganEtfParser(BaseParser):
         return data
 
     # ── Holdings detail ──────────────────────────────────────────
+
+    def _finalize_account_mapping(self, result: ParseResult) -> None:
+        """Alinea identidad de cuentas con subcuentas efectivamente extraídas."""
+        extracted = [
+            x.get("account_number")
+            for x in result.qualitative_data.get("account_monthly_activity", [])
+            if x.get("account_number")
+        ]
+        if extracted:
+            account_set = set(extracted)
+            accounts = result.qualitative_data.get("accounts", [])
+            filtered_accounts = [
+                a for a in accounts
+                if a.get("account_number") in account_set
+            ]
+            if filtered_accounts:
+                result.qualitative_data["accounts"] = filtered_accounts
+            result.account_numbers = list(dict.fromkeys(extracted))
+            if len(result.account_numbers) > 1:
+                result.account_number = "Varios"
+            elif result.account_numbers:
+                result.account_number = result.account_numbers[0]
+            return
+
+        fallback_accounts = result.qualitative_data.get("accounts", [])
+        if len(fallback_accounts) > 1:
+            result.account_number = "Varios"
+            result.account_numbers = [a["account_number"] for a in fallback_accounts]
+        elif len(fallback_accounts) == 1:
+            result.account_number = fallback_accounts[0]["account_number"]
 
     def _extract_holdings(self, pages: list[str], result: ParseResult) -> None:
         """Extract individual positions from holdings detail pages."""

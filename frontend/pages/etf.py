@@ -182,12 +182,7 @@ def render():
         instr_rows.append(totals_row)
 
         df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
-        st.dataframe(
-            _style_right_align(df_instr, SOCIETY_COLUMNS),
-            use_container_width=True,
-            height=35 * (len(instr_rows) + 1) + 20,
-            hide_index=True,
-        )
+        st.table(_style_right_align(df_instr, SOCIETY_COLUMNS))
     else:
         st.info("Sin datos. Seleccione una fecha con datos ETF.")
 
@@ -232,12 +227,7 @@ def render():
         pct_rows.append(totals_pct)
 
         df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
-        st.dataframe(
-            _style_right_align(df_pct, SOCIETY_COLUMNS),
-            use_container_width=True,
-            height=35 * (len(pct_rows) + 1) + 20,
-            hide_index=True,
-        )
+        st.table(_style_right_align(df_pct, SOCIETY_COLUMNS))
     else:
         st.info("Sin datos de pesos %.")
 
@@ -302,12 +292,7 @@ def render():
                     "Rent. (%)": _fmt_pct(cd["rent_pct"]),
                 })
             df_rng = pd.DataFrame(rt)
-            st.dataframe(
-                _style_right_align(df_rng, ["Ending Value", "Utilidad", "Rent. (%)"]),
-                use_container_width=True,
-                height=300,
-                hide_index=True,
-            )
+            st.table(_style_right_align(df_rng, ["Ending Value", "Utilidad", "Rent. (%)"]))
         else:
             st.info("Sin datos en rango.")
 
@@ -340,12 +325,7 @@ def render():
                     lambda x: _fmt_num(x)
                 )
 
-        st.dataframe(
-            _style_right_align(df_montos, month_cols),
-            use_container_width=True,
-            height=35 * (len(society_montos_table) + 1) + 20,
-            hide_index=True,
-        )
+        st.table(_style_right_align(df_montos, month_cols))
     else:
         st.info("Sin datos de montos por sociedad.")
 
@@ -381,11 +361,6 @@ def render():
             if col in df_ret.columns:
                 df_ret[col] = df_ret[col].apply(lambda x: _fmt_pct(x))
 
-        st.dataframe(
-            _style_right_align(df_ret, ret_cols),
-            use_container_width=True,
-            height=35 * (len(returns_data) + 1) + 20,
-            hide_index=True,
-        )
+        st.table(_style_right_align(df_ret, ret_cols))
     else:
         st.info("Sin datos de rentabilidad.")

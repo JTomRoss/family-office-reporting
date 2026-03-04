@@ -69,7 +69,7 @@ def _parse_date_text(text: str) -> Optional[date]:
 class JPMorganCustodyParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas Mandato JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -107,6 +107,8 @@ class JPMorganCustodyParser(BaseParser):
         self._extract_period(pages, result)
         self._extract_account_number(pages, result)
         self._extract_account_summary(pages, result)
+        self._extract_subaccount_summaries(pages, result)
+        self._finalize_subaccount_identity(result)
         self._extract_asset_allocation(pages, result)
         self._extract_holdings(pages, result)
 
@@ -208,6 +210,98 @@ class JPMorganCustodyParser(BaseParser):
                 result.qualitative_data["diversification"] = div_pcts
 
             break
+
+    def _extract_subaccount_summaries(
+        self, pages: list[str], result: ParseResult
+    ) -> None:
+        """
+        Extrae subcuentas internas (ej: 1179200/1412600/1483400) desde
+        sus páginas 'Account Summary' propias.
+        """
+        accounts: list[dict] = []
+        monthly: list[dict] = []
+        seen: set[str] = set()
+        current_account: Optional[str] = None
+
+        for text in pages:
+            acct_m = re.search(r"Account Number:\s*([A-Z0-9-]+)", text)
+            if acct_m:
+                current_account = acct_m.group(1)
+
+            if not current_account or not re.fullmatch(r"\d{7}", current_account):
+                continue
+            if current_account in seen:
+                continue
+            if "Account Summary" not in text or "Portfolio Activity" not in text:
+                continue
+
+            beginning = self._extract_current_period_value(
+                text, r"Beginning Market Value\s+([\d,]+\.\d{2})"
+            )
+            ending = self._extract_current_period_value(
+                text, r"Ending Market Value\s+([\d,]+\.\d{2})"
+            )
+            net_contributions = self._extract_current_period_value(
+                text, r"Net Cash Contributions\s*/\s*Withdrawals\s+(-?[\d,]+\.\d{2})"
+            )
+            income = self._extract_current_period_value(
+                text, r"Income and Distributions\s+([\d,]+\.\d{2})"
+            )
+            change = self._extract_current_period_value(
+                text, r"Change in Investment Value\s+(-?[\d,]+\.\d{2})"
+            )
+
+            if beginning is None and ending is None:
+                continue
+
+            seen.add(current_account)
+            accounts.append({
+                "account_number": current_account,
+                "beginning_value": str(beginning) if beginning is not None else None,
+                "ending_value": str(ending) if ending is not None else None,
+                "change": str(change) if change is not None else None,
+            })
+
+            utilidad = Decimal("0")
+            if income is not None:
+                utilidad += income
+            if change is not None:
+                utilidad += change
+
+            monthly.append({
+                "account_number": current_account,
+                "net_contributions": str(net_contributions) if net_contributions is not None else None,
+                "income_distributions": str(income) if income is not None else None,
+                "change_investment": str(change) if change is not None else None,
+                "ending_value_with_accrual": str(ending) if ending is not None else None,
+                "ending_value_without_accrual": str(ending) if ending is not None else None,
+                "utilidad": str(utilidad),
+            })
+
+        if accounts:
+            result.qualitative_data["accounts"] = accounts
+        if monthly:
+            result.qualitative_data["account_monthly_activity"] = monthly
+
+    @staticmethod
+    def _extract_current_period_value(text: str, pattern: str) -> Optional[Decimal]:
+        m = re.search(pattern, text)
+        if not m:
+            return None
+        return _parse_usd(m.group(1))
+
+    def _finalize_subaccount_identity(self, result: ParseResult) -> None:
+        extracted = [
+            x.get("account_number")
+            for x in result.qualitative_data.get("account_monthly_activity", [])
+            if x.get("account_number")
+        ]
+        if extracted:
+            result.account_numbers = list(dict.fromkeys(extracted))
+            if len(result.account_numbers) > 1:
+                result.account_number = "Varios"
+            else:
+                result.account_number = result.account_numbers[0]
 
     def _extract_asset_allocation(self, pages: list[str], result: ParseResult) -> None:
         """Extract 'Portfolio Diversification' page."""

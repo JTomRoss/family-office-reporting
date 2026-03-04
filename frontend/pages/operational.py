@@ -14,6 +14,12 @@ import pandas as pd
 from frontend import api_client
 
 
+def _style_right(df: pd.DataFrame):
+    return df.style.set_properties(subset=list(df.columns), **{"text-align": "right"}).format(
+        {c: "{}" for c in df.columns}
+    )
+
+
 def render():
     st.title("⚙️ Operacional")
     st.markdown("---")
@@ -36,7 +42,7 @@ def render():
             recon = api_client.post("/data/reconciliation", json={})
             if recon.get("reconciliation_results"):
                 df = pd.DataFrame(recon["reconciliation_results"])
-                st.dataframe(df, use_container_width=True, height=400)
+                st.table(_style_right(df))
             else:
                 st.info("Sin resultados de conciliación. Cargue datos y ejecute conciliación.")
 
@@ -76,7 +82,7 @@ def render():
             logs = api_client.get("/data/validation-logs", params=params)
             if logs:
                 df = pd.DataFrame(logs)
-                st.dataframe(df, use_container_width=True, height=400)
+                st.table(_style_right(df))
             else:
                 st.info("Sin logs de validación.")
         except Exception as e:
@@ -92,7 +98,7 @@ def render():
             parsers = api_client.get("/parsers")
             if parsers:
                 df = pd.DataFrame(parsers)
-                st.dataframe(df, use_container_width=True)
+                st.table(_style_right(df))
             else:
                 st.warning("No hay parsers registrados.")
         except Exception as e:
@@ -108,7 +114,7 @@ def render():
             errors = api_client.get("/accounts/classification-errors")
             if errors:
                 df = pd.DataFrame(errors)
-                st.dataframe(df, use_container_width=True)
+                st.table(_style_right(df))
                 st.warning(f"⚠️ {len(errors)} error(es) detectado(s)")
             else:
                 st.success("✅ Sin errores de clasificación")

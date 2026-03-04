@@ -67,16 +67,16 @@ def render():
     with col2:
         st.subheader("AA por Banco (0-100%)")
         st.info("Pendiente: barras apiladas por banco mostrando composición AA")
-        st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
+        st.table(pd.DataFrame())
 
     st.markdown("---")
 
     # ── Tabla bancos x meses ─────────────────────────────────────
     st.subheader("Bancos × Meses")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
+    st.table(pd.DataFrame())
 
     st.markdown("---")
 
     # ── Rentabilidad mensual / YTD ───────────────────────────────
     st.subheader("Rentabilidad Mensual / YTD")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
+    st.table(pd.DataFrame())

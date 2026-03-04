@@ -17,6 +17,34 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Alinear a la derecha todas las celdas de tablas/grid en la app.
+st.markdown(
+    """
+    <style>
+      div[data-testid="stDataFrame"] [role="gridcell"] {
+        text-align: right !important;
+        justify-content: flex-end !important;
+      }
+      div[data-testid="stDataFrame"] [role="columnheader"] {
+        text-align: right !important;
+        justify-content: flex-end !important;
+      }
+      div[data-testid="stDataEditor"] [role="gridcell"] {
+        text-align: right !important;
+        justify-content: flex-end !important;
+      }
+      div[data-testid="stDataEditor"] [role="columnheader"] {
+        text-align: right !important;
+        justify-content: flex-end !important;
+      }
+      table td, table th {
+        text-align: right !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ── Sidebar: Navegación ─────────────────────────────────────────
 st.sidebar.title("📊 FO Reporting")
 st.sidebar.markdown("---")

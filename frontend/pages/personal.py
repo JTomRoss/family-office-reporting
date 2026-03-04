@@ -86,17 +86,17 @@ def render():
 
     # ── Tabla sociedades ─────────────────────────────────────────
     st.subheader("Sociedades")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=250)
+    st.table(pd.DataFrame())
 
     st.markdown("---")
 
     # ── Tabla resumen vertical ───────────────────────────────────
     st.subheader("Resumen Vertical")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=300)
+    st.table(pd.DataFrame())
 
     st.markdown("---")
 
     # ── Rango personalizado ──────────────────────────────────────
     st.subheader("Rango Personalizado")
     y_start, m_start, y_end, m_end = render_date_range_filter(key_prefix="personal_range")
-    st.dataframe(pd.DataFrame(), use_container_width=True, height=250)
+    st.table(pd.DataFrame())

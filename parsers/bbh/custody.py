@@ -17,7 +17,7 @@ import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pdfplumber
 
@@ -74,7 +74,7 @@ def _parse_bbh_date(text: str) -> Optional[date]:
 class BBHCustodyParser(BaseParser):
     BANK_CODE = "bbh"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas Mandato BBH (Brown Brothers Harriman PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -112,6 +112,7 @@ class BBHCustodyParser(BaseParser):
         self._extract_analysis(pages, result)
         self._extract_maturity_schedule(pages, result)
         self._extract_holdings(pages, result)
+        self._emit_account_monthly_activity(result)
 
         if not result.account_number:
             result.status = ParserStatus.PARTIAL
@@ -123,15 +124,24 @@ class BBHCustodyParser(BaseParser):
         """Page 1: Account name, number, opening/closing values."""
         text = pages[0] if pages else ""
 
-        # Account number: XXXXXX7085
-        m = re.search(r"(?:Account\s*number|XXXXXX)\w*:?\s*(\w+)", text)
+        # Account number appears as "Account number: XXXXXX7085" or "Account number: 7085".
+        # Keep only the real suffix (strip BBH masking prefix "XXXXXX").
+        # Prefer masked token anywhere in page (most reliable in BBH PDFs):
+        # e.g. "... $89,688,007.83 XXXXXX7085".
+        m = re.search(r"\bX{4,}([A-Za-z0-9-]{3,})\b", text)
         if m:
-            result.account_number = m.group(1)
-
-        # Better: look for explicit account number patterns
-        m = re.search(r"Account number:\s*\n?\s*(\S+)", text)
-        if m:
-            result.account_number = m.group(1)
+            result.account_number = m.group(1).strip()
+        else:
+            # Fallback to explicit "Account number" line when present inline.
+            m = re.search(
+                r"Account\s*number\s*:?\s*(?:X{2,})?([A-Za-z0-9-]{3,})",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if m:
+                candidate = m.group(1).strip()
+                if candidate.lower() != "market":
+                    result.account_number = candidate
 
         # Period: "December 1 toDecember 31, 2025" (BBH has no space before "to")
         m = re.search(
@@ -156,6 +166,74 @@ class BBHCustodyParser(BaseParser):
         vals = re.findall(r"Market value on .+?\$?([\d,]+\.\d{2})", text)
         if len(vals) >= 2:
             result.closing_balance = _parse_usd(vals[1])
+
+    def _emit_account_monthly_activity(self, result: ParseResult) -> None:
+        """Emite bloque estándar account_monthly_activity para DataLoadingService."""
+        if not result.account_number:
+            return
+
+        summary = result.qualitative_data.get("investment_summary", {})
+        if not summary and result.opening_balance is None and result.closing_balance is None:
+            return
+
+        def _summary_val(key: str, col: str = "this_period") -> Optional[Decimal]:
+            raw = (summary.get(key) or {}).get(col)
+            if raw is None:
+                return None
+            if isinstance(raw, Decimal):
+                return raw
+            return _parse_usd(str(raw))
+
+        opening = result.opening_balance
+        closing = result.closing_balance
+        net_contributions = _summary_val("contributions_withdrawals")
+        utilidad = None
+
+        # Prioridad: identidad contable exacta del período.
+        if (
+            opening is not None
+            and closing is not None
+            and net_contributions is not None
+        ):
+            utilidad = closing - opening - net_contributions
+        else:
+            # Fallback a componentes reportados por BBH.
+            components = [
+                _summary_val("dividend_interest"),
+                _summary_val("other_income"),
+                _summary_val("accrued_income_change"),
+                _summary_val("market_value_change"),
+            ]
+            if any(v is not None for v in components):
+                utilidad = sum((v or Decimal("0")) for v in components)
+            elif opening is not None and closing is not None:
+                utilidad = closing - opening
+
+        # Si falta movimiento pero sí tenemos utilidad y delta de ending, despejamos.
+        if (
+            net_contributions is None
+            and opening is not None
+            and closing is not None
+            and utilidad is not None
+        ):
+            net_contributions = closing - opening - utilidad
+
+        if utilidad is None and net_contributions is None:
+            return
+
+        result.qualitative_data["account_monthly_activity"] = [
+            {
+                "account_number": result.account_number,
+                "beginning_value": str(opening) if opening is not None else None,
+                "ending_value_with_accrual": str(closing) if closing is not None else None,
+                "ending_value_without_accrual": str(closing) if closing is not None else None,
+                "net_contributions": (
+                    str(net_contributions) if net_contributions is not None else None
+                ),
+                "utilidad": str(utilidad) if utilidad is not None else None,
+                "source": "bbh_investment_summary",
+            }
+        ]
 
     def _extract_analysis(self, pages: list[str], result: ParseResult) -> None:
         """Page 2: Analysis of investments - summary, income, gains, allocation."""

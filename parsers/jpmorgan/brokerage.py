@@ -59,7 +59,7 @@ def _parse_date_mdy_short(text: str) -> Optional[date]:
 class JPMorganBrokerageParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "brokerage"
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     DESCRIPTION = "Parser para cartolas Brokerage JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -97,6 +97,8 @@ class JPMorganBrokerageParser(BaseParser):
         self._extract_account_summary(pages, result)
         self._extract_consolidated_summary(pages, result)
         self._extract_account_ytd(pages, result)
+        self._extract_per_account_monthly_activity(pages, result)
+        self._finalize_account_mapping(result)
         self._extract_holdings(pages, result)
 
         if not result.account_number and not result.rows:
@@ -131,11 +133,16 @@ class JPMorganBrokerageParser(BaseParser):
             r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})\s+(\d+)",
             text,
         ):
+            beginning = _parse_usd(m.group(2))
+            ending = _parse_usd(m.group(3))
+            change = _parse_usd(m.group(4))
+            if beginning == Decimal("0") and ending == Decimal("0"):
+                continue
             accounts.append({
                 "account_number": m.group(1),
-                "beginning_value": str(_parse_usd(m.group(2))),
-                "ending_value": str(_parse_usd(m.group(3))),
-                "change": str(_parse_usd(m.group(4))),
+                "beginning_value": str(beginning) if beginning is not None else None,
+                "ending_value": str(ending) if ending is not None else None,
+                "change": str(change) if change is not None else None,
             })
 
         total_m = re.search(
@@ -147,12 +154,6 @@ class JPMorganBrokerageParser(BaseParser):
             result.closing_balance = _parse_usd(total_m.group(2))
 
         if accounts:
-            if len(accounts) > 1:
-                # Multi-cuenta (ej: Mandatos agrupa varias cuentas)
-                result.account_number = "Varios"
-                result.account_numbers = [a["account_number"] for a in accounts]
-            else:
-                result.account_number = accounts[0]["account_number"]
             result.qualitative_data["accounts"] = accounts
 
     # ── Consolidated Summary ─────────────────────────────────────
@@ -253,6 +254,134 @@ class JPMorganBrokerageParser(BaseParser):
             break
 
     # ── Holdings detail ──────────────────────────────────────────
+
+    def _extract_per_account_monthly_activity(
+        self, pages: list[str], result: ParseResult
+    ) -> None:
+        """Extrae actividad mensual actual por subcuenta desde páginas ACCT."""
+        activities: list[dict] = []
+        current_account: Optional[str] = None
+
+        for text in pages:
+            acct_m = re.search(r"ACCT\.\s+([A-Z0-9]+)", text)
+            if acct_m:
+                current_account = acct_m.group(1)
+
+            if not current_account:
+                continue
+            if "Portfolio Activity" not in text or "Period" not in text:
+                continue
+            if "Consolidated Summary" in text:
+                continue
+
+            acct_data = self._parse_account_activity_page(text, current_account)
+            if acct_data and not any(
+                a["account_number"] == current_account for a in activities
+            ):
+                activities.append(acct_data)
+
+        if activities:
+            result.qualitative_data["account_monthly_activity"] = activities
+
+    def _parse_account_activity_page(
+        self, text: str, account_number: str
+    ) -> Optional[dict]:
+        """Parsea Portfolio Activity (Current Period) para una subcuenta."""
+        data: dict = {"account_number": account_number}
+        activity_pos = text.find("Portfolio Activity")
+        search_text = text[:activity_pos] if activity_pos > 0 else text
+
+        accrual_beginning: Optional[Decimal] = None
+        accrual_ending: Optional[Decimal] = None
+        accrual_m = re.search(
+            r"Accruals\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+"
+            r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
+            search_text,
+        )
+        if accrual_m:
+            accrual_beginning = _parse_usd(accrual_m.group(1))
+            accrual_ending = _parse_usd(accrual_m.group(2))
+        data["accrual_beginning"] = str(accrual_beginning) if accrual_beginning is not None else None
+        data["accrual_ending"] = str(accrual_ending) if accrual_ending is not None else None
+
+        with_accrual_m = re.search(
+            r"Market Value with Accruals\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})",
+            search_text,
+        )
+        if with_accrual_m:
+            val = _parse_usd(with_accrual_m.group(2))
+            data["ending_value_with_accrual"] = str(val) if val is not None else None
+
+        without_accrual_m = re.search(
+            r"Ending Market Value\s+\$?([\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        if without_accrual_m:
+            val = _parse_usd(without_accrual_m.group(1))
+            data["ending_value_without_accrual"] = str(val) if val is not None else None
+
+        net_contrib_m = re.search(
+            r"Net Contributions/Withdrawals\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)",
+            text,
+        )
+        net_contributions = _parse_usd(net_contrib_m.group(1)) if net_contrib_m else None
+
+        income_m = re.search(
+            r"Income & Distributions\s+([\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        income_distributions = _parse_usd(income_m.group(1)) if income_m else None
+
+        change_m = re.search(
+            r"Change [Ii]n Investment Value\s+(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
+            text[activity_pos:] if activity_pos > 0 else text,
+        )
+        change_investment = _parse_usd(change_m.group(1)) if change_m else None
+
+        if net_contributions is None and income_distributions is None:
+            return None
+
+        data["net_contributions"] = str(net_contributions) if net_contributions is not None else None
+        data["income_distributions"] = str(income_distributions) if income_distributions is not None else None
+        data["change_investment"] = str(change_investment) if change_investment is not None else None
+
+        utilidad = Decimal("0")
+        if income_distributions is not None:
+            utilidad += income_distributions
+        if change_investment is not None:
+            utilidad += change_investment
+        if accrual_ending is not None:
+            utilidad += accrual_ending
+        if accrual_beginning is not None:
+            utilidad -= accrual_beginning
+        data["utilidad"] = str(utilidad)
+        return data
+
+    def _finalize_account_mapping(self, result: ParseResult) -> None:
+        extracted = [
+            x.get("account_number")
+            for x in result.qualitative_data.get("account_monthly_activity", [])
+            if x.get("account_number")
+        ]
+        if extracted:
+            account_set = set(extracted)
+            accounts = result.qualitative_data.get("accounts", [])
+            filtered = [a for a in accounts if a.get("account_number") in account_set]
+            if filtered:
+                result.qualitative_data["accounts"] = filtered
+            result.account_numbers = list(dict.fromkeys(extracted))
+            if len(result.account_numbers) > 1:
+                result.account_number = "Varios"
+            elif result.account_numbers:
+                result.account_number = result.account_numbers[0]
+            return
+
+        fallback_accounts = result.qualitative_data.get("accounts", [])
+        if len(fallback_accounts) > 1:
+            result.account_number = "Varios"
+            result.account_numbers = [a["account_number"] for a in fallback_accounts]
+        elif len(fallback_accounts) == 1:
+            result.account_number = fallback_accounts[0]["account_number"]
 
     def _extract_holdings(self, pages: list[str], result: ParseResult) -> None:
         current_account: Optional[str] = None

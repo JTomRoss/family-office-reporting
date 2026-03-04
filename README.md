@@ -13,11 +13,11 @@ pip install -e ".[dev]"
 # 2. Inicializar BD
 python -m backend.db.init_db
 
-# 3. Levantar backend
-uvicorn backend.main:app --reload --port 8000
+# 3. Levantar app (backend + frontend, sin --reload)
+.\scripts\start.ps1
 
-# 4. Levantar frontend (otra terminal)
-streamlit run frontend/app.py --server.port 8501
+# 4. Detener app
+.\scripts\stop.ps1
 ```
 
 ## Docker
