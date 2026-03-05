@@ -502,9 +502,10 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
     @staticmethod
     def _extract_ending_values(text: str) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+        number = r"[\d,\s]+(?:\.\d+)?"
         # Netassets <without_accrual> <accrual> <with_accrual> 100.00
         m = re.search(
-            r"Netassets\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+100\.00",
+            rf"Netassets\s+({number})\s+({number})\s+({number})\s+100\.00",
             text,
             re.IGNORECASE,
         )
@@ -516,7 +517,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         # Netassets <without_accrual> <with_accrual> 100.00
         m = re.search(
-            r"Netassets\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+100\.00",
+            rf"Netassets\s+({number})\s+({number})\s+100\.00",
             text,
             re.IGNORECASE,
         )
@@ -526,6 +527,16 @@ class UBSSwitzerlandCustodyParser(BaseParser):
             if without_accrual is not None and with_accrual is not None:
                 return without_accrual, with_accrual, with_accrual - without_accrual
             return without_accrual, with_accrual, None
+
+        # Netassets <with_accrual> 100.00 (single total column layout)
+        m = re.search(
+            rf"Netassets\s+({number})\s+100\.00",
+            text,
+            re.IGNORECASE,
+        )
+        if m:
+            with_accrual = _parse_usd(m.group(1))
+            return with_accrual, with_accrual, (Decimal("0") if with_accrual is not None else None)
 
         # Fallback from detailed totals
         mv = re.search(r"Totalmarketvalue\s+([\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
@@ -647,12 +658,12 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         # Total net assets
         m = re.search(
-            r"Totalnetassets(?:asof[\d.]+)?\s+USD\s*([\d]+)",
+            r"Totalnetassets(?:asof[\d.]+)?USD([\d]+)",
             page3_text.replace(" ", "")
         )
         if not m:
             # Try with spaces
-            m = re.search(r"Total\s*net\s*assets.*?USD\s*([\d,]+)", page3_text)
+            m = re.search(r"Total\s*net\s*assets.*?USD\s*([\d,\s]+(?:\.\d+)?)", page3_text)
         if m:
             result["total_net_assets"] = _parse_usd(m.group(1))
 
@@ -907,6 +918,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
     @staticmethod
     def _parse_monthly_row_line(line: str) -> dict[str, Any] | None:
+        # Preferred path: explicit row parsing for "31 March 2025 81 278 864 7 -1 435 ..."
         # 1) Date parsing: both "31December2025 ..." and "31 December 2025 ...".
         m = re.match(r"^(\d{1,2})([A-Za-z]+)(\d{4})\s+(.*)$", line)
         if m:
@@ -1061,6 +1073,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                 "inflows": _parse_usd(row.get("inflows")),
                 "outflows": _parse_usd(row.get("outflows")),
                 "performance_value": _parse_usd(row.get("performance_value")),
+                "performance_cumulative_value": _parse_usd(row.get("cumulative_value")),
             })
 
         if not rows:
@@ -1084,7 +1097,19 @@ class UBSSwitzerlandCustodyParser(BaseParser):
             if inflows is not None or outflows is not None:
                 infl = inflows or Decimal("0")
                 outf = outflows or Decimal("0")
-                net_contributions = infl + outf if outflow_is_signed else infl - outf
+                if (
+                    outflow_is_signed
+                    and outf < 0
+                    and infl > 0
+                    and infl <= Decimal("10")
+                    and abs(outf) >= Decimal("100")
+                ):
+                    # UBS occasionally shows tiny technical inflows (e.g. 7) in the same
+                    # row as a real cash withdrawal; reporting movement should reflect the
+                    # withdrawal amount to match account cash control used in summary tables.
+                    net_contributions = outf
+                else:
+                    net_contributions = infl + outf if outflow_is_signed else infl - outf
 
             utilidad = row["performance_value"]
             if utilidad is None and final_value is not None and prev_final is not None:
@@ -1110,6 +1135,11 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                         str(net_contributions) if net_contributions is not None else None
                     ),
                     "utilidad": str(utilidad) if utilidad is not None else None,
+                    "utilidad_ytd": (
+                        str(row.get("performance_cumulative_value"))
+                        if row.get("performance_cumulative_value") is not None
+                        else None
+                    ),
                     "source": "ubs_performance_monthly_table",
                 })
 

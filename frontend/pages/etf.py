@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import pandas as pd
 
 from frontend import api_client
+from frontend.components.table_utils import render_table
 from frontend.components.filters import (
     render_fecha_filter,
     render_date_range_filter,
@@ -27,7 +28,7 @@ MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
 
 SOCIETY_COLUMNS = [
     "Boatview JPM", "Boatview GS", "Telmar",
-    "Armel Holdings", "Ect Internacional", "Total",
+    "Armel Holdings", "Ecoterra Internacional", "Total",
 ]
 
 INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
@@ -53,19 +54,6 @@ def _fmt_pct(val):
         return f"{float(val):.2f}%"
     except (ValueError, TypeError):
         return ""
-
-
-def _style_right_align(df, num_cols=None):
-    """Right-align specified or all non-first columns."""
-    if num_cols is None:
-        num_cols = list(df.columns[1:])
-    props = "text-align: right"
-    subset = [c for c in num_cols if c in df.columns]
-    if subset:
-        return df.style.set_properties(subset=subset, **{"text-align": "right"}).format(
-            {c: "{}" for c in df.columns}
-        )
-    return df.style.format({c: "{}" for c in df.columns})
 
 
 def render():
@@ -133,6 +121,7 @@ def render():
         st.error(f"Error obteniendo datos: {e}")
 
     instruments_table = data.get("instruments_table", {})
+    control_expected = data.get("control_expected", {})
     instruments_pct_table = data.get("instruments_pct_table", {})
     composition_by_society = data.get("composition_by_society", [])
     composition_by_instrument = data.get("composition_by_instrument", [])
@@ -147,42 +136,32 @@ def render():
 
     if instruments_table:
         instr_rows = []
-        totals_row = {"Instrumento": "Total"}
-        for col in SOCIETY_COLUMNS:
-            totals_row[col] = 0.0
+        totals_raw = {col: 0.0 for col in SOCIETY_COLUMNS}
 
         for instr in INSTRUMENT_ORDER:
-            if instr in instruments_table:
-                vals = instruments_table[instr]
-                row = {"Instrumento": instr}
-                for col in SOCIETY_COLUMNS:
-                    v = vals.get(col, 0)
-                    row[col] = _fmt_num(v)
-                    if col != "Total":
-                        totals_row[col] += float(v or 0)
-                instr_rows.append(row)
+            vals = instruments_table.get(instr, {})
+            row = {"Instrumento": instr}
+            for col in SOCIETY_COLUMNS:
+                v = float(vals.get(col, 0) or 0)
+                row[col] = _fmt_num(v)
+                totals_raw[col] += v
+            instr_rows.append(row)
 
-        # Add instruments not in fixed order
-        for instr, vals in instruments_table.items():
-            if instr not in INSTRUMENT_ORDER:
-                row = {"Instrumento": instr}
-                for col in SOCIETY_COLUMNS:
-                    v = vals.get(col, 0)
-                    row[col] = _fmt_num(v)
-                    if col != "Total":
-                        totals_row[col] += float(v or 0)
-                instr_rows.append(row)
+        total_row = {"Instrumento": "Total"}
+        for col in SOCIETY_COLUMNS:
+            total_row[col] = _fmt_num(totals_raw[col])
+        instr_rows.append(total_row)
 
-        # Total row
-        totals_row["Total"] = _fmt_num(sum(
-            float(totals_row[c]) for c in SOCIETY_COLUMNS[:-1]
-        ))
-        for col in SOCIETY_COLUMNS[:-1]:
-            totals_row[col] = _fmt_num(totals_row[col])
-        instr_rows.append(totals_row)
+        # Control: Total tabla vs ending value sin accruals por sociedad y total.
+        control_row = {"Instrumento": "control"}
+        for col in SOCIETY_COLUMNS:
+            expected = float(control_expected.get(col, 0) or 0)
+            diff = abs(totals_raw[col] - expected)
+            control_row[col] = "OK" if diff <= 1 else "DIFERENCIA"
+        instr_rows.append(control_row)
 
         df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
-        st.table(_style_right_align(df_instr, SOCIETY_COLUMNS))
+        render_table(df_instr)
     else:
         st.info("Sin datos. Seleccione una fecha con datos ETF.")
 
@@ -227,7 +206,7 @@ def render():
         pct_rows.append(totals_pct)
 
         df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
-        st.table(_style_right_align(df_pct, SOCIETY_COLUMNS))
+        render_table(df_pct)
     else:
         st.info("Sin datos de pesos %.")
 
@@ -292,7 +271,7 @@ def render():
                     "Rent. (%)": _fmt_pct(cd["rent_pct"]),
                 })
             df_rng = pd.DataFrame(rt)
-            st.table(_style_right_align(df_rng, ["Ending Value", "Utilidad", "Rent. (%)"]))
+            render_table(df_rng)
         else:
             st.info("Sin datos en rango.")
 
@@ -325,7 +304,7 @@ def render():
                     lambda x: _fmt_num(x)
                 )
 
-        st.table(_style_right_align(df_montos, month_cols))
+        render_table(df_montos)
     else:
         st.info("Sin datos de montos por sociedad.")
 
@@ -361,6 +340,8 @@ def render():
             if col in df_ret.columns:
                 df_ret[col] = df_ret[col].apply(lambda x: _fmt_pct(x))
 
-        st.table(_style_right_align(df_ret, ret_cols))
+        render_table(df_ret)
     else:
         st.info("Sin datos de rentabilidad.")
+
+

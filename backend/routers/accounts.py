@@ -79,9 +79,10 @@ def auto_fill(account_number: str, db: Session = Depends(get_db)):
 @router.delete("/")
 def delete_all_accounts(db: Session = Depends(get_db)):
     """Elimina TODAS las cuentas del maestro y datos dependientes."""
-    from backend.db.models import Account, DailyPosition, DailyMovement, MonthlyClosing
+    from backend.db.models import Account, DailyPosition, DailyMovement, DailyPrice, MonthlyClosing
     db.query(DailyPosition).delete()
     db.query(DailyMovement).delete()
+    db.query(DailyPrice).delete()
     db.query(MonthlyClosing).delete()
     # Desvincular documentos de las cuentas (no borrar los docs)
     from backend.db.models import RawDocument

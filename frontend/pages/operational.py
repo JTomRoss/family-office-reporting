@@ -12,12 +12,7 @@ import streamlit as st
 import pandas as pd
 
 from frontend import api_client
-
-
-def _style_right(df: pd.DataFrame):
-    return df.style.set_properties(subset=list(df.columns), **{"text-align": "right"}).format(
-        {c: "{}" for c in df.columns}
-    )
+from frontend.components.table_utils import render_table
 
 
 def render():
@@ -42,13 +37,25 @@ def render():
             recon = api_client.post("/data/reconciliation", json={})
             if recon.get("reconciliation_results"):
                 df = pd.DataFrame(recon["reconciliation_results"])
-                st.table(_style_right(df))
+                render_table(df)
             else:
                 st.info("Sin resultados de conciliación. Cargue datos y ejecute conciliación.")
 
             st.metric("Sin resolver", recon.get("unresolved_count", 0))
         except Exception as e:
             st.error(f"Error: {e}")
+
+        st.markdown("---")
+        st.subheader("Asset Allocation Reports (PDF)")
+        try:
+            aa = api_client.post("/data/asset-allocation-report", json={})
+            rows = aa.get("rows", [])
+            if rows:
+                render_table(pd.DataFrame(rows))
+            else:
+                st.info("Sin reportes de asset allocation cargados aún.")
+        except Exception as e:
+            st.error(f"Error asset allocation report: {e}")
 
     # ═══════════════════════════════════════════════════════════════
     # TAB 2: Logs de validación
@@ -82,7 +89,7 @@ def render():
             logs = api_client.get("/data/validation-logs", params=params)
             if logs:
                 df = pd.DataFrame(logs)
-                st.table(_style_right(df))
+                render_table(df)
             else:
                 st.info("Sin logs de validación.")
         except Exception as e:
@@ -98,11 +105,25 @@ def render():
             parsers = api_client.get("/parsers")
             if parsers:
                 df = pd.DataFrame(parsers)
-                st.table(_style_right(df))
+                render_table(df)
             else:
                 st.warning("No hay parsers registrados.")
         except Exception as e:
             st.error(f"Error: {e}")
+
+        st.markdown("---")
+        st.subheader("QA Parser vs Carga")
+        thr = st.number_input("Threshold diferencia %", value=0.01, min_value=0.0, step=0.01)
+        try:
+            qa = api_client.get("/data/parser-quality", params={"threshold_pct": thr, "limit": 200})
+            st.metric("Registros críticos", qa.get("critical_count", 0))
+            rows = qa.get("rows", [])
+            if rows:
+                render_table(pd.DataFrame(rows))
+            else:
+                st.info("Sin datos QA aún.")
+        except Exception as e:
+            st.error(f"Error QA parsers: {e}")
 
     # ═══════════════════════════════════════════════════════════════
     # TAB 4: Errores de clasificación
@@ -114,9 +135,11 @@ def render():
             errors = api_client.get("/accounts/classification-errors")
             if errors:
                 df = pd.DataFrame(errors)
-                st.table(_style_right(df))
+                render_table(df)
                 st.warning(f"⚠️ {len(errors)} error(es) detectado(s)")
             else:
                 st.success("✅ Sin errores de clasificación")
         except Exception as e:
             st.error(f"Error: {e}")
+
+

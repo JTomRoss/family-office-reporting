@@ -40,6 +40,16 @@ st.markdown(
       table td, table th {
         text-align: right !important;
       }
+      div[data-testid="stTable"] table {
+        table-layout: fixed !important;
+        width: 100% !important;
+      }
+      div[data-testid="stTable"] table thead tr th:first-child {
+        display: none !important;
+      }
+      div[data-testid="stTable"] table tbody tr th {
+        display: none !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,

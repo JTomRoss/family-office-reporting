@@ -15,9 +15,11 @@ Funcionalidades:
 
 import streamlit as st
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
 from frontend import api_client
+from frontend.components.table_utils import render_table
 
 # ── Opciones estáticas para selectboxes ──────────────────────────
 BANCOS = {
@@ -41,12 +43,6 @@ def _fmt_account_type(raw: str) -> str:
     return raw.upper() if raw.lower() in _UPPERCASE_TYPES else raw.capitalize()
 
 
-def _style_right(df):
-    return df.style.set_properties(subset=list(df.columns), **{"text-align": "right"}).format(
-        {c: "{}" for c in df.columns}
-    )
-
-
 def _try_auto_fill_by_id(identification_number: str, bank_code: str = "", entity_name: str = "") -> dict | None:
     """Intenta auto-completar metadata usando dígito verificador + banco + sociedad."""
     if not identification_number or not identification_number.strip():
@@ -60,6 +56,14 @@ def _try_auto_fill_by_id(identification_number: str, bank_code: str = "", entity
         return api_client.get("/accounts/auto-fill", params=params)
     except Exception:
         return None
+
+
+def _load_master_accounts() -> list[dict]:
+    """Carga maestro completo para poblar selectores en UI."""
+    try:
+        return api_client.get("/accounts/", params={"active_only": "false"})
+    except Exception:
+        return []
 
 
 def render():
@@ -91,7 +95,7 @@ def render():
                 ["pdf_cartola", "pdf_report"],
                 format_func=lambda x: {
                     "pdf_cartola": "📃 Cartola bancaria",
-                    "pdf_report": "📘 Reporte cualitativo",
+                    "pdf_report": "📘 Reporte mandato",
                 }[x],
             )
         with col2:
@@ -108,16 +112,40 @@ def render():
             "📑 Varias cuentas en un documento (ej: JP Morgan Mandatos)",
             key="pdf_multi_account",
         )
+        master_accounts = _load_master_accounts()
+        master_entities = sorted({
+            (a.get("entity_name") or "").strip()
+            for a in master_accounts
+            if (a.get("entity_name") or "").strip()
+        })
 
         if is_multi_account:
             identification_number = "Varios"
             col_soc, col_sub = st.columns(2)
             with col_soc:
-                entity_name = st.text_input(
-                    "Sociedad *",
-                    placeholder="Ej: Boatview",
-                    key="pdf_entity_name",
+                use_new_entity_multi = st.checkbox(
+                    "Crear nueva sociedad",
+                    key="pdf_new_entity_multi",
                 )
+                if use_new_entity_multi:
+                    entity_name = st.text_input(
+                        "Sociedad nueva *",
+                        placeholder="Ej: Boatview",
+                        key="pdf_entity_name_new_multi",
+                    )
+                else:
+                    if master_entities:
+                        entity_name = st.selectbox(
+                            "Sociedad *",
+                            options=[""] + master_entities,
+                            key="pdf_entity_name_sel_multi",
+                        )
+                    else:
+                        entity_name = st.text_input(
+                            "Sociedad *",
+                            placeholder="Ej: Boatview",
+                            key="pdf_entity_name_no_master_multi",
+                        )
             with col_sub:
                 sub_accounts = st.text_input(
                     "Sub-cuentas (dígitos verificadores, separados por coma) *",
@@ -134,17 +162,58 @@ def render():
             sub_accounts = ""
             col_soc, col_id, col_btn = st.columns([2, 1, 1])
             with col_soc:
-                entity_name = st.text_input(
-                    "Sociedad *",
-                    placeholder="Ej: Armel Holdings",
-                    key="pdf_entity_name",
+                use_new_entity = st.checkbox(
+                    "Crear nueva sociedad",
+                    key="pdf_new_entity",
                 )
+                if use_new_entity:
+                    entity_name = st.text_input(
+                        "Sociedad nueva *",
+                        placeholder="Ej: Armel Holdings",
+                        key="pdf_entity_name_new",
+                    )
+                else:
+                    if master_entities:
+                        entity_name = st.selectbox(
+                            "Sociedad *",
+                            options=[""] + master_entities,
+                            key="pdf_entity_name_sel",
+                        )
+                    else:
+                        entity_name = st.text_input(
+                            "Sociedad *",
+                            placeholder="Ej: Armel Holdings",
+                            key="pdf_entity_name_no_master",
+                        )
             with col_id:
-                identification_number = st.text_input(
-                    "Dígito verificador *",
-                    placeholder="Ej: 5001",
-                    key="pdf_identification_number",
-                )
+                ids_for_combo = sorted({
+                    (a.get("identification_number") or "").strip()
+                    for a in master_accounts
+                    if (a.get("identification_number") or "").strip()
+                    and (not bank_code or (a.get("bank_code") or "") == bank_code)
+                    and (not entity_name.strip() or (a.get("entity_name") or "").strip() == entity_name.strip())
+                })
+                use_new_id = st.checkbox("Nuevo dígito verificador", key="pdf_new_id")
+                if use_new_id:
+                    identification_number = st.text_input(
+                        "Dígito verificador nuevo *",
+                        placeholder="Ej: 5001",
+                        key="pdf_identification_number_new",
+                    )
+                else:
+                    if ids_for_combo:
+                        identification_number = st.selectbox(
+                            "Dígito verificador *",
+                            options=[""] + ids_for_combo,
+                            key="pdf_identification_number_sel",
+                            help="Opciones filtradas por Banco + Sociedad desde maestro de cuentas",
+                        )
+                    else:
+                        identification_number = st.text_input(
+                            "Dígito verificador *",
+                            placeholder="Ej: 5001",
+                            key="pdf_identification_number_no_master",
+                        )
             with col_btn:
                 st.markdown("<br>", unsafe_allow_html=True)  # alinear con input
                 auto_fill_clicked = st.button("🔍 Auto-llenar", key="btn_autofill")
@@ -392,18 +461,15 @@ def render():
                     tmp_path = tmp.name
 
                 try:
-                    # Para excel_master, usar upload-and-process para que
-                    # se parsee y se carguen las cuentas inmediatamente
-                    if excel_type == "excel_master":
+                    # Procesar inmediatamente para que los datos queden disponibles al cargar.
+                    if excel_type in {
+                        "excel_master",
+                        "excel_positions",
+                        "excel_movements",
+                        "excel_prices",
+                    }:
                         result = api_client.upload_file(
                             "/documents/upload-and-process",
-                            filepath=tmp_path,
-                            filename=excel_file.name,
-                            file_type=excel_type,
-                        )
-                    else:
-                        result = api_client.upload_file(
-                            "/documents/upload",
                             filepath=tmp_path,
                             filename=excel_file.name,
                             file_type=excel_type,
@@ -419,6 +485,7 @@ def render():
                         proc_status = proc.get("status", "")
                         if proc_status in ("success", "partial"):
                             ms = proc.get("master_stats", {})
+                            ls = proc.get("loading_stats", {})
                             if ms:
                                 st.success(
                                     f"✅ Maestro cargado: "
@@ -428,6 +495,17 @@ def render():
                                 if ms.get("errors"):
                                     st.warning(
                                         f"⚠️ {len(ms['errors'])} filas con problemas"
+                                    )
+                            elif ls:
+                                st.success(
+                                    "✅ Datos operativos cargados: "
+                                    f"{ls.get('daily_positions', 0)} posiciones, "
+                                    f"{ls.get('daily_movements', 0)} movimientos, "
+                                    f"{ls.get('daily_prices', 0)} precios"
+                                )
+                                if ls.get("errors"):
+                                    st.warning(
+                                        f"⚠️ {len(ls['errors'])} fila(s) con problemas de carga"
                                     )
                             else:
                                 st.success(
@@ -461,6 +539,48 @@ def render():
                 accounts = api_client.get("/accounts/", params={"active_only": "false"})
                 if accounts:
                     df = pd.DataFrame(accounts)
+                    export_cols = [
+                        "account_number",
+                        "identification_number",
+                        "bank_code",
+                        "bank_name",
+                        "account_type",
+                        "entity_name",
+                        "entity_type",
+                        "currency",
+                        "country",
+                        "mandate_type",
+                        "person_name",
+                        "internal_code",
+                        "is_active",
+                    ]
+                    export_df = df[[c for c in export_cols if c in df.columns]].copy()
+
+                    c_dl1, c_dl2 = st.columns(2)
+                    with c_dl1:
+                        csv_bytes = export_df.to_csv(index=False).encode("utf-8-sig")
+                        st.download_button(
+                            "⬇️ Descargar maestro (CSV)",
+                            data=csv_bytes,
+                            file_name="maestro_cuentas_actual.csv",
+                            mime="text/csv",
+                            key="dl_master_csv",
+                        )
+                    with c_dl2:
+                        try:
+                            xlsx_buffer = BytesIO()
+                            with pd.ExcelWriter(xlsx_buffer, engine="openpyxl") as writer:
+                                export_df.to_excel(writer, index=False, sheet_name="master_accounts")
+                            st.download_button(
+                                "⬇️ Descargar maestro (XLSX)",
+                                data=xlsx_buffer.getvalue(),
+                                file_name="maestro_cuentas_actual.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_master_xlsx",
+                            )
+                        except Exception:
+                            st.caption("XLSX no disponible en este entorno (usa CSV).")
+
                     # Seleccionar y renombrar columnas para mostrar
                     display_cols = {
                         "identification_number": "Nº Identificación",
@@ -480,7 +600,7 @@ def render():
                     )
                     if "Tipo Cuenta" in df_display.columns:
                         df_display["Tipo Cuenta"] = df_display["Tipo Cuenta"].apply(_fmt_account_type)
-                    st.table(_style_right(df_display))
+                    render_table(df_display)
                     st.caption(f"Total: {len(df_display)} cuentas")
 
                     # Botón eliminar cuentas
@@ -504,7 +624,7 @@ def render():
         st.subheader("Documentos en el sistema")
 
         # Filtros
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
             filter_type = st.selectbox(
                 "Tipo",
@@ -519,12 +639,14 @@ def render():
                 format_func=lambda x: BANCOS[x],
                 key="doc_filter_bank",
             )
-        with col3:
-            filter_status = st.selectbox(
-                "Estado",
-                ["", "uploaded", "processing", "parsed", "validated", "error"],
-                key="doc_filter_status",
-            )
+
+        # Buscador rápido (entre filtros y tabla)
+        quick_search = st.text_input(
+            "Buscar",
+            value="",
+            placeholder="Buscar por ID, archivo, tipo o banco...",
+            key="doc_quick_search",
+        ).strip().lower()
 
         try:
             params = {}
@@ -532,10 +654,20 @@ def render():
                 params["file_type"] = filter_type
             if filter_bank:
                 params["bank_code"] = filter_bank
-            if filter_status:
-                params["status"] = filter_status
 
             docs = api_client.get("/documents/", params=params)
+            if quick_search and docs:
+                filtered_docs = []
+                for d in docs:
+                    haystack = " ".join([
+                        str(d.get("id", "")),
+                        str(d.get("filename", "")),
+                        str(d.get("file_type", "")),
+                        str(d.get("bank_code", "")),
+                    ]).lower()
+                    if quick_search in haystack:
+                        filtered_docs.append(d)
+                docs = filtered_docs
 
             if docs:
                 import pandas as pd
@@ -631,3 +763,5 @@ def render():
 
         except Exception as e:
             st.error(f"Error conectando al backend: {e}")
+
+

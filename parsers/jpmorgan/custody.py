@@ -184,7 +184,10 @@ class JPMorganCustodyParser(BaseParser):
             activity = {}
             patterns = [
                 ("beginning_market_value", r"Beginning Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
-                ("net_cash_contributions", r"Net Cash Contributions\s*/?\s*Withdrawals\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
+                (
+                    "net_cash_contributions",
+                    r"Net Cash Contributions\s*/?\s*Withdrawals\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)",
+                ),
                 ("income_distributions", r"Income and Distributions\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
                 ("change_investment", r"Change in Investment Value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("ending_market_value", r"Ending Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
@@ -242,13 +245,26 @@ class JPMorganCustodyParser(BaseParser):
                 text, r"Ending Market Value\s+([\d,]+\.\d{2})"
             )
             net_contributions = self._extract_current_period_value(
-                text, r"Net Cash Contributions\s*/\s*Withdrawals\s+(-?[\d,]+\.\d{2})"
+                text,
+                r"Net Cash Contributions\s*/?\s*Withdrawals\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
+            )
+            net_contributions_ytd = self._extract_ytd_value(
+                text,
+                r"Net Cash Contributions\s*/?\s*Withdrawals\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
             )
             income = self._extract_current_period_value(
                 text, r"Income and Distributions\s+([\d,]+\.\d{2})"
             )
+            income_ytd = self._extract_ytd_value(
+                text,
+                r"Income and Distributions\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
+            )
             change = self._extract_current_period_value(
                 text, r"Change in Investment Value\s+(-?[\d,]+\.\d{2})"
+            )
+            change_ytd = self._extract_ytd_value(
+                text,
+                r"Change in Investment Value\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
             )
 
             if beginning is None and ending is None:
@@ -271,11 +287,17 @@ class JPMorganCustodyParser(BaseParser):
             monthly.append({
                 "account_number": current_account,
                 "net_contributions": str(net_contributions) if net_contributions is not None else None,
+                "net_contributions_ytd": str(net_contributions_ytd) if net_contributions_ytd is not None else None,
                 "income_distributions": str(income) if income is not None else None,
                 "change_investment": str(change) if change is not None else None,
                 "ending_value_with_accrual": str(ending) if ending is not None else None,
                 "ending_value_without_accrual": str(ending) if ending is not None else None,
                 "utilidad": str(utilidad),
+                "utilidad_ytd": (
+                    str((income_ytd or Decimal("0")) + (change_ytd or Decimal("0")))
+                    if (income_ytd is not None or change_ytd is not None)
+                    else None
+                ),
             })
 
         if accounts:
@@ -289,6 +311,13 @@ class JPMorganCustodyParser(BaseParser):
         if not m:
             return None
         return _parse_usd(m.group(1))
+
+    @staticmethod
+    def _extract_ytd_value(text: str, pattern: str) -> Optional[Decimal]:
+        m = re.search(pattern, text)
+        if not m or m.lastindex is None or m.lastindex < 2:
+            return None
+        return _parse_usd(m.group(2))
 
     def _finalize_subaccount_identity(self, result: ParseResult) -> None:
         extracted = [

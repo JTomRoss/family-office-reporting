@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 import pandas as pd
 
 from frontend import api_client
+from frontend.components.table_utils import render_table
 from frontend.components.filters import (
     render_filters,
     BANK_DISPLAY_NAMES,
@@ -64,19 +65,6 @@ def _fecha_label(fecha_str):
 
 
 # ── Columnas numéricas que se alinean a la derecha ───────────────
-def _style_right(df, cols=None):
-    """Return a Styler that right-aligns selected columns (all by default)."""
-    if cols is None:
-        cols_present = list(df.columns)
-    else:
-        cols_present = [c for c in cols if c in df.columns]
-    if not cols_present:
-        return df.style.format({c: "{}" for c in df.columns})
-    return df.style.set_properties(
-        subset=cols_present, **{"text-align": "right"}
-    ).format({c: "{}" for c in df.columns})
-
-
 def _build_ym_options():
     """Generate YYYY-MM options from 2020-01 to 2027-12."""
     opts = []
@@ -226,7 +214,7 @@ def render():
                     ),
                 })
             df_summary = pd.DataFrame(table_data)
-            st.table(_style_right(df_summary))
+            render_table(df_summary)
         else:
             st.info("Sin datos. Cargue documentos y aplique filtros.")
 
@@ -313,7 +301,7 @@ def render():
                 {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_sc_pct)},
             ]
             df_range = pd.DataFrame(kpi_data)
-            st.table(_style_right(df_range))
+            render_table(df_range)
         else:
             st.info("Sin datos en el rango seleccionado.")
 
@@ -340,6 +328,10 @@ def render():
                 "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
             })
         df_detail = pd.DataFrame(table_data)
-        st.table(_style_right(df_detail))
+        render_table(df_detail)
     else:
         st.info("Sin datos. Cargue cartolas para ver el detalle.")
+
+
+
+

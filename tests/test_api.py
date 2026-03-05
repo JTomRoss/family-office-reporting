@@ -83,6 +83,18 @@ class TestDataEndpoint:
         response = client.post("/api/v1/data/reconciliation", json={})
         assert response.status_code == 200
 
+    def test_personal(self, client):
+        response = client.post("/api/v1/data/personal", json={})
+        assert response.status_code == 200
+
+    def test_asset_allocation_report(self, client):
+        response = client.post("/api/v1/data/asset-allocation-report", json={})
+        assert response.status_code == 200
+
     def test_validation_logs(self, client):
         response = client.get("/api/v1/data/validation-logs")
+        assert response.status_code == 200
+
+    def test_parser_quality(self, client):
+        response = client.get("/api/v1/data/parser-quality")
         assert response.status_code == 200

@@ -251,7 +251,7 @@ def delete_all_documents(
     """
     from backend.db.models import (
         RawDocument, ParsedStatement, ValidationLog,
-        Account, DailyPosition, DailyMovement, MonthlyClosing,
+        Account, DailyPosition, DailyMovement, DailyPrice, MonthlyClosing,
     )
     # Eliminar dependientes primero para evitar FK constraints
     db.query(ValidationLog).filter(ValidationLog.raw_document_id.isnot(None)).delete()
@@ -263,6 +263,7 @@ def delete_all_documents(
     if include_accounts:
         db.query(DailyPosition).delete()
         db.query(DailyMovement).delete()
+        db.query(DailyPrice).delete()
         db.query(MonthlyClosing).delete()
         acct_count = db.query(Account).count()
         db.query(Account).delete()

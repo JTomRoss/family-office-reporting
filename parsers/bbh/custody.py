@@ -187,7 +187,11 @@ class BBHCustodyParser(BaseParser):
         opening = result.opening_balance
         closing = result.closing_balance
         net_contributions = _summary_val("contributions_withdrawals")
+        net_contributions_ytd = _summary_val("contributions_withdrawals", "ytd")
+        prior_adjustments = _summary_val("prior_period_adjustments")
+        prior_adjustments_ytd = _summary_val("prior_period_adjustments", "ytd")
         utilidad = None
+        utilidad_ytd = None
 
         # Prioridad: identidad contable exacta del período.
         if (
@@ -204,8 +208,16 @@ class BBHCustodyParser(BaseParser):
                 _summary_val("accrued_income_change"),
                 _summary_val("market_value_change"),
             ]
+            components_ytd = [
+                _summary_val("dividend_interest", "ytd"),
+                _summary_val("other_income", "ytd"),
+                _summary_val("accrued_income_change", "ytd"),
+                _summary_val("market_value_change", "ytd"),
+            ]
             if any(v is not None for v in components):
                 utilidad = sum((v or Decimal("0")) for v in components)
+                if any(v is not None for v in components_ytd):
+                    utilidad_ytd = sum((v or Decimal("0")) for v in components_ytd)
             elif opening is not None and closing is not None:
                 utilidad = closing - opening
 
@@ -230,7 +242,17 @@ class BBHCustodyParser(BaseParser):
                 "net_contributions": (
                     str(net_contributions) if net_contributions is not None else None
                 ),
+                "net_contributions_ytd": (
+                    str(net_contributions_ytd) if net_contributions_ytd is not None else None
+                ),
+                "prior_period_adjustments": (
+                    str(prior_adjustments) if prior_adjustments is not None else None
+                ),
+                "prior_period_adjustments_ytd": (
+                    str(prior_adjustments_ytd) if prior_adjustments_ytd is not None else None
+                ),
                 "utilidad": str(utilidad) if utilidad is not None else None,
+                "utilidad_ytd": str(utilidad_ytd) if utilidad_ytd is not None else None,
                 "source": "bbh_investment_summary",
             }
         ]
@@ -249,6 +271,7 @@ class BBHCustodyParser(BaseParser):
                 ("other_income", r"Other income\s+([\d,.-]+)\s+([\d,.-]+)"),
                 ("accrued_income_change", r"Change in value of accrued income\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("contributions_withdrawals", r"Contributions less withdrawals\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
+                ("prior_period_adjustments", r"Prior period adjustments\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("fees", r"Fees\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("market_value_change", r"Change in market value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("closing_value", r"Closing value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})"),

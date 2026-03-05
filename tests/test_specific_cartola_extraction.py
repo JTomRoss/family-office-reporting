@@ -63,7 +63,7 @@ def test_ubs_suiza_quarterly_performance_emits_history_activity():
         None,
     )
     assert mar is not None
-    assert _as_decimal(mar.get("net_contributions")) == Decimal("-1428")
+    assert _as_decimal(mar.get("net_contributions")) == Decimal("-1435")
     assert _as_decimal(mar.get("utilidad")) == Decimal("-831817")
 
     current = result.qualitative_data.get("account_monthly_activity", [])
@@ -122,6 +122,54 @@ def test_jpm_mandato_extracts_three_subaccounts():
     assert set(monthly.keys()) == {"1179200", "1412600", "1483400"}
     assert _as_decimal(monthly["1412600"]["ending_value_with_accrual"]) == Decimal("148531792.87")
     assert _as_decimal(monthly["1483400"]["ending_value_with_accrual"]) == Decimal("188557765.96")
+
+
+def test_jpm_mandato_net_cash_with_parentheses_is_parsed():
+    parser = JPMorganCustodyParser()
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash="test-hash",
+        bank_code="jpmorgan",
+        currency="USD",
+    )
+    pages = [
+        "\n".join(
+            [
+                "Account Number: 1412600",
+                "Account Summary",
+                "Portfolio Activity",
+                "Beginning Market Value 100.00",
+                "Net Cash Contributions / Withdrawals ($2,728,400.00)",
+                "Income and Distributions 100.00",
+                "Change in Investment Value 200.00",
+                "Ending Market Value 300.00",
+            ]
+        )
+    ]
+
+    parser._extract_subaccount_summaries(pages, result)
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert monthly[0]["account_number"] == "1412600"
+    assert _as_decimal(monthly[0]["net_contributions"]) == Decimal("-2728400.00")
+
+
+def test_jpm_mandato_feb_2025_extracts_negative_net_cash_for_1412600():
+    path = _cartola_path("202502 Boatview JPM NY Mandato (2600 y 3400).pdf")
+    _require(path)
+
+    result = JPMorganCustodyParser().safe_parse(path)
+    assert result.is_success
+
+    monthly = {
+        row["account_number"]: row
+        for row in result.qualitative_data.get("account_monthly_activity", [])
+    }
+    assert "1412600" in monthly
+    assert _as_decimal(monthly["1412600"]["net_contributions"]) == Decimal("-3000000.00")
+    assert _as_decimal(monthly["1412600"]["net_contributions_ytd"]) == Decimal("-3000000.00")
 
 
 def test_bbh_mandato_extracts_real_account_number():

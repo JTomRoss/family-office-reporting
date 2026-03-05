@@ -171,14 +171,46 @@ class JPMorganEtfParser(BaseParser):
                 "change": str(change) if change is not None else None,
             })
 
-        # Total Value line
-        total_m = re.search(
-            r"Total Value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})",
-            text,
-        )
-        if total_m:
-            result.opening_balance = _parse_usd(total_m.group(1))
-            result.closing_balance = _parse_usd(total_m.group(2))
+        # Total Value can be on page 1 (classic layout) or later pages (Armel/Ecoterra layout).
+        # For split-layout statements, there are multiple section totals (e.g. 28% + 72%).
+        # In that case, the statement total is the sum of section endings.
+        opening_candidate = None
+        closing_candidate = None
+        closing_100pct_candidate = None
+        section_totals: list[tuple[Decimal, Decimal, int]] = []
+        for pg in pages[:10]:
+            for m in re.finditer(
+                r"Total Value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})"
+                r"(?:\s+\(?\$?[\d,]+\.\d{2}\)?)?\s+(\d{1,3})%",
+                pg,
+            ):
+                op = _parse_usd(m.group(1))
+                cl = _parse_usd(m.group(2))
+                pct = int(m.group(3))
+                if op is not None and cl is not None:
+                    section_totals.append((op, cl, pct))
+            for m in re.finditer(
+                r"Total Value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})",
+                pg,
+            ):
+                opening_candidate = _parse_usd(m.group(1))
+                closing_candidate = _parse_usd(m.group(2))
+            for m in re.finditer(
+                r"Total Value\s+\$?([\d,]+\.\d{2})\s+100%",
+                pg,
+            ):
+                closing_100pct_candidate = _parse_usd(m.group(1))
+
+        if section_totals and sum(p for _, _, p in section_totals) == 100:
+            result.opening_balance = sum((op for op, _, _ in section_totals), Decimal("0"))
+            result.closing_balance = sum((cl for _, cl, _ in section_totals), Decimal("0"))
+        elif opening_candidate is not None:
+            result.opening_balance = opening_candidate
+        if not section_totals and closing_candidate is not None:
+            result.closing_balance = closing_candidate
+        if not section_totals and closing_100pct_candidate is not None:
+            # Prefer explicit consolidated 100% total when present.
+            result.closing_balance = closing_100pct_candidate
 
         if accounts:
             result.qualitative_data["accounts"] = accounts
@@ -231,6 +263,19 @@ class JPMorganEtfParser(BaseParser):
 
             if activity:
                 result.qualitative_data["portfolio_activity"] = activity
+                # Normalize balances to "Ending/Beginning Market Value" (without accruals)
+                # when this section is available (classic ETF layout).
+                try:
+                    emv = activity.get("ending_market_value", {}).get("current_period")
+                    bmv = activity.get("beginning_market_value", {}).get("current_period")
+                    emv_dec = _parse_usd(emv) if emv is not None else None
+                    bmv_dec = _parse_usd(bmv) if bmv is not None else None
+                    if emv_dec is not None:
+                        result.closing_balance = emv_dec
+                    if bmv_dec is not None:
+                        result.opening_balance = bmv_dec
+                except Exception:
+                    pass
             break  # only process first consolidated summary page
 
     # ── Per-account YTD ──────────────────────────────────────────
@@ -488,11 +533,22 @@ class JPMorganEtfParser(BaseParser):
             # Track section
             if "Cash & Fixed Income" in text:
                 current_section = "cash_fixed_income"
+            elif "Global Fixed Income" in text:
+                current_section = "cash_fixed_income"
             elif "Equity" in text and "Detail" in text:
+                current_section = "equity"
+            elif "Global Equity" in text:
                 current_section = "equity"
 
             # Skip non-holdings pages
-            if "Detail" not in text and "Holdings" not in text:
+            has_holdings_header = (
+                ("Detail" in text)
+                or ("Holdings" in text)
+                or ("Global Fixed Income" in text)
+                or ("Global Equity" in text)
+                or ("Price" in text and "Quantity" in text and "Value" in text)
+            )
+            if not has_holdings_header:
                 continue
 
             # Parse holdings lines:

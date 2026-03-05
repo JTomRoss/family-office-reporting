@@ -20,7 +20,11 @@ from sqlalchemy.orm import Session
 
 from backend.db.models import (
     Account,
+    DailyMovement,
+    DailyPosition,
+    DailyPrice,
     EtfComposition,
+    MovementType,
     MonthlyClosing,
     ParsedStatement,
     RawDocument,
@@ -123,6 +127,280 @@ class DataLoadingService:
             raw_document.id,
         )
 
+        return stats
+
+    def load_operational_result(
+        self,
+        result: ParseResult,
+        raw_document: RawDocument,
+        file_type: str,
+    ) -> dict:
+        """
+        Carga ParseResult de archivos operativos Excel/CSV a tablas daily_*.
+
+        Args:
+            result: salida del parser Excel diario
+            raw_document: documento raw asociado
+            file_type: excel_positions | excel_movements | excel_prices
+        """
+        stats = {
+            "daily_positions": 0,
+            "daily_movements": 0,
+            "daily_prices": 0,
+            "errors": [],
+        }
+
+        if not result.is_success:
+            stats["errors"].append("ParseResult no exitoso, se omite carga operativa")
+            return stats
+
+        source_hash = result.source_file_hash or raw_document.sha256_hash
+        account_cache: dict[str, Account] = {}
+
+        if file_type == "excel_positions":
+            for row in result.rows:
+                data = row.data or {}
+                account_number = self._clean_str(data.get("account_number"))
+                instrument_code = self._clean_str(data.get("instrument_code"))
+                position_date = self._safe_date(data.get("position_date"))
+
+                if not account_number or not instrument_code or not position_date:
+                    stats["errors"].append(
+                        f"Fila {row.row_number}: faltan account_number/instrument_code/position_date"
+                    )
+                    continue
+
+                account = self._resolve_account(account_number, account_cache)
+                if not account:
+                    stats["errors"].append(
+                        f"Fila {row.row_number}: cuenta no encontrada en maestro: {account_number}"
+                    )
+                    continue
+
+                existing = (
+                    self.db.query(DailyPosition)
+                    .filter(
+                        DailyPosition.account_id == account.id,
+                        DailyPosition.position_date == position_date,
+                        DailyPosition.instrument_code == instrument_code,
+                    )
+                    .first()
+                )
+
+                payload = {
+                    "instrument_name": self._clean_str(data.get("instrument_name")),
+                    "instrument_type": self._clean_str(data.get("instrument_type")),
+                    "isin": self._clean_str(data.get("isin")),
+                    "quantity": _safe_decimal(data.get("quantity")),
+                    "market_price": _safe_decimal(data.get("market_price")),
+                    "market_value": _safe_decimal(data.get("market_value")),
+                    "cost_basis": _safe_decimal(data.get("cost_basis")),
+                    "unrealized_pnl": _safe_decimal(data.get("unrealized_pnl")),
+                    "currency": self._clean_str(data.get("currency")) or account.currency,
+                    "market_value_usd": _safe_decimal(data.get("market_value_usd")),
+                    "accrued_interest": _safe_decimal(data.get("accrued_interest")),
+                    "source_file_hash": source_hash,
+                }
+
+                if existing:
+                    for k, v in payload.items():
+                        setattr(existing, k, v)
+                else:
+                    self.db.add(
+                        DailyPosition(
+                            account_id=account.id,
+                            position_date=position_date,
+                            instrument_code=instrument_code,
+                            **payload,
+                        )
+                    )
+                stats["daily_positions"] += 1
+
+        elif file_type == "excel_movements":
+            # No hay UNIQUE en DailyMovement: borrar previos del mismo archivo para idempotencia.
+            self.db.query(DailyMovement).filter(
+                DailyMovement.source_file_hash == source_hash
+            ).delete(synchronize_session=False)
+
+            valid_movement_types = {m.value for m in MovementType}
+            for row in result.rows:
+                data = row.data or {}
+                account_number = self._clean_str(data.get("account_number"))
+                movement_date = self._safe_date(data.get("movement_date"))
+                if not account_number or not movement_date:
+                    stats["errors"].append(
+                        f"Fila {row.row_number}: faltan account_number/movement_date"
+                    )
+                    continue
+
+                account = self._resolve_account(account_number, account_cache)
+                if not account:
+                    stats["errors"].append(
+                        f"Fila {row.row_number}: cuenta no encontrada en maestro: {account_number}"
+                    )
+                    continue
+
+                movement_type = self._clean_str(data.get("movement_type")) or "other"
+                movement_type = movement_type.lower()
+                if movement_type not in valid_movement_types:
+                    movement_type = "other"
+
+                self.db.add(
+                    DailyMovement(
+                        account_id=account.id,
+                        movement_date=movement_date,
+                        settlement_date=self._safe_date(data.get("settlement_date")),
+                        movement_type=movement_type,
+                        instrument_code=self._clean_str(data.get("instrument_code")),
+                        instrument_name=self._clean_str(data.get("instrument_name")),
+                        description=self._clean_str(data.get("description")),
+                        quantity=_safe_decimal(data.get("quantity")),
+                        price=_safe_decimal(data.get("price")),
+                        gross_amount=_safe_decimal(data.get("gross_amount")),
+                        net_amount=_safe_decimal(data.get("net_amount")),
+                        fees=_safe_decimal(data.get("fees")),
+                        tax=_safe_decimal(data.get("tax")),
+                        currency=self._clean_str(data.get("currency")) or account.currency,
+                        amount_usd=_safe_decimal(data.get("amount_usd")),
+                        source_file_hash=source_hash,
+                    )
+                )
+                stats["daily_movements"] += 1
+
+        elif file_type == "excel_prices":
+            for row in result.rows:
+                data = row.data or {}
+                instrument_code = self._clean_str(data.get("instrument_code"))
+                price_date = self._safe_date(data.get("price_date"))
+                price = _safe_decimal(data.get("price"))
+                if not instrument_code or not price_date or price is None:
+                    stats["errors"].append(
+                        f"Fila {row.row_number}: faltan instrument_code/price_date/price"
+                    )
+                    continue
+
+                existing = (
+                    self.db.query(DailyPrice)
+                    .filter(
+                        DailyPrice.price_date == price_date,
+                        DailyPrice.instrument_code == instrument_code,
+                    )
+                    .first()
+                )
+
+                payload = {
+                    "instrument_type": self._clean_str(data.get("instrument_type")) or "other",
+                    "price": price,
+                    "currency": self._clean_str(data.get("currency")) or "USD",
+                    "source": self._clean_str(data.get("source")),
+                    "source_file_hash": source_hash,
+                }
+
+                if existing:
+                    for k, v in payload.items():
+                        setattr(existing, k, v)
+                else:
+                    self.db.add(
+                        DailyPrice(
+                            price_date=price_date,
+                            instrument_code=instrument_code,
+                            **payload,
+                        )
+                    )
+                stats["daily_prices"] += 1
+        else:
+            stats["errors"].append(f"Tipo de archivo no soportado para carga operativa: {file_type}")
+
+        self.db.commit()
+        self._log(
+            "load",
+            "info",
+            (
+                f"Carga operativa completada para doc {raw_document.id}: "
+                f"{stats['daily_positions']} posiciones, "
+                f"{stats['daily_movements']} movimientos, "
+                f"{stats['daily_prices']} precios"
+            ),
+            raw_document.id,
+        )
+        return stats
+
+    def load_asset_allocation_report(
+        self,
+        result: ParseResult,
+        raw_document: RawDocument,
+    ) -> dict:
+        """
+        Carga un PDF de reporte (asset allocation) y actualiza monthly_closings.
+        """
+        stats = {"monthly_closings_updated": 0, "errors": []}
+        if not result.is_success:
+            stats["errors"].append("ParseResult no exitoso para pdf_report")
+            return stats
+
+        asset_alloc = result.qualitative_data.get("asset_allocation")
+        if not isinstance(asset_alloc, dict) or not asset_alloc:
+            stats["errors"].append("El reporte no contiene asset_allocation estructurado")
+            return stats
+
+        account: Optional[Account] = None
+        if result.account_number:
+            account = (
+                self.db.query(Account)
+                .filter(Account.account_number == result.account_number)
+                .first()
+            )
+        if account is None and raw_document.account_id:
+            account = (
+                self.db.query(Account)
+                .filter(Account.id == raw_document.account_id)
+                .first()
+            )
+        if account is None:
+            stats["errors"].append("No se pudo resolver cuenta para pdf_report")
+            return stats
+
+        closing_date = result.period_end or result.statement_date
+        if closing_date is None:
+            if raw_document.period_year and raw_document.period_month:
+                last_day = calendar.monthrange(raw_document.period_year, raw_document.period_month)[1]
+                closing_date = date(raw_document.period_year, raw_document.period_month, last_day)
+            else:
+                stats["errors"].append("No se pudo determinar período para pdf_report")
+                return stats
+
+        existing = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == closing_date.year,
+                MonthlyClosing.month == closing_date.month,
+            )
+            .first()
+        )
+
+        payload_json = json.dumps(asset_alloc)
+        if existing:
+            existing.asset_allocation_json = payload_json
+            existing.source_document_id = raw_document.id
+            if not existing.closing_date:
+                existing.closing_date = closing_date
+            if not existing.currency:
+                existing.currency = result.currency or account.currency
+        else:
+            self.db.add(
+                MonthlyClosing(
+                    account_id=account.id,
+                    closing_date=closing_date,
+                    year=closing_date.year,
+                    month=closing_date.month,
+                    currency=result.currency or account.currency,
+                    asset_allocation_json=payload_json,
+                    source_document_id=raw_document.id,
+                )
+            )
+        stats["monthly_closings_updated"] += 1
+        self.db.commit()
         return stats
 
     # ═══════════════════════════════════════════════════════════════
@@ -256,6 +534,9 @@ class DataLoadingService:
         # UBS Suiza: quarter-end statements expose prior months in Performance table.
         # Persist those months as official closings before handling the statement month.
         self._upsert_ubs_historical_monthly_activity(result, doc, account)
+        # Important with Session(autoflush=False): ensure historical rows are visible
+        # to the UNIQUE(account_id, year, month) lookup below.
+        self.db.flush()
 
         closing_date = result.period_end or result.statement_date
         year = closing_date.year
@@ -270,6 +551,10 @@ class DataLoadingService:
             # Si es cuenta única, usar el total
             if len(result.account_numbers or []) <= 1:
                 closing_bal = _safe_decimal(result.closing_balance)
+        if closing_bal is None and (result.bank_code or doc.bank_code) == "ubs":
+            # UBS Suiza monthly statements may only expose "Total net assets"
+            # without account_monthly_activity block.
+            closing_bal = _safe_decimal((result.balances or {}).get("total_net_assets"))
 
         opening_bal = account_values.get("beginning_value")
         if opening_bal is None:
@@ -301,9 +586,12 @@ class DataLoadingService:
             existing.total_assets = closing_bal
             existing.net_value = closing_bal
             existing.currency = result.currency or account.currency
-            existing.income = income
-            existing.change_in_value = change_in_value
-            existing.accrual = accrual
+            if income is not None:
+                existing.income = income
+            if change_in_value is not None:
+                existing.change_in_value = change_in_value
+            if accrual is not None:
+                existing.accrual = accrual
             existing.asset_allocation_json = asset_alloc_json
             existing.source_document_id = doc.id
             if opening_bal is not None:
@@ -326,6 +614,24 @@ class DataLoadingService:
             )
             self.db.add(mc)
 
+        self._recompute_ubs_income_from_identity(
+            account=account,
+            year=year,
+            month=month,
+        )
+        self._validate_ytd_consistency(
+            account=account,
+            year=year,
+            month=month,
+            account_values=account_values,
+            raw_document_id=doc.id,
+        )
+        self._reconcile_account_ytd_series(
+            account=account,
+            year=year,
+            raw_document_id=doc.id,
+        )
+
         return True
 
     def _upsert_ubs_historical_monthly_activity(
@@ -342,6 +648,9 @@ class DataLoadingService:
         if not history:
             return
 
+        stmt_year = result.statement_date.year if result.statement_date else None
+        stmt_month = result.statement_date.month if result.statement_date else None
+
         for row in history:
             if row.get("account_number") != account.account_number:
                 continue
@@ -353,30 +662,23 @@ class DataLoadingService:
                 continue
             if month < 1 or month > 12:
                 continue
+            if stmt_year == year and stmt_month == month:
+                # Statement month is handled by the main upsert path.
+                continue
 
-            closing_date: date
-            period_end = row.get("period_end")
-            if period_end:
-                try:
-                    closing_date = date.fromisoformat(str(period_end))
-                except ValueError:
-                    last_day = calendar.monthrange(year, month)[1]
-                    closing_date = date(year, month, last_day)
-            else:
+            ending_value = _safe_decimal(row.get("ending_value_with_accrual"))
+            if ending_value is None:
+                ending_value = _safe_decimal(row.get("ending_value_without_accrual"))
+            change_in_value = _safe_decimal(row.get("net_contributions"))
+            income = _safe_decimal(row.get("utilidad"))
+
+            if ending_value is None and change_in_value is None and income is None:
+                continue
+
+            closing_date = self._safe_date(row.get("period_end"))
+            if closing_date is None:
                 last_day = calendar.monthrange(year, month)[1]
                 closing_date = date(year, month, last_day)
-
-            ending_bal = _safe_decimal(
-                row.get("ending_value_with_accrual")
-                or row.get("ending_value")
-                or row.get("ending_value_without_accrual")
-            )
-            income = _safe_decimal(row.get("utilidad"))
-            change_in_value = _safe_decimal(row.get("net_contributions"))
-            accrual = _safe_decimal(row.get("accrual_ending"))
-
-            if ending_bal is None:
-                continue
 
             existing = (
                 self.db.query(MonthlyClosing)
@@ -388,34 +690,43 @@ class DataLoadingService:
                 .first()
             )
 
-            if existing:
-                existing.closing_date = closing_date
-                existing.total_assets = ending_bal
-                existing.net_value = ending_bal
-                existing.currency = result.currency or account.currency
-                if income is not None:
-                    existing.income = income
-                if change_in_value is not None:
-                    existing.change_in_value = change_in_value
-                if accrual is not None:
-                    existing.accrual = accrual
-                existing.source_document_id = doc.id
-            else:
-                self.db.add(
-                    MonthlyClosing(
-                        account_id=account.id,
-                        closing_date=closing_date,
+            if not existing:
+                existing = MonthlyClosing(
+                    account_id=account.id,
+                    closing_date=closing_date,
+                    year=year,
+                    month=month,
+                    total_assets=ending_value,
+                    total_liabilities=None,
+                    net_value=ending_value,
+                    currency=result.currency or account.currency,
+                    income=income,
+                    change_in_value=change_in_value,
+                    source_document_id=doc.id,
+                )
+                self.db.add(existing)
+                if income is None:
+                    self._recompute_ubs_income_from_identity(
+                        account=account,
                         year=year,
                         month=month,
-                        total_assets=ending_bal,
-                        total_liabilities=None,
-                        net_value=ending_bal,
-                        currency=result.currency or account.currency,
-                        income=income,
-                        change_in_value=change_in_value,
-                        accrual=accrual,
-                        source_document_id=doc.id,
                     )
+                continue
+
+            existing.closing_date = closing_date
+            if ending_value is not None:
+                existing.total_assets = ending_value
+                existing.net_value = ending_value
+            if change_in_value is not None:
+                existing.change_in_value = change_in_value
+            if income is not None:
+                existing.income = income
+            existing.source_document_id = doc.id
+            if income is None:
+                self._recompute_ubs_income_from_identity(
+                    account=account,
+                    year=year,
+                    month=month,
                 )
 
     def _get_account_specific_values(
@@ -443,6 +754,17 @@ class DataLoadingService:
         # -- account_monthly_activity (current period — highest priority) --
         for monthly in result.qualitative_data.get("account_monthly_activity", []):
             if monthly.get("account_number") == account.account_number:
+                end_wo = _safe_decimal(monthly.get("ending_value_without_accrual"))
+                end_w = _safe_decimal(monthly.get("ending_value_with_accrual"))
+                # Reporting contract: net_value in resumen = ending value WITH accruals.
+                if end_w is not None:
+                    values["ending_value"] = end_w
+                elif end_wo is not None:
+                    values["ending_value"] = end_wo
+                if end_wo is not None:
+                    values["ending_value_without_accrual"] = end_wo
+                if end_w is not None:
+                    values["ending_value_with_accrual"] = end_w
                 # utilidad = Income & Distrib + Change Invest + accrual_end - accrual_beg
                 utilidad = _safe_decimal(monthly.get("utilidad"))
                 if utilidad is not None:
@@ -451,10 +773,22 @@ class DataLoadingService:
                 net_contrib = _safe_decimal(monthly.get("net_contributions"))
                 if net_contrib is not None:
                     values["change_investment"] = net_contrib
+                net_contrib_ytd = _safe_decimal(monthly.get("net_contributions_ytd"))
+                if net_contrib_ytd is not None:
+                    values["change_investment_ytd"] = net_contrib_ytd
                 # accrual
                 accrual_ending = _safe_decimal(monthly.get("accrual_ending"))
                 if accrual_ending is not None:
                     values["accrual"] = accrual_ending
+                utilidad_ytd = _safe_decimal(monthly.get("utilidad_ytd"))
+                if utilidad_ytd is not None:
+                    values["income_ytd"] = utilidad_ytd
+                prior_adj = _safe_decimal(monthly.get("prior_period_adjustments"))
+                if prior_adj is not None:
+                    values["prior_period_adjustments"] = prior_adj
+                prior_adj_ytd = _safe_decimal(monthly.get("prior_period_adjustments_ytd"))
+                if prior_adj_ytd is not None:
+                    values["prior_period_adjustments_ytd"] = prior_adj_ytd
                 break
 
         # -- account_ytd (fallback if monthly not available) --
@@ -479,6 +813,287 @@ class DataLoadingService:
                 break
 
         return values
+
+    def _apply_bbh_prior_adjustments(
+        self,
+        account: Account,
+        year: int,
+        month: int,
+        account_values: dict,
+    ) -> None:
+        if account.bank_code != "bbh":
+            return
+        prior_adj = account_values.get("prior_period_adjustments")
+        if prior_adj is None:
+            return
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        prev = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == prev_year,
+                MonthlyClosing.month == prev_month,
+            )
+            .first()
+        )
+        if prev is None:
+            return
+        base = prev.change_in_value or Decimal("0")
+        prev.change_in_value = base + prior_adj
+
+    def _validate_ytd_consistency(
+        self,
+        account: Account,
+        year: int,
+        month: int,
+        account_values: dict,
+        raw_document_id: int,
+    ) -> None:
+        ytd_mov = account_values.get("change_investment_ytd")
+        ytd_util = account_values.get("income_ytd")
+        prior_adj = account_values.get("prior_period_adjustments")
+        if ytd_mov is None and ytd_util is None:
+            return
+
+        rows = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == year,
+                MonthlyClosing.month <= month,
+            )
+            .all()
+        )
+        sum_mov = sum((row.change_in_value or Decimal("0")) for row in rows)
+        sum_util = sum((row.income or Decimal("0")) for row in rows)
+        current = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == year,
+                MonthlyClosing.month == month,
+            )
+            .first()
+        )
+
+        if ytd_mov is not None:
+            diff_mov = ytd_mov - sum_mov
+            if abs(diff_mov) > Decimal("1"):
+                self._log(
+                    "load",
+                    "warning",
+                    (
+                        f"YTD caja inconsistente {account.bank_code}/{account.account_number} "
+                        f"{year}-{month:02d}: ytd={ytd_mov} vs suma={sum_mov} "
+                        f"(diff={diff_mov})"
+                    ),
+                    raw_document_id=raw_document_id,
+                    account_id=account.id,
+                )
+                target = current
+                # BBH rule: prior-period adjustment belongs to previous month.
+                if (
+                    account.bank_code == "bbh"
+                    and month > 1
+                    and prior_adj is not None
+                    and abs(prior_adj) > Decimal("0.0001")
+                ):
+                    target = (
+                        self.db.query(MonthlyClosing)
+                        .filter(
+                            MonthlyClosing.account_id == account.id,
+                            MonthlyClosing.year == year,
+                            MonthlyClosing.month == month - 1,
+                        )
+                        .first()
+                    )
+                if target is not None:
+                    target.change_in_value = (target.change_in_value or Decimal("0")) + diff_mov
+                    self._log(
+                        "load",
+                        "info",
+                        (
+                            f"YTD caja alineada {account.bank_code}/{account.account_number} "
+                            f"{year}-{month:02d}: ajuste={diff_mov}"
+                        ),
+                        raw_document_id=raw_document_id,
+                        account_id=account.id,
+                    )
+
+        if ytd_util is not None:
+            diff_util = ytd_util - sum_util
+            if abs(diff_util) > Decimal("1"):
+                self._log(
+                    "load",
+                    "warning",
+                    (
+                        f"YTD utilidad inconsistente {account.bank_code}/{account.account_number} "
+                        f"{year}-{month:02d}: ytd={ytd_util} vs suma={sum_util} "
+                        f"(diff={diff_util})"
+                    ),
+                    raw_document_id=raw_document_id,
+                    account_id=account.id,
+                )
+                if current is not None:
+                    current.income = (current.income or Decimal("0")) + diff_util
+                    self._log(
+                        "load",
+                        "info",
+                        (
+                            f"YTD utilidad alineada {account.bank_code}/{account.account_number} "
+                            f"{year}-{month:02d}: ajuste={diff_util}"
+                        ),
+                        raw_document_id=raw_document_id,
+                        account_id=account.id,
+                    )
+
+    def _recompute_ubs_income_from_identity(
+        self,
+        account: Account,
+        year: int,
+        month: int,
+    ) -> None:
+        if account.bank_code != "ubs":
+            return
+        if month in {3, 6, 9, 12}:
+            return
+        current = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == year,
+                MonthlyClosing.month == month,
+            )
+            .first()
+        )
+        if current is None or current.net_value is None or current.change_in_value is None:
+            return
+        prev_year = year if month > 1 else year - 1
+        prev_month = month - 1 if month > 1 else 12
+        prev = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == prev_year,
+                MonthlyClosing.month == prev_month,
+            )
+            .first()
+        )
+        if prev is None or prev.net_value is None:
+            return
+        current.income = current.net_value - current.change_in_value - prev.net_value
+
+    def _reconcile_account_ytd_series(
+        self,
+        account: Account,
+        year: int,
+        raw_document_id: int,
+    ) -> None:
+        """
+        Recorre statements del año y alinea monthly_closings a los YTD reportados.
+
+        Blindaje contra cargas/reprocesos fuera de orden:
+        si un mes previo se reprocesa después, la serie vuelve a cuadrar.
+        """
+        year_start = date(year, 1, 1)
+        year_end = date(year + 1, 1, 1)
+        statements = (
+            self.db.query(ParsedStatement)
+            .filter(
+                ParsedStatement.account_id == account.id,
+                ParsedStatement.statement_date >= year_start,
+                ParsedStatement.statement_date < year_end,
+            )
+            .order_by(ParsedStatement.statement_date.asc())
+            .all()
+        )
+        if not statements:
+            return
+
+        for ps in statements:
+            try:
+                payload = json.loads(ps.parsed_data_json or "{}")
+            except (TypeError, ValueError):
+                continue
+            qualitative = payload.get("qualitative_data") or {}
+            monthly_rows = qualitative.get("account_monthly_activity") or []
+            if not monthly_rows:
+                continue
+
+            monthly = next(
+                (m for m in monthly_rows if m.get("account_number") == account.account_number),
+                None,
+            )
+            if monthly is None and len(monthly_rows) == 1:
+                monthly = monthly_rows[0]
+            if monthly is None:
+                continue
+
+            ytd_mov = _safe_decimal(monthly.get("net_contributions_ytd"))
+            ytd_util = _safe_decimal(monthly.get("utilidad_ytd"))
+            prior_adj = _safe_decimal(monthly.get("prior_period_adjustments"))
+            if ytd_mov is None and ytd_util is None:
+                continue
+
+            month = ps.statement_date.month
+            rows = (
+                self.db.query(MonthlyClosing)
+                .filter(
+                    MonthlyClosing.account_id == account.id,
+                    MonthlyClosing.year == year,
+                    MonthlyClosing.month <= month,
+                )
+                .all()
+            )
+            if not rows:
+                continue
+
+            current = next((r for r in rows if r.month == month), None)
+            if current is None:
+                continue
+
+            sum_mov = sum((row.change_in_value or Decimal("0")) for row in rows)
+            sum_util = sum((row.income or Decimal("0")) for row in rows)
+
+            if ytd_mov is not None:
+                diff_mov = ytd_mov - sum_mov
+                if abs(diff_mov) > Decimal("1"):
+                    target = current
+                    if (
+                        account.bank_code == "bbh"
+                        and month > 1
+                        and prior_adj is not None
+                        and abs(prior_adj) > Decimal("0.0001")
+                    ):
+                        target = next((r for r in rows if r.month == month - 1), target)
+                    if target is not None:
+                        target.change_in_value = (target.change_in_value or Decimal("0")) + diff_mov
+                        self._log(
+                            "load",
+                            "info",
+                            (
+                                f"YTD serie caja alineada {account.bank_code}/{account.account_number} "
+                                f"{year}-{month:02d}: ajuste={diff_mov}"
+                            ),
+                            raw_document_id=raw_document_id,
+                            account_id=account.id,
+                        )
+
+            if ytd_util is not None:
+                diff_util = ytd_util - sum_util
+                if abs(diff_util) > Decimal("1"):
+                    current.income = (current.income or Decimal("0")) + diff_util
+                    self._log(
+                        "load",
+                        "info",
+                        (
+                            f"YTD serie utilidad alineada {account.bank_code}/{account.account_number} "
+                            f"{year}-{month:02d}: ajuste={diff_util}"
+                        ),
+                        raw_document_id=raw_document_id,
+                        account_id=account.id,
+                    )
 
     # ═══════════════════════════════════════════════════════════════
     # ETF COMPOSITIONS
@@ -593,6 +1208,48 @@ class DataLoadingService:
             "closing_balance": str(result.closing_balance) if result.closing_balance else None,
         }
         return json.dumps(data, default=str)
+
+    def _resolve_account(self, account_number: str, cache: dict[str, Account]) -> Optional[Account]:
+        account = cache.get(account_number)
+        if account:
+            return account
+        account = (
+            self.db.query(Account)
+            .filter(Account.account_number == account_number)
+            .first()
+        )
+        if account:
+            cache[account_number] = account
+        return account
+
+    @staticmethod
+    def _safe_date(value) -> Optional[date]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        try:
+            # pandas.Timestamp expone to_pydatetime
+            if hasattr(value, "to_pydatetime"):
+                return value.to_pydatetime().date()
+        except Exception:
+            pass
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _clean_str(value) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     def _log(
         self,

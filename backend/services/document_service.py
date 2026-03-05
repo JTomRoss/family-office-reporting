@@ -9,6 +9,7 @@ Maneja:
 """
 
 import hashlib
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,9 +18,17 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from backend.config import RAW_DIR, PROJECT_ROOT
-from backend.db.models import RawDocument, ParserVersion, ValidationLog
+from backend.db.models import RawDocument, ParserVersion, ValidationLog, Account
 from backend.services.cache_service import CacheService
 from parsers.registry import get_registry
+
+FILE_TYPE_TO_PARSER_KEY = {
+    "pdf_report": ("system", "report_asset_allocation"),
+    "excel_master": ("system", "master_accounts"),
+    "excel_positions": ("system", "daily_positions"),
+    "excel_movements": ("system", "daily_movements"),
+    "excel_prices": ("system", "daily_prices"),
+}
 
 
 def _to_relative(path: Path) -> str:
@@ -152,16 +161,61 @@ class DocumentService:
         registry = get_registry()
 
         parser = None
-        if doc.bank_code and doc.file_type:
-            # Intentar parser específico
+        parser_key = FILE_TYPE_TO_PARSER_KEY.get(doc.file_type)
+        if parser_key:
+            parser = registry.get_parser(parser_key[0], parser_key[1])
+        elif doc.bank_code and doc.file_type:
+            # Intentar parser específico para PDFs tipados
             account_type = doc.file_type.replace("pdf_", "").replace("excel_", "")
             parser = registry.get_parser(doc.bank_code, account_type)
-        # Para excel_master, buscar el parser de sistema
-        if parser is None and doc.file_type == "excel_master":
-            parser = registry.get_parser("system", "master_accounts")
+        # Hint por nombre para JPM pdf_cartola (evita ambigüedad entre motores JPM).
+        if parser is None and doc.file_type == "pdf_cartola" and doc.bank_code == "jpmorgan":
+            fname = (doc.filename or "").lower()
+            if "mandato" in fname:
+                parser = registry.get_parser("jpmorgan", "custody")
+            elif "brokerage" in fname:
+                parser = registry.get_parser("jpmorgan", "brokerage")
+            elif "etf" in fname:
+                parser = registry.get_parser("jpmorgan", "etf")
+            else:
+                # Fallback robusto para nombres genéricos tipo "statements-5001-".
+                # Usar dígito verificador del filename y maestro de cuentas para inferir motor.
+                id_match = re.search(r"statements-(\d{4})", fname)
+                if id_match:
+                    ident = id_match.group(1)
+                    acct_types = {
+                        (t or "").lower()
+                        for (t,) in (
+                            self.db.query(Account.account_type)
+                            .filter(
+                                Account.bank_code == "jpmorgan",
+                                Account.identification_number == ident,
+                                Account.is_active == True,
+                            )
+                            .all()
+                        )
+                        if t
+                    }
+                    if len(acct_types) == 1:
+                        inferred = next(iter(acct_types))
+                        if inferred == "etf":
+                            parser = registry.get_parser("jpmorgan", "etf")
+                        elif inferred in {"custody", "mandato"}:
+                            parser = registry.get_parser("jpmorgan", "custody")
+                        elif inferred == "brokerage":
+                            parser = registry.get_parser("jpmorgan", "brokerage")
         if parser is None:
-            # Auto-detectar
-            parser = registry.get_parser_for_file(filepath)
+            # Auto-detectar:
+            # - pdf_cartola: restringir a parsers del banco (evita capturas por parsers de sistema)
+            # - resto: auto-detect global
+            if doc.file_type == "pdf_cartola" and doc.bank_code:
+                parser = self._autodetect_bank_cartola_parser(
+                    registry=registry,
+                    filepath=filepath,
+                    bank_code=doc.bank_code,
+                )
+            if parser is None:
+                parser = registry.get_parser_for_file(filepath)
 
         if parser is None:
             doc.status = "error"
@@ -201,7 +255,52 @@ class DocumentService:
 
             # ── Cargar datos parseados a tablas de reporting ────
             loading_stats = None
-            if doc.file_type != "excel_master" and result.is_success:
+            operational_types = {"excel_positions", "excel_movements", "excel_prices"}
+            if doc.file_type in operational_types and result.is_success:
+                try:
+                    from backend.services.data_loading_service import DataLoadingService
+                    loader = DataLoadingService(self.db)
+                    loading_stats = loader.load_operational_result(
+                        result=result,
+                        raw_document=doc,
+                        file_type=doc.file_type,
+                    )
+                    self._log_validation(
+                        "load", "info",
+                        f"Datos operativos cargados: {loading_stats['daily_positions']} posiciones, "
+                        f"{loading_stats['daily_movements']} movimientos, "
+                        f"{loading_stats['daily_prices']} precios",
+                        raw_document_id=doc.id,
+                    )
+                except Exception as load_err:
+                    self.db.rollback()
+                    self._log_validation(
+                        "load", "error",
+                        f"Error cargando datos operativos: {load_err}",
+                        raw_document_id=doc.id,
+                    )
+            elif doc.file_type == "pdf_report" and result.is_success:
+                try:
+                    from backend.services.data_loading_service import DataLoadingService
+                    loader = DataLoadingService(self.db)
+                    loading_stats = loader.load_asset_allocation_report(
+                        result=result,
+                        raw_document=doc,
+                    )
+                    self._log_validation(
+                        "load", "info",
+                        f"Reporte asset allocation cargado: "
+                        f"{loading_stats.get('monthly_closings_updated', 0)} cierres actualizados",
+                        raw_document_id=doc.id,
+                    )
+                except Exception as load_err:
+                    self.db.rollback()
+                    self._log_validation(
+                        "load", "error",
+                        f"Error cargando pdf_report: {load_err}",
+                        raw_document_id=doc.id,
+                    )
+            elif doc.file_type != "excel_master" and result.is_success:
                 try:
                     from backend.services.data_loading_service import DataLoadingService
                     loader = DataLoadingService(self.db)
@@ -218,6 +317,7 @@ class DocumentService:
                         raw_document_id=doc.id,
                     )
                 except Exception as load_err:
+                    self.db.rollback()
                     self._log_validation(
                         "load", "error",
                         f"Error cargando datos de reporting: {load_err}",
@@ -256,6 +356,7 @@ class DocumentService:
                         raw_document_id=doc.id,
                     )
                 except Exception as master_err:
+                    self.db.rollback()
                     self._log_validation(
                         "master_check", "error",
                         f"Error procesando maestro de cuentas: {master_err}",
@@ -309,6 +410,30 @@ class DocumentService:
                 raw_document_id=doc.id,
             )
             return {"status": "error", "message": str(e)}
+
+    def _autodetect_bank_cartola_parser(self, registry, filepath: Path, bank_code: str):
+        """
+        Selecciona parser para cartolas evaluando solo el banco objetivo.
+        No considera parsers de sistema/reportes.
+        """
+        candidates: list[tuple[float, str, object]] = []
+        for (b_code, a_type), parser_class in registry._parsers.items():
+            if b_code != bank_code or b_code == "system":
+                continue
+            if a_type == "report_asset_allocation":
+                continue
+            try:
+                parser = parser_class()
+                confidence = parser.detect(filepath)
+                if confidence >= 0.3:
+                    candidates.append((confidence, parser.get_parser_name(), parser))
+            except Exception:
+                continue
+
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: (-x[0], x[1]))
+        return candidates[0][2]
 
     def list_documents(
         self,

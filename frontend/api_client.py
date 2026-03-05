@@ -6,10 +6,11 @@ La UI nunca debe importar nada de backend/ directamente.
 """
 
 import httpx
+import os
 from typing import Any, Optional
 
 # URL base del backend
-BACKEND_URL = "http://localhost:8000/api/v1"
+BACKEND_URL = os.getenv("FO_BACKEND_API_URL", "http://localhost:8000/api/v1")
 
 _client = httpx.Client(base_url=BACKEND_URL, timeout=30.0)
 
