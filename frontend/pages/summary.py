@@ -15,6 +15,7 @@ import pandas as pd
 
 from frontend import api_client
 from frontend.components.table_utils import render_table
+from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.filters import (
     render_filters,
     BANK_DISPLAY_NAMES,
@@ -27,22 +28,12 @@ MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
 
 def _fmt_number(val):
     """Format a number for display."""
-    if val is None:
-        return ""
-    try:
-        return f"{float(val):,.2f}"
-    except (ValueError, TypeError):
-        return ""
+    return fmt_number(val, decimals=2)
 
 
 def _fmt_pct(val):
     """Format a percentage for display."""
-    if val is None:
-        return ""
-    try:
-        return f"{float(val):.2f}%"
-    except (ValueError, TypeError):
-        return ""
+    return fmt_percent(val, decimals=2)
 
 
 def _to_float(val):

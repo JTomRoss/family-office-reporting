@@ -16,6 +16,7 @@ import pandas as pd
 
 from frontend import api_client
 from frontend.components.table_utils import render_table
+from frontend.components.number_format import fmt_currency, fmt_number
 from frontend.components.filters import render_date_range_filter, render_filters
 
 
@@ -56,11 +57,11 @@ def render():
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total USD", f"${data.get('consolidated_usd', 0):,.2f}")
+        st.metric("Total USD", fmt_currency(data.get("consolidated_usd", 0), decimals=2))
     with col2:
-        st.metric("Total CLP", f"${data.get('consolidated_clp', 0):,.0f}")
+        st.metric("Total CLP", fmt_currency(data.get("consolidated_clp", 0), decimals=0))
     with col3:
-        st.metric("Caja", f"${data.get('cash', 0):,.2f}")
+        st.metric("Caja", fmt_currency(data.get("cash", 0), decimals=2))
 
     st.markdown("---")
 
@@ -89,13 +90,19 @@ def render():
 
     # ── Tabla sociedades ─────────────────────────────────────────
     st.subheader("Sociedades")
-    render_table(pd.DataFrame(data.get("entities_table", [])))
+    entities_df = pd.DataFrame(data.get("entities_table", []))
+    if not entities_df.empty and "net_value" in entities_df.columns:
+        entities_df["net_value"] = entities_df["net_value"].apply(lambda v: fmt_number(v, decimals=2))
+    render_table(entities_df)
 
     st.markdown("---")
 
     # ── Tabla resumen vertical ───────────────────────────────────
     st.subheader("Resumen Vertical")
-    render_table(pd.DataFrame(data.get("summary_table", [])))
+    summary_df = pd.DataFrame(data.get("summary_table", []))
+    if not summary_df.empty and "ending_value" in summary_df.columns:
+        summary_df["ending_value"] = summary_df["ending_value"].apply(lambda v: fmt_number(v, decimals=2))
+    render_table(summary_df)
 
     st.markdown("---")
 
@@ -109,6 +116,8 @@ def render():
         range_rows = range_rows[
             (range_rows["fecha"] >= start_key) & (range_rows["fecha"] <= end_key)
         ]
+    if not range_rows.empty and "ending_value" in range_rows.columns:
+        range_rows["ending_value"] = range_rows["ending_value"].apply(lambda v: fmt_number(v, decimals=2))
     render_table(range_rows)
 
 

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -72,6 +73,14 @@ def test_ubs_suiza_quarterly_performance_emits_history_activity():
     assert _as_decimal(current[0].get("utilidad")) == Decimal("606973")
 
 
+def test_ubs_suiza_statement_date_fallback_from_filename():
+    parser = UBSSwitzerlandCustodyParser()
+    stmt = parser._statement_date_from_filename(
+        "202501 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf"
+    )
+    assert stmt == date(2025, 1, 31)
+
+
 def test_jpm_etf_extracts_two_real_subaccounts():
     path = _cartola_path("20251231-statements-0007-ETF - JPMorgan.pdf")
     _require(path)
@@ -88,6 +97,34 @@ def test_jpm_etf_extracts_two_real_subaccounts():
     assert set(monthly.keys()) == {"B99719001", "E31070007"}
     assert _as_decimal(monthly["B99719001"]["ending_value_with_accrual"]) == Decimal("18885468.69")
     assert _as_decimal(monthly["E31070007"]["ending_value_with_accrual"]) == Decimal("13130284.90")
+
+
+def test_jpm_etf_keeps_proceeds_from_pending_sales_as_holding():
+    parser = JPMorganEtfParser()
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash="test-hash",
+        bank_code="jpmorgan",
+        currency="USD",
+    )
+    pages = [
+        "\n".join(
+            [
+                "ACCT. U28375001",
+                "Cash & Fixed Income Detail",
+                "Price Quantity Value Original Cost",
+                "PROCEEDS FROM PENDING SALES 1.00 50,000.00 50,000.00 50,000.00",
+            ]
+        )
+    ]
+
+    parser._extract_holdings(pages, result)
+    rows = [r.data for r in result.rows if not r.data.get("is_total")]
+    proceeds = next((r for r in rows if r.get("instrument") == "PROCEEDS FROM PENDING SALES"), None)
+    assert proceeds is not None
+    assert _as_decimal(proceeds.get("market_value")) == Decimal("50000.00")
 
 
 def test_jpm_brokerage_extracts_two_real_subaccounts():

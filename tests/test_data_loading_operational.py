@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from backend.db.models import Account, DailyMovement, DailyPosition, DailyPrice, RawDocument
+from backend.db.models import (
+    Account,
+    DailyMovement,
+    DailyPosition,
+    DailyPrice,
+    MonthlyMetricNormalized,
+    RawDocument,
+)
 from backend.services.data_loading_service import DataLoadingService
 from parsers.base import ParseResult, ParsedRow, ParserStatus
 
@@ -155,3 +162,13 @@ def test_load_asset_allocation_report_updates_monthly_closing(db_session):
     loader = DataLoadingService(db_session)
     stats = loader.load_asset_allocation_report(result=result, raw_document=doc)
     assert stats["monthly_closings_updated"] == 1
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    assert normalized.cash_value == Decimal("30.0")

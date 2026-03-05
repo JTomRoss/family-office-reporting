@@ -7,11 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from backend.db.models import Account, MonthlyClosing, ParserVersion, RawDocument
+from backend.db.models import (
+    Account,
+    EtfComposition,
+    MonthlyClosing,
+    MonthlyMetricNormalized,
+    ParserVersion,
+    RawDocument,
+)
 from backend.services.data_loading_service import DataLoadingService
-from parsers.base import ParseResult, ParserStatus
+from parsers.base import ParseResult, ParsedRow, ParserStatus
 from parsers.bbh.custody import BBHCustodyParser
 from parsers.goldman_sachs.custody import GoldmanSachsCustodyParser
+from parsers.jpmorgan.etf import JPMorganEtfParser
 from parsers.ubs.custody import UBSSwitzerlandCustodyParser
 
 
@@ -113,6 +121,20 @@ def test_loader_maps_goldman_mandato_activity_to_monthly_closing(db_session):
     assert mc.income == Decimal("1106908.06")
     assert mc.change_in_value == Decimal("0.00")
 
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == mc.year,
+            MonthlyMetricNormalized.month == mc.month,
+        )
+        .one()
+    )
+    assert normalized.ending_value_with_accrual == mc.net_value
+    assert normalized.ending_value_without_accrual == mc.net_value
+    assert normalized.movements_net == mc.change_in_value
+    assert normalized.profit_period == mc.income
+
 
 def test_loader_maps_bbh_mandato_activity_to_monthly_closing(db_session):
     path = _cartola_path("202512 Boatview - Mandato - BBH.pdf")
@@ -148,6 +170,94 @@ def test_loader_maps_bbh_mandato_activity_to_monthly_closing(db_session):
     )
     assert mc.income is not None
     assert mc.change_in_value is not None
+
+
+def test_loader_etf_collapses_same_etf_code_rows_without_integrity_error(db_session):
+    parser = JPMorganEtfParser()
+    acct = _create_account(
+        db_session,
+        account_number="E30994009",
+        bank_code="jpmorgan",
+        account_type="etf",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202401 Telmar JPM NY ETF (4009).pdf",
+        bank_code="jpmorgan",
+    )
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("etf-dup-code"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2024, 1, 31),
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 1, 31),
+        opening_balance=Decimal("1000000"),
+        closing_balance=Decimal("1200000"),
+        currency="USD",
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "ISHARES CORE MSCI WORLD",
+                    "market_value": "11858307.51",
+                    "account_number": acct.account_number,
+                },
+                row_number=1,
+                confidence=1.0,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "ISHARES CORE MSCI WORLD UCIT",
+                    "market_value": "188989.50",
+                    "account_number": acct.account_number,
+                },
+                row_number=2,
+                confidence=1.0,
+            ),
+        ],
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "1000000",
+                    "ending_value": "1200000",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "1200000",
+                    "ending_value_without_accrual": "1200000",
+                    "net_contributions": "0",
+                    "utilidad": "10000",
+                }
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert stats["etf_compositions"] == 1
+    assert not stats["errors"]
+
+    rows = (
+        db_session.query(EtfComposition)
+        .filter(
+            EtfComposition.account_id == acct.id,
+            EtfComposition.year == 2024,
+            EtfComposition.month == 1,
+        )
+        .all()
+    )
+    assert len(rows) == 1
+    assert rows[0].etf_code == "ISHARES_CORE_MSCI"
+    assert rows[0].market_value == Decimal("12047297.01")
 
 
 def test_loader_ubs_history_backfills_prior_months(db_session):
@@ -310,13 +420,14 @@ def test_loader_ubs_history_backfills_prior_months(db_session):
     jan = next(row for row in closings if row.month == 1)
     feb = next(row for row in closings if row.month == 2)
     march = next(row for row in closings if row.month == 3)
-    assert jan.net_value == Decimal("81861001")
+    # Regla UBS: backfill trimestral no pisa net_value de meses ya cerrados.
+    assert jan.net_value == Decimal("100")
     assert jan.change_in_value == Decimal("10")
     assert jan.income == Decimal("1751949")
-    assert feb.net_value == Decimal("82116843")
+    assert feb.net_value == Decimal("120")
     assert feb.change_in_value == Decimal("5")
     assert feb.income == Decimal("255937")
-    assert march.net_value == Decimal("81282162")
+    assert march.net_value == Decimal("130")
     assert march.change_in_value == Decimal("-2")
     assert march.income == Decimal("-831817")
 
@@ -403,6 +514,27 @@ def test_loader_bbh_prior_adjustment_updates_previous_month(db_session):
     assert jan.change_in_value == Decimal("2210.88")
     assert feb.change_in_value == Decimal("0")
 
+    jan_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    feb_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 2,
+        )
+        .one()
+    )
+    assert jan_norm.movements_net == jan.change_in_value
+    assert feb_norm.movements_net == feb.change_in_value
+
 
 def test_loader_ytd_alignment_adjusts_current_month_non_bbh(db_session):
     parser = BBHCustodyParser()
@@ -482,3 +614,15 @@ def test_loader_ytd_alignment_adjusts_current_month_non_bbh(db_session):
     assert feb.change_in_value == Decimal("30")
     # ytd_util=120 vs (50+40) => +30 on current month
     assert feb.income == Decimal("70")
+
+    feb_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 2,
+        )
+        .one()
+    )
+    assert feb_norm.movements_net == feb.change_in_value
+    assert feb_norm.profit_period == feb.income

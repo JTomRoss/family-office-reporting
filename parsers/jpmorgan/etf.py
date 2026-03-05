@@ -567,11 +567,19 @@ class JPMorganEtfParser(BaseParser):
                 )
                 if h_m:
                     name = h_m.group(1).strip()
-                    # Skip header lines and totals
-                    if any(skip in name.lower() for skip in [
-                        "price", "quantity", "total", "account", "period",
-                        "beginning", "ending", "summary", "asset",
-                    ]):
+                    # Skip header lines and table labels (avoid broad substring filters).
+                    name_l = name.lower()
+                    if (
+                        name_l.startswith("price")
+                        or name_l.startswith("quantity")
+                        or name_l.startswith("total ")
+                        or name_l.startswith("account ")
+                        or name_l.startswith("period ")
+                        or name_l.startswith("beginning market value")
+                        or name_l.startswith("ending market value")
+                        or name_l.startswith("summary by ")
+                        or name_l.startswith("asset categories")
+                    ):
                         continue
 
                     market_value = _parse_usd(h_m.group(4))

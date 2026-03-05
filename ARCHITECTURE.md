@@ -174,3 +174,38 @@ Cambios aplicados para fortalecer confiabilidad, trazabilidad y mantenibilidad:
 
 ### 7.6 Cache
 - **Auto-invalidación** → Al procesar un documento exitosamente, `document_service` llama `cache.invalidate()` automáticamente. El cache nunca sirve datos obsoletos.
+
+---
+
+## 8. Capa Normalizada de Reporting (Fases 1-4)
+
+### Objetivo
+- Evitar que cada pestaña replique lógica de interpretación (`with accrual`, `without accrual`, caja, utilidad, movimientos).
+- Mantener motores parser aislados por banco/tipo y centralizar solo el **consumo** de datos.
+
+### Implementación
+- Nueva tabla canónica: `monthly_metrics_normalized`.
+- Campos explícitos por cuenta/mes:
+  - `ending_value_with_accrual`
+  - `ending_value_without_accrual`
+  - `accrual_ending`
+  - `cash_value`
+  - `movements_net`
+  - `profit_period`
+- `DataLoadingService`:
+  - upsert de la capa normalizada al cargar cartolas;
+  - resincronización post-ajustes YTD/prior-period;
+  - resincronización al cargar `pdf_report` (asset allocation).
+- Backfill histórico:
+  - script `scripts/backfill_normalized_metrics.py`.
+
+### Regla de Consumo (no negociable)
+1. Routers de reporting leen primero `monthly_metrics_normalized`.
+2. Si falta fila/campo normalizado, hacen fallback a `monthly_closings`.
+3. La UI no hace cálculos financieros de interpretación de cartola; solo renderiza.
+
+### Observabilidad
+- Endpoint `/api/v1/data/normalization-quality`:
+  - cobertura de normalización,
+  - ejemplos de meses sin normalizar,
+  - diferencias relevantes entre `monthly_closings` y capa normalizada.

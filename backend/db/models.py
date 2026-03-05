@@ -173,6 +173,9 @@ class Account(Base):
     daily_positions: Mapped[list["DailyPosition"]] = relationship(back_populates="account")
     daily_movements: Mapped[list["DailyMovement"]] = relationship(back_populates="account")
     monthly_closings: Mapped[list["MonthlyClosing"]] = relationship(back_populates="account")
+    normalized_monthly_metrics: Mapped[list["MonthlyMetricNormalized"]] = relationship(
+        back_populates="account"
+    )
 
     __table_args__ = (
         Index("ix_accounts_bank_entity", "bank_code", "entity_name"),
@@ -507,6 +510,48 @@ class MonthlyClosing(Base):
             name="uq_monthly_closing_acct_period"
         ),
         Index("ix_monthly_closing_period", "year", "month"),
+    )
+
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  8b. MONTHLY_METRICS_NORMALIZED – Capa normalizada mensual      ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+class MonthlyMetricNormalized(Base):
+    """
+    Capa canónica mensual para consumo de reporting.
+    Guarda explícitamente ending with/without accrual para evitar ambigüedad.
+    """
+    __tablename__ = "monthly_metrics_normalized"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    closing_date: Mapped[date] = mapped_column(Date, nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Métricas normalizadas (canónicas)
+    ending_value_with_accrual: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    ending_value_without_accrual: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    accrual_ending: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    cash_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    movements_net: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    profit_period: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    currency: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    # Trazabilidad
+    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("raw_documents.id"))
+    loaded_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    # Relationships
+    account: Mapped["Account"] = relationship(back_populates="normalized_monthly_metrics")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "year", "month",
+            name="uq_norm_monthly_metric_acct_period",
+        ),
+        Index("ix_norm_monthly_metric_period", "year", "month"),
     )
 
 

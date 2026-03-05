@@ -166,6 +166,12 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                     period_end = statement_date
                     if statement_date:
                         period_start = date(statement_date.year, statement_date.month, 1)
+                # Fallback robusto: algunas cartolas UBS vienen sin bloque de periodo parseable.
+                if statement_date is None:
+                    statement_date = self._statement_date_from_filename(filepath.name)
+                    if statement_date:
+                        period_start = date(statement_date.year, statement_date.month, 1)
+                        period_end = statement_date
                 balances["currency"] = "USD"
 
                 # 2) Total assets overview (page index varies across UBS formats)
@@ -463,6 +469,19 @@ class UBSSwitzerlandCustodyParser(BaseParser):
             return date(int(period["year"]), month, int(period["day"]))
         except (ValueError, KeyError, TypeError):
             return None
+
+    @staticmethod
+    def _statement_date_from_filename(filename: str | None) -> date | None:
+        """Extrae cierre mensual desde prefijo YYYYMM del nombre de archivo."""
+        if not filename:
+            return None
+        m = re.search(r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])(?!\d)", filename)
+        if not m:
+            return None
+        year = int(m.group(1))
+        month = int(m.group(2))
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, last_day)
 
     @staticmethod
     def _portfolio_suffix_from_account(account_number: str | None) -> str | None:

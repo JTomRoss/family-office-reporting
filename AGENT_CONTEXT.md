@@ -394,6 +394,68 @@ UI (PDFs tab) → POST /documents/upload-and-process
 
 ---
 
+## 9.2 ACTUALIZACION CAPA NORMALIZADA DE REPORTING (2026-03-05)
+
+### ✅ Cambio estructural implementado
+
+- Se incorpora una nueva tabla canonica mensual: `monthly_metrics_normalized`.
+- Esta capa es **interna/invisible para UI** y concentra metricas interpretadas por cuenta/mes:
+  - `ending_value_with_accrual`
+  - `ending_value_without_accrual`
+  - `accrual_ending`
+  - `cash_value`
+  - `movements_net`
+  - `profit_period`
+  - `currency`
+- Modelo ORM agregado en `backend/db/models.py`:
+  - `MonthlyMetricNormalized`
+  - relacion `Account.normalized_monthly_metrics`.
+- Migracion Alembic creada:
+  - `alembic/versions/20260305_0002_add_monthly_metrics_normalized.py`
+  - unique key por `account_id + year + month`.
+
+### ✅ Carga y sincronizacion de la capa normalizada
+
+- `DataLoadingService` ahora persiste y mantiene esta capa:
+  - `_upsert_monthly_metric_normalized(...)` en carga de cartolas.
+  - `_refresh_normalized_activity_from_monthly_closings(...)` despues de ajustes YTD/prior-period y tambien tras carga de asset allocation.
+  - `sync_normalized_for_account_year(...)` como punto publico para backfill/resync.
+- Script operativo de backfill incorporado:
+  - `scripts/backfill_normalized_metrics.py`
+  - objetivo: poblar/reconciliar historico desde `monthly_closings`.
+
+### ✅ Consumo en reportes (regla de lectura)
+
+- `backend/routers/data.py` centraliza lectura con join controlado:
+  - helper `_query_closing_rows(...)` hace `outer join` entre `monthly_closings` y `monthly_metrics_normalized`.
+- Endpoints de reporting (`summary`, `mandates`, `etf`, `personal`) consumen primero capa normalizada con fallback seguro.
+- Helpers canonicos de resolucion incorporados:
+  - `_resolve_ending_with_accrual(...)`
+  - `_resolve_ending_without_accrual(...)`
+  - `_resolve_cash_value(...)`
+  - `_resolve_movements_and_profit(...)`
+- Regla funcional:
+  1. Si existe dato normalizado, ese valor manda para reportes.
+  2. Si falta fila/campo normalizado, se usa `monthly_closings` como fallback.
+
+### ✅ Observabilidad y pruebas de regresion
+
+- Nuevo endpoint de diagnostico:
+  - `/api/v1/data/normalization-quality`
+  - entrega cobertura (`normalized_rows` vs `monthly_closings`), faltantes y ejemplos de mismatch.
+- Pruebas agregadas/extendidas para validar persistencia + consumo + calidad:
+  - `tests/test_normalized_reporting_layer.py`
+  - `tests/test_loader_contracts.py`
+  - `tests/test_data_loading_operational.py`
+
+### 🔒 Regla permanente de arquitectura (no negociable)
+
+- La interpretacion financiera mensual de cartolas debe vivir en la capa normalizada (backend), no en UI.
+- Las tablas/pestañas de reporte deben leer la capa normalizada como fuente primaria.
+- `monthly_closings` queda como respaldo/fallback y fuente historica base.
+
+---
+
 ## 10. PROTOCOLO DE OPERACIÓN — REGLA FUNDAMENTAL
 
 ### ⛔ PROHIBICIONES ABSOLUTAS (causa problemas reales)

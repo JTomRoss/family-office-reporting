@@ -24,6 +24,7 @@ from backend.db.models import (
     DailyPosition,
     DailyPrice,
     EtfComposition,
+    MonthlyMetricNormalized,
     MovementType,
     MonthlyClosing,
     ParsedStatement,
@@ -45,11 +46,55 @@ def _safe_decimal(value) -> Optional[Decimal]:
         return None
 
 
+def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[Decimal]:
+    """Extrae caja desde asset_allocation_json si está disponible."""
+    if not asset_alloc_json:
+        return None
+    try:
+        alloc = json.loads(asset_alloc_json)
+    except (TypeError, ValueError):
+        return None
+
+    total = Decimal("0")
+    found = False
+    if isinstance(alloc, dict):
+        for key, payload in alloc.items():
+            key_l = str(key).lower()
+            if "cash" not in key_l and "money market" not in key_l and "deposit" not in key_l:
+                continue
+            if isinstance(payload, dict):
+                raw = payload.get("value") or payload.get("market_value") or payload.get("amount")
+            else:
+                raw = payload
+            val = _safe_decimal(raw)
+            if val is None:
+                continue
+            total += val
+            found = True
+    elif isinstance(alloc, list):
+        for row in alloc:
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("asset_class") or row.get("name") or row.get("label") or "").lower()
+            if "cash" not in name and "money market" not in name and "deposit" not in name:
+                continue
+            val = _safe_decimal(row.get("value") or row.get("market_value") or row.get("amount"))
+            if val is None:
+                continue
+            total += val
+            found = True
+    return total if found else None
+
+
 class DataLoadingService:
     """Carga datos parseados a las tablas de reporting."""
 
     def __init__(self, db: Session):
         self.db = db
+
+    def sync_normalized_for_account_year(self, account: Account, year: int) -> None:
+        """Punto pÃºblico para alinear capa normalizada con monthly_closings."""
+        self._refresh_normalized_activity_from_monthly_closings(account=account, year=year)
 
     def load_parse_result(
         self,
@@ -399,6 +444,11 @@ class DataLoadingService:
                     source_document_id=raw_document.id,
                 )
             )
+        self.db.flush()
+        self._refresh_normalized_activity_from_monthly_closings(
+            account=account,
+            year=closing_date.year,
+        )
         stats["monthly_closings_updated"] += 1
         self.db.commit()
         return stats
@@ -614,6 +664,22 @@ class DataLoadingService:
             )
             self.db.add(mc)
 
+        # Persistir capa canónica mensual (Fase 1 normalización).
+        self._upsert_monthly_metric_normalized(
+            account=account,
+            year=year,
+            month=month,
+            closing_date=closing_date,
+            currency=result.currency or account.currency,
+            source_document_id=doc.id,
+            account_values=account_values,
+            closing_bal=closing_bal,
+            accrual=accrual,
+            movements=change_in_value,
+            profit=income,
+            asset_alloc_json=asset_alloc_json,
+        )
+
         self._recompute_ubs_income_from_identity(
             account=account,
             year=year,
@@ -631,8 +697,165 @@ class DataLoadingService:
             year=year,
             raw_document_id=doc.id,
         )
+        self._refresh_normalized_activity_from_monthly_closings(
+            account=account,
+            year=year,
+        )
 
         return True
+
+    def _upsert_monthly_metric_normalized(
+        self,
+        account: Account,
+        year: int,
+        month: int,
+        closing_date: date,
+        currency: str,
+        source_document_id: int,
+        account_values: dict,
+        closing_bal: Optional[Decimal],
+        accrual: Optional[Decimal],
+        movements: Optional[Decimal],
+        profit: Optional[Decimal],
+        asset_alloc_json: Optional[str],
+    ) -> None:
+        """
+        Upsert de capa canónica mensual con campos explícitos de accrual.
+        """
+        end_w = _safe_decimal(account_values.get("ending_value_with_accrual"))
+        end_wo = _safe_decimal(account_values.get("ending_value_without_accrual"))
+        accr = _safe_decimal(accrual)
+        closing = _safe_decimal(closing_bal)
+
+        if end_w is None and end_wo is None:
+            end_w = closing
+            if closing is not None and accr is not None:
+                end_wo = closing - accr
+            else:
+                end_wo = closing
+        elif end_w is None and end_wo is not None:
+            if accr is not None:
+                end_w = end_wo + accr
+            else:
+                end_w = end_wo
+        elif end_wo is None and end_w is not None:
+            if accr is not None:
+                end_wo = end_w - accr
+            else:
+                end_wo = end_w
+
+        cash_value = _cash_from_asset_allocation_json(asset_alloc_json)
+        existing = (
+            self.db.query(MonthlyMetricNormalized)
+            .filter(
+                MonthlyMetricNormalized.account_id == account.id,
+                MonthlyMetricNormalized.year == year,
+                MonthlyMetricNormalized.month == month,
+            )
+            .first()
+        )
+
+        payload = {
+            "closing_date": closing_date,
+            "ending_value_with_accrual": end_w,
+            "ending_value_without_accrual": end_wo,
+            "accrual_ending": accr,
+            "cash_value": cash_value,
+            "movements_net": _safe_decimal(movements),
+            "profit_period": _safe_decimal(profit),
+            "currency": currency,
+            "source_document_id": source_document_id,
+        }
+        if existing:
+            for k, v in payload.items():
+                setattr(existing, k, v)
+        else:
+            self.db.add(
+                MonthlyMetricNormalized(
+                    account_id=account.id,
+                    year=year,
+                    month=month,
+                    **payload,
+                )
+            )
+
+    def _refresh_normalized_activity_from_monthly_closings(
+        self,
+        account: Account,
+        year: int,
+    ) -> None:
+        """
+        Mantiene capa normalizada sincronizada con MonthlyClosing tras ajustes YTD/prior period.
+        No sobreescribe ending with/without accrual si ya existen.
+        """
+        closings = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == year,
+            )
+            .all()
+        )
+        if not closings:
+            return
+
+        existing_rows = (
+            self.db.query(MonthlyMetricNormalized)
+            .filter(
+                MonthlyMetricNormalized.account_id == account.id,
+                MonthlyMetricNormalized.year == year,
+            )
+            .all()
+        )
+        normalized_by_month = {row.month: row for row in existing_rows}
+
+        for closing in closings:
+            normalized = normalized_by_month.get(closing.month)
+
+            existing_accrual = normalized.accrual_ending if normalized else None
+            accrual_value = closing.accrual if closing.accrual is not None else existing_accrual
+
+            existing_end_w = normalized.ending_value_with_accrual if normalized else None
+            ending_with = existing_end_w if existing_end_w is not None else closing.net_value
+
+            existing_end_wo = normalized.ending_value_without_accrual if normalized else None
+            if existing_end_wo is not None:
+                ending_without = existing_end_wo
+            elif ending_with is not None and accrual_value is not None:
+                ending_without = ending_with - accrual_value
+            else:
+                ending_without = ending_with
+
+            existing_cash = normalized.cash_value if normalized else None
+            cash_value = (
+                existing_cash
+                if existing_cash is not None
+                else _cash_from_asset_allocation_json(closing.asset_allocation_json)
+            )
+
+            payload = {
+                "closing_date": closing.closing_date,
+                "ending_value_with_accrual": ending_with,
+                "ending_value_without_accrual": ending_without,
+                "accrual_ending": accrual_value,
+                "cash_value": cash_value,
+                "movements_net": closing.change_in_value,
+                "profit_period": closing.income,
+                "currency": closing.currency or account.currency,
+                "source_document_id": closing.source_document_id,
+            }
+            if normalized:
+                for key, value in payload.items():
+                    setattr(normalized, key, value)
+            else:
+                self.db.add(
+                    MonthlyMetricNormalized(
+                        account_id=account.id,
+                        year=year,
+                        month=closing.month,
+                        **payload,
+                    )
+                )
 
     def _upsert_ubs_historical_monthly_activity(
         self,
@@ -715,13 +938,18 @@ class DataLoadingService:
 
             existing.closing_date = closing_date
             if ending_value is not None:
-                existing.total_assets = ending_value
-                existing.net_value = ending_value
+                # Regla UBS: el backfill historico NO debe sobreescribir net_value
+                # de meses previos cuando ya existe cierre mensual.
+                if existing.net_value is None:
+                    existing.net_value = ending_value
+                if existing.total_assets is None:
+                    existing.total_assets = ending_value
             if change_in_value is not None:
                 existing.change_in_value = change_in_value
             if income is not None:
                 existing.income = income
-            existing.source_document_id = doc.id
+            if existing.source_document_id is None:
+                existing.source_document_id = doc.id
             if income is None:
                 self._recompute_ubs_income_from_identity(
                     account=account,
@@ -1113,8 +1341,7 @@ class DataLoadingService:
         year = report_date.year
         month = report_date.month
         bank_code = result.bank_code or doc.bank_code or "unknown"
-        count = 0
-
+        grouped: dict[str, dict] = {}
         for row in result.rows:
             data = row.data
             # Solo holdings, no totales
@@ -1134,6 +1361,22 @@ class DataLoadingService:
 
             # Generar código corto del instrumento
             etf_code = self._instrument_to_code(instrument)
+            if etf_code not in grouped:
+                grouped[etf_code] = {
+                    "etf_name": instrument,
+                    "market_value": market_value,
+                }
+            else:
+                prev = grouped[etf_code]["market_value"]
+                if prev is None:
+                    grouped[etf_code]["market_value"] = market_value
+                elif market_value is not None:
+                    grouped[etf_code]["market_value"] = prev + market_value
+
+        count = 0
+        for etf_code, payload in grouped.items():
+            instrument = payload["etf_name"]
+            market_value = payload["market_value"]
 
             # UNIQUE: account_id, bank_code, year, month, etf_code
             existing = (
