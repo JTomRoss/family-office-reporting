@@ -147,6 +147,28 @@ class JPMorganCustodyParser(BaseParser):
                 result.account_number = m.group(1)
                 return
 
+    @staticmethod
+    def _extract_summary_asset_allocation(text: str) -> dict[str, dict]:
+        """
+        Extrae Asset Allocation desde una página Account Summary.
+        Retorna dict por clase con beginning/ending/change.
+        """
+        alloc: dict[str, dict] = {}
+        for m in re.finditer(
+            r"(Cash,?\s*Deposits\s*&?\s*Short\s*Term|Fixed Income|Equities)"
+            r"\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
+            text,
+        ):
+            beginning = _parse_usd(m.group(2))
+            ending = _parse_usd(m.group(3))
+            change = _parse_usd(m.group(4))
+            alloc[m.group(1).strip()] = {
+                "beginning": str(beginning) if beginning is not None else None,
+                "ending": str(ending) if ending is not None else None,
+                "change": str(change) if change is not None else None,
+            }
+        return alloc
+
     def _extract_account_summary(self, pages: list[str], result: ParseResult) -> None:
         """Extract from page with 'Account Summary' header."""
         for text in pages[:20]:
@@ -156,17 +178,7 @@ class JPMorganCustodyParser(BaseParser):
                 continue
 
             # Asset allocation lines: "Cash, Deposits & Short Term  9,404,989.43  5,633,705.15  -3,771,284.28"
-            alloc: dict[str, dict] = {}
-            for m in re.finditer(
-                r"(Cash,?\s*Deposits\s*&?\s*Short\s*Term|Fixed Income|Equities)"
-                r"\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
-                text,
-            ):
-                alloc[m.group(1).strip()] = {
-                    "beginning": str(_parse_usd(m.group(2))),
-                    "ending": str(_parse_usd(m.group(3))),
-                    "change": str(_parse_usd(m.group(4))),
-                }
+            alloc = self._extract_summary_asset_allocation(text)
 
             if alloc:
                 result.qualitative_data["asset_allocation"] = alloc
@@ -266,6 +278,7 @@ class JPMorganCustodyParser(BaseParser):
                 text,
                 r"Change in Investment Value\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
             )
+            alloc = self._extract_summary_asset_allocation(text)
 
             if beginning is None and ending is None:
                 continue
@@ -284,7 +297,7 @@ class JPMorganCustodyParser(BaseParser):
             if change is not None:
                 utilidad += change
 
-            monthly.append({
+            row = {
                 "account_number": current_account,
                 "net_contributions": str(net_contributions) if net_contributions is not None else None,
                 "net_contributions_ytd": str(net_contributions_ytd) if net_contributions_ytd is not None else None,
@@ -298,7 +311,10 @@ class JPMorganCustodyParser(BaseParser):
                     if (income_ytd is not None or change_ytd is not None)
                     else None
                 ),
-            })
+            }
+            if alloc:
+                row["asset_allocation"] = alloc
+            monthly.append(row)
 
         if accounts:
             result.qualitative_data["accounts"] = accounts

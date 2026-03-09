@@ -684,6 +684,8 @@ def render():
                 }
                 show_cols = [c for c in col_rename if c in df_docs.columns]
                 df_show = df_docs[show_cols].rename(columns=col_rename)
+                if "ID" in df_show.columns:
+                    df_show["ID"] = df_show["ID"].astype(str)
 
                 # Agregar columna de selección para eliminación
                 df_show.insert(len(df_show.columns), "Eliminar", False)
@@ -694,6 +696,7 @@ def render():
                     hide_index=True,
                     disabled=[c for c in df_show.columns if c != "Eliminar"],
                     column_config={
+                        "ID": st.column_config.TextColumn("ID"),
                         "Eliminar": st.column_config.CheckboxColumn(
                             "🗑️",
                             help="Selecciona los documentos a eliminar",
@@ -763,5 +766,72 @@ def render():
 
         except Exception as e:
             st.error(f"Error conectando al backend: {e}")
+
+        st.markdown("---")
+        st.subheader("Cobertura de Cartolas por Sociedad y Tipo de Cuenta")
+        st.caption(
+            "Cada celda muestra el rango de fechas cargadas: primera cartola / ultima cartola (YYYY-MM/YYYY-MM). "
+            "Vacio = sin cartola cargada."
+        )
+
+        try:
+            import pandas as pd
+
+            opts = api_client.get("/accounts/filter-options")
+            all_societies = set(opts.get("entity_names", []))
+            all_account_types = set(opts.get("account_types", []))
+
+            summary_payload = api_client.post("/data/summary", json={})
+            detail_rows = summary_payload.get("rows", [])
+
+            # Por (sociedad, account_type) guardamos (primera_fecha, ultima_fecha)
+            range_by_combo: dict[tuple[str, str], tuple[str, str]] = {}
+            for row in detail_rows:
+                fecha = str(row.get("fecha") or "").strip()
+                sociedad = str(row.get("sociedad") or "").strip()
+                account_type = str(row.get("account_type") or "").strip()
+                if not fecha or not sociedad or not account_type:
+                    continue
+                all_societies.add(sociedad)
+                all_account_types.add(account_type)
+                key = (sociedad, account_type)
+                if key not in range_by_combo:
+                    range_by_combo[key] = (fecha, fecha)
+                else:
+                    old_min, old_max = range_by_combo[key]
+                    range_by_combo[key] = (min(old_min, fecha), max(old_max, fecha))
+
+            societies_sorted = sorted(s for s in all_societies if s)
+            account_types_sorted = sorted(t for t in all_account_types if t)
+
+            if societies_sorted and account_types_sorted:
+                col_labels: dict[str, str] = {}
+                used_labels: set[str] = set()
+                for account_type in account_types_sorted:
+                    base_label = _fmt_account_type(account_type)
+                    label = base_label
+                    if label in used_labels:
+                        label = f"{base_label} ({account_type})"
+                    used_labels.add(label)
+                    col_labels[account_type] = label
+
+                matrix_rows = []
+                matrix_cols = ["Sociedad"] + [col_labels[t] for t in account_types_sorted]
+                for sociedad in societies_sorted:
+                    row_out = {"Sociedad": sociedad}
+                    for account_type in account_types_sorted:
+                        rng = range_by_combo.get((sociedad, account_type), ("", ""))
+                        if rng[0] and rng[1]:
+                            row_out[col_labels[account_type]] = f"{rng[0]}/{rng[1]}"
+                        else:
+                            row_out[col_labels[account_type]] = ""
+                    matrix_rows.append(row_out)
+
+                df_matrix = pd.DataFrame(matrix_rows, columns=matrix_cols)
+                render_table(df_matrix, label_col="Sociedad", fixed_equal_cols=True)
+            else:
+                st.info("No hay datos suficientes para construir la matriz de cobertura.")
+        except Exception as exc:
+            st.info(f"No se pudo construir la matriz de cobertura: {exc}")
 
 

@@ -15,7 +15,7 @@ from typing import Optional
 
 # ── Display names for bank codes ─────────────────────────────────
 BANK_DISPLAY_NAMES: dict[str, str] = {
-    "jpmorgan": "JP Morgan",
+    "jpmorgan": "JPMorgan",
     "ubs": "UBS Suiza",
     "ubs_miami": "UBS Miami",
     "goldman_sachs": "Goldman Sachs",
@@ -159,10 +159,15 @@ def render_fecha_filter(
         return None
 
     sorted_dates = sorted(available_dates, reverse=True)
+    widget_key = f"{key_prefix}_fecha"
+
+    # Default = ultima cartola cargada para la pestaña actual.
+    if widget_key not in st.session_state or st.session_state[widget_key] not in sorted_dates:
+        st.session_state[widget_key] = sorted_dates[0]
 
     selected = st.selectbox(
         "📅 Fecha",
         options=sorted_dates,
-        key=f"{key_prefix}_fecha",
+        key=widget_key,
     )
     return selected

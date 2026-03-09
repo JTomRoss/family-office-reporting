@@ -94,7 +94,7 @@ def _extract_page_text(pdf: pdfplumber.PDF, page_idx: int) -> str:
 class UBSSwitzerlandCustodyParser(BaseParser):
     BANK_CODE = "ubs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.2.0"
+    VERSION = "2.3.0"
     DESCRIPTION = "Parser para Statement of Assets UBS Suiza (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -203,6 +203,9 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                 selected_portfolio = self._extract_selected_portfolio_block(p3_text, selected_suffix)
                 if selected_portfolio:
                     balances["selected_portfolio"] = selected_portfolio
+                    selected_alloc = self._selected_portfolio_to_asset_allocation(selected_portfolio)
+                    if selected_alloc:
+                        qualitative["asset_allocation"] = selected_alloc
 
                 # 3) Portfolio overview
                 p4_idx = self._find_page_by_title_prefix(
@@ -490,34 +493,63 @@ class UBSSwitzerlandCustodyParser(BaseParser):
         m = re.search(r"-(\d{2})$", account_number)
         return m.group(1) if m else None
 
-    @staticmethod
-    def _extract_selected_portfolio_block(page3_text: str, suffix: str | None) -> dict[str, Any] | None:
+    def _extract_selected_portfolio_block(self, page3_text: str, suffix: str | None) -> dict[str, Any] | None:
         if not suffix:
             return None
-        no_space = page3_text.replace(" ", "")
         start_token = f"Portfolio{suffix}"
-        start = no_space.find(start_token)
-        if start == -1:
+        portfolio_variants = [start_token, f"Portfolio {suffix}"]
+        block = None
+        for label in portfolio_variants:
+            block = self._extract_portfolio_block(page3_text, label)
+            if block:
+                break
+        if not block:
             return None
 
-        boundaries = [
-            no_space.find("Portfolio0", start + len(start_token)),
-            no_space.find("Totalnetassetsbyexposurecurrency", start + len(start_token)),
-        ]
-        end = min((b for b in boundaries if b != -1), default=len(no_space))
-        block = no_space[start:end]
-
-        twr_m = re.search(
-            r"Cumulativeperformancebeforetax\(TWR\)inUSD([\-\d.]+%)",
-            block,
-        )
         result: dict[str, Any] = {"portfolio": start_token}
-        net_m = re.search(r"Netassets(\d+)", block)
-        if net_m:
-            result["net_assets"] = _parse_usd(net_m.group(1))
-        if twr_m:
-            result["twr_ytd"] = twr_m.group(1)
+        if block.get("net_assets") is not None:
+            result["net_assets"] = block.get("net_assets")
+        if block.get("performance_twr_ytd"):
+            result["twr_ytd"] = block.get("performance_twr_ytd")
+        if block.get("asset_classes"):
+            result["asset_classes"] = block.get("asset_classes")
         return result
+
+    @staticmethod
+    def _selected_portfolio_to_asset_allocation(
+        selected_portfolio: dict[str, Any] | None,
+    ) -> dict[str, dict[str, str]] | None:
+        """
+        Convierte bloque de portfolio seleccionado a asset_allocation canónico UBS.
+
+        Usa la columna "Total" por clase de activo (incluye accruals cuando aplica).
+        """
+        if not isinstance(selected_portfolio, dict):
+            return None
+        classes = selected_portfolio.get("asset_classes")
+        net_assets = _parse_usd(selected_portfolio.get("net_assets"))
+        if not isinstance(classes, dict):
+            if net_assets == Decimal("0"):
+                return {
+                    "Liquidity": {"total": "0"},
+                    "Bonds": {"total": "0"},
+                    "Equities": {"total": "0"},
+                }
+            return None
+
+        mapping = {
+            "liquidity": "Liquidity",
+            "bonds": "Bonds",
+            "equities": "Equities",
+        }
+        alloc: dict[str, dict[str, str]] = {}
+        for raw_key, label in mapping.items():
+            val = _parse_usd(classes.get(raw_key))
+            if val is None:
+                continue
+            alloc[label] = {"total": str(val)}
+
+        return alloc or None
 
     @staticmethod
     def _extract_ending_values(text: str) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
@@ -690,12 +722,16 @@ class UBSSwitzerlandCustodyParser(BaseParser):
         portfolios: dict[str, dict[str, Any]] = {}
 
         # Portfolio 01
-        p01_block = self._extract_portfolio_block(page3_text, "Portfolio01")
+        p01_block = self._extract_portfolio_block(page3_text, "Portfolio 01")
+        if not p01_block:
+            p01_block = self._extract_portfolio_block(page3_text, "Portfolio01")
         if p01_block:
             portfolios["Portfolio01"] = p01_block
 
         # Portfolio 02
-        p02_block = self._extract_portfolio_block(page3_text, "Portfolio02")
+        p02_block = self._extract_portfolio_block(page3_text, "Portfolio 02")
+        if not p02_block:
+            p02_block = self._extract_portfolio_block(page3_text, "Portfolio02")
         if p02_block:
             portfolios["Portfolio02"] = p02_block
 
@@ -712,58 +748,126 @@ class UBSSwitzerlandCustodyParser(BaseParser):
     def _extract_portfolio_block(self, text: str, portfolio_label: str) -> dict[str, Any] | None:
         """Extract asset class breakdown for a portfolio from the Total assets page."""
         result: dict[str, Any] = {}
-        # Remove all spaces for pattern matching in concatenated text
-        no_space = text.replace(" ", "")
-
-        # Find the portfolio section
-        start_idx = no_space.find(portfolio_label)
-        if start_idx == -1:
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        if not lines:
             return None
 
-        # Find the end (next Portfolio or currency allocation section)
-        end_idx = len(no_space)
-        for boundary in ["Portfolio0", "Totalnetassetsbyexposurecurrency",
-                         "Totalnetassetsbyexposure"]:
-            pos = no_space.find(boundary, start_idx + len(portfolio_label))
-            if pos != -1 and pos < end_idx:
-                end_idx = pos
+        target_norm = portfolio_label.lower().replace(" ", "")
+        start_idx: int | None = None
+        for idx, line in enumerate(lines):
+            norm = line.lower().replace(" ", "")
+            if target_norm in norm:
+                start_idx = idx
+                break
+        if start_idx is None:
+            return None
 
-        block = no_space[start_idx:end_idx]
+        end_idx = len(lines)
+        for idx in range(start_idx + 1, len(lines)):
+            norm = lines[idx].lower().replace(" ", "")
+            if norm.startswith("portfolio0"):
+                end_idx = idx
+                break
+            if "totalnetassetsbyexposurecurrency" in norm or "total net assets by exposure currency" in lines[idx].lower():
+                end_idx = idx
+                break
 
-        # Extract asset classes: Liquidity, Bonds, Equities
-        asset_patterns = [
-            (r"Liquidity(\d+)", "liquidity"),
-            (r"Bonds(\d+)", "bonds"),
-            (r"Equities(\d+)", "equities"),
-        ]
-        asset_classes: dict[str, Decimal | None] = {}
-        for pattern, key in asset_patterns:
-            m = re.search(pattern, block)
-            if m:
-                asset_classes[key] = _parse_usd(m.group(1))
+        block_lines = lines[start_idx:end_idx]
+        if not block_lines:
+            return None
+
+        # Description can appear on the header line:
+        # "Portfolio 02 - UBS Manage Premium [Ultra] - Customized Balanced"
+        header = block_lines[0]
+        desc_m = re.search(r"Portfolio\s*0[12]\s*-\s*(.+)$", header, re.IGNORECASE)
+        if desc_m:
+            result["description"] = desc_m.group(1).strip()
+
+        asset_classes: dict[str, Decimal] = {}
+        row_map = {
+            "liquidity": "liquidity",
+            "bonds": "bonds",
+            "equities": "equities",
+        }
+        for line in block_lines:
+            low = line.lower()
+            matched_key = next((key for marker, key in row_map.items() if low.startswith(marker)), None)
+            if not matched_key:
+                continue
+            amount = self._extract_total_amount_from_asset_row(line, matched_key)
+            if amount is not None:
+                asset_classes[matched_key] = amount
 
         if asset_classes:
             result["asset_classes"] = asset_classes
 
-        # Net assets for this portfolio
-        m = re.search(r"Netassets(\d+)", block)
-        if m:
-            result["net_assets"] = _parse_usd(m.group(1))
+        for line in block_lines:
+            low = line.lower()
+            if low.startswith("net assets"):
+                net_amount = self._extract_total_amount_from_asset_row(line, "net_assets")
+                if net_amount is not None:
+                    result["net_assets"] = net_amount
+                break
 
-        # Performance TWR if present
-        m = re.search(r"TWR\)inUSD\s*([\d.%-]+)", block)
-        if not m:
-            m = re.search(r"TWR\)inUSD([\d.]+%)", block)
-        if m:
-            result["performance_twr_ytd"] = m.group(1)
-
-        # Portfolio description (for Portfolio 02)
-        if "UBSManagePremium" in block:
-            m = re.search(r"Portfolio02-(.*?)(?:Assetclass|Marketvalue)", block)
+        for line in block_lines:
+            m = re.search(r"Cumulative performance before tax \(TWR\) in USD\s*([-\d.]+%)", line, re.IGNORECASE)
             if m:
-                result["description"] = m.group(1).strip()
+                result["performance_twr_ytd"] = m.group(1)
+                break
 
         return result if result else None
+
+    @staticmethod
+    def _extract_total_amount_from_asset_row(line: str, row_key: str | None = None) -> Decimal | None:
+        """
+        Toma una fila tipo:
+        - Bonds 52 991 545 420 089 53 411 634 58.06
+        - Liquidity 951 473 951 473 1.03
+        y devuelve la última columna monetaria (Total), no el porcentaje.
+        """
+        parts = [p.replace(",", "").strip() for p in line.split() if p.strip()]
+        if not parts:
+            return None
+
+        first_numeric_idx = None
+        for idx, token in enumerate(parts):
+            if re.fullmatch(r"\d+(?:\.\d+)?%?", token):
+                first_numeric_idx = idx
+                break
+        if first_numeric_idx is None:
+            return None
+
+        number_tokens = parts[first_numeric_idx:]
+        if not number_tokens:
+            return None
+
+        # Remove trailing percentage token if present.
+        last = number_tokens[-1]
+        if re.fullmatch(r"\d+\.\d+%?", last):
+            number_tokens = number_tokens[:-1]
+        if not number_tokens:
+            return None
+
+        key = (row_key or "").lower()
+        take_n = 1
+        if key in {"liquidity", "equities"}:
+            if len(number_tokens) >= 2 and len(number_tokens) % 2 == 0:
+                take_n = min(max(len(number_tokens) // 2, 1), 3)
+            elif len(number_tokens) >= 3:
+                take_n = 3
+        elif key in {"bonds", "net_assets"}:
+            if len(number_tokens) >= 7:
+                take_n = 3
+            elif len(number_tokens) >= 4:
+                take_n = 2
+
+        take_n = min(take_n, len(number_tokens))
+        for n in range(take_n, 0, -1):
+            candidate = " ".join(number_tokens[-n:])
+            val = _parse_usd(candidate)
+            if val is not None:
+                return val
+        return None
 
     def _extract_currency_allocation(self, text: str) -> dict[str, dict[str, Any]] | None:
         """Extract currency allocation from page 3.
@@ -772,31 +876,55 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                  EUR Euro 5671525 6.16%  etc.
         """
         currencies: dict[str, dict[str, Any]] = {}
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        row_pattern = re.compile(
+            r"^(USD|EUR|GBP|GLB|JPY|CHF)\s+([A-Za-z\s]+?)\s+(\d[\d\s]*)\s+([\d.]+)\s*%$",
+            re.IGNORECASE,
+        )
+        various_pattern = re.compile(r"^Various\s+(\d[\d\s]*)\s+([\d.]+)\s*%$", re.IGNORECASE)
 
-        # These appear as concatenated lines but with currency code separated
-        patterns = [
-            (r"USD\s+USDollar\s+(\d+)\s+([\d.]+)%", "USD", "US Dollar"),
-            (r"EUR\s+Euro\s+(\d+)\s+([\d.]+)%", "EUR", "Euro"),
-            (r"GBP\s+PoundSterling\s+(\d+)\s+([\d.]+)%", "GBP", "Pound Sterling"),
-            (r"GLB\s+Global\s+(\d+)\s+([\d.]+)%", "GLB", "Global"),
-            (r"JPY\s+JapaneseYen\s+(\d+)\s+([\d.]+)%", "JPY", "Japanese Yen"),
-            (r"CHF\s+SwissFranc\s+(\d+)\s+([\d.]+)%", "CHF", "Swiss Franc"),
-            (r"Various\s+(\d+)\s+([\d.]+)%", "Various", "Various"),
-        ]
-
-        for pattern, code, name in patterns:
-            m = re.search(pattern, text)
+        for line in lines:
+            m = row_pattern.match(line)
             if m:
-                if code == "Various":
-                    val = _parse_usd(m.group(1))
-                    pct = m.group(2)
-                else:
-                    val = _parse_usd(m.group(1))
-                    pct = m.group(2)
+                code = m.group(1).upper()
+                name = m.group(2).strip()
+                val = _parse_usd(m.group(3))
+                pct = m.group(4)
                 currencies[code] = {
                     "name": name,
                     "market_value": val,
                     "percentage": pct,
+                }
+                continue
+
+            m_var = various_pattern.match(line)
+            if m_var:
+                currencies["Various"] = {
+                    "name": "Various",
+                    "market_value": _parse_usd(m_var.group(1)),
+                    "percentage": m_var.group(2),
+                }
+
+        # Fallback for fully concatenated extraction (no line breaks/spaces).
+        if not currencies:
+            no_space = text.replace(" ", "")
+            fallback_patterns = [
+                (r"USDUSDollar(\d+)([\d.]+)%", "USD", "US Dollar"),
+                (r"EUREuro(\d+)([\d.]+)%", "EUR", "Euro"),
+                (r"GBPPoundSterling(\d+)([\d.]+)%", "GBP", "Pound Sterling"),
+                (r"GLBGlobal(\d+)([\d.]+)%", "GLB", "Global"),
+                (r"JPYJapaneseYen(\d+)([\d.]+)%", "JPY", "Japanese Yen"),
+                (r"CHFSwissFranc(\d+)([\d.]+)%", "CHF", "Swiss Franc"),
+                (r"Various(\d+)([\d.]+)%", "Various", "Various"),
+            ]
+            for pattern, code, name in fallback_patterns:
+                m = re.search(pattern, no_space)
+                if not m:
+                    continue
+                currencies[code] = {
+                    "name": name,
+                    "market_value": _parse_usd(m.group(1)),
+                    "percentage": m.group(2),
                 }
 
         return currencies if currencies else None

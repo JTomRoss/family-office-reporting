@@ -130,6 +130,7 @@ class FilterParams(BaseModel):
     months: list[int] = []
     bank_codes: list[str] = []
     entity_names: list[str] = []
+    person_names: list[str] = []
     account_types: list[str] = []
     currencies: list[str] = []
     fecha: Optional[str] = None  # "YYYY-MM" para filtro ETF

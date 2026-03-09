@@ -1,146 +1,247 @@
 """
-Página Resumen – Vista consolidada con filtros multi-selección.
+Pagina Resumen.
 
 Estructura:
-- Filtros multi-selección (banco, sociedad, tipo cuenta, año)
-- 3 gráficos (Total Assets, Utilidad, Rentabilidad) consolidados
-- Tabla Resumen consolidada (13 meses: dic anterior + 12 del año)
-- Rango Personalizado (2 selectores YYYY-MM, KPIs verticales)
-- Detalle Cartolas (tabla por cuenta)
+- Filtros: Banco, Sociedad, Tipo de cuenta, Fecha (YYYY-MM)
+- 3 graficos consolidados (Total Assets, Utilidad, Rentabilidad YTD)
+- Tabla resumen consolidada
+- Rango personalizado
+- Detalle de cartolas
 """
 
-import streamlit as st
-import plotly.graph_objects as go
+from __future__ import annotations
+
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 from frontend import api_client
-from frontend.components.table_utils import render_table
+from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_number, fmt_percent
-from frontend.components.filters import (
-    render_filters,
-    BANK_DISPLAY_NAMES,
-)
+from frontend.components.table_utils import render_table
 
 
-MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
-          "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+ACCOUNT_TYPE_DISPLAY = {
+    "etf": "ETF",
+    "brokerage": "Brokerage",
+    "mandato": "Mandato",
+    "current": "Current",
+    "checking": "Checking",
+    "savings": "Savings",
+    "custody": "Custody",
+    "investment": "Investment",
+    "bonds": "Bonds",
+}
+
+CONSOLIDATED_PRESETS = {
+    "Mi Investments": ["Boatview", "Telmar", "White Alaska"],
+    "Mi Inv + Ect. Int": [
+        "Boatview",
+        "Telmar",
+        "White Alaska",
+        "Ecoterra Internacional",
+    ],
+    "Mi Inv + Ect. Int+ Armel": [
+        "Boatview",
+        "Telmar",
+        "White Alaska",
+        "Ecoterra Internacional",
+        "Armel Holdings",
+    ],
+}
 
 
-def _fmt_number(val):
-    """Format a number for display."""
-    return fmt_number(val, decimals=2)
+def _fmt_num(val) -> str:
+    return fmt_number(val, decimals=1)
 
 
-def _fmt_pct(val):
-    """Format a percentage for display."""
+def _fmt_pct(val) -> str:
     return fmt_percent(val, decimals=2)
 
 
 def _to_float(val):
-    """Best-effort float conversion."""
     try:
         return float(val)
-    except (ValueError, TypeError):
+    except (TypeError, ValueError):
         return None
 
 
-def _fmt_bank(code):
-    """Format bank code for display."""
+def _fmt_bank(code: str) -> str:
     return BANK_DISPLAY_NAMES.get(code, code.replace("_", " ").title())
 
 
-def _fecha_label(fecha_str):
-    """'2025-03' → 'Mar 25'"""
-    parts = fecha_str.split("-")
+def _fmt_account_type(account_type: str) -> str:
+    key = (account_type or "").strip().lower()
+    if key in ACCOUNT_TYPE_DISPLAY:
+        return ACCOUNT_TYPE_DISPLAY[key]
+    if key == "etf":
+        return "ETF"
+    return (account_type or "").replace("_", " ").title()
+
+
+def _fecha_label(fecha_str: str) -> str:
+    parts = str(fecha_str).split("-")
+    if len(parts) != 2:
+        return str(fecha_str)
     return f"{MONTHS[int(parts[1]) - 1]} {parts[0][-2:]}"
 
 
-# ── Columnas numéricas que se alinean a la derecha ───────────────
-def _build_ym_options():
-    """Generate YYYY-MM options from 2020-01 to 2027-12."""
-    opts = []
-    for y in range(2020, 2028):
-        for m in range(1, 13):
-            opts.append(f"{y}-{m:02d}")
-    return opts
+def _build_fecha_options(years: list[int]) -> list[str]:
+    if not years:
+        return []
+    values: list[str] = []
+    for year in sorted(set(int(y) for y in years), reverse=True):
+        for month in range(12, 0, -1):
+            values.append(f"{year}-{month:02d}")
+    return values
+
+
+def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float | None]:
+    ytd_values: list[float | None] = []
+    compound = 1.0
+    has_data = False
+    for ret in monthly_returns:
+        if ret is None:
+            ytd_values.append(round((compound - 1) * 100, 4) if has_data else None)
+            continue
+        compound *= (1 + (ret / 100))
+        has_data = True
+        ytd_values.append(round((compound - 1) * 100, 4))
+    return ytd_values
 
 
 def render():
-    st.title("📋 Resumen")
+    st.title("Resumen")
     st.markdown("---")
 
-    # ── Obtener opciones de filtro ───────────────────────────────
     try:
-        filter_opts = api_client.get("/accounts/filter-options")
+        opts = api_client.get("/accounts/filter-options")
     except Exception:
-        filter_opts = {
+        opts = {
             "bank_codes": [],
             "entity_names": [],
             "account_types": [],
+            "years": [],
         }
 
-    filter_opts = {
-        "bank_codes": filter_opts.get("bank_codes", []),
-        "entity_names": filter_opts.get("entity_names", []),
-        "account_types": filter_opts.get("account_types", []),
-        "years": [str(y) for y in range(2020, 2027)],
-    }
+    bank_options = sorted(opts.get("bank_codes", []))
+    entity_options = sorted(opts.get("entity_names", []))
+    account_type_options = sorted(opts.get("account_types", []))
+    year_options = [int(y) for y in opts.get("years", []) if y is not None]
+    fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
+    if not fecha_options:
+        fecha_options = _build_fecha_options(year_options)
 
-    # ── Renderizar filtros ───────────────────────────────────────
-    def _fmt_account_type(t: str) -> str:
-        return t.replace("_", " ").title()
+    st.markdown("### Filtros")
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    selections = render_filters(
-        filter_opts, key_prefix="summary",
-        format_labels={"account_types": _fmt_account_type},
-    )
+    with c1:
+        selected_banks = st.multiselect(
+            "Banco",
+            options=bank_options,
+            format_func=_fmt_bank,
+            key="summary_bank_codes",
+        )
+    with c2:
+        selected_entities = st.multiselect(
+            "Sociedad",
+            options=entity_options,
+            key="summary_entity_names",
+        )
+    with c3:
+        selected_consolidated = st.selectbox(
+            "Consolidado",
+            options=[""] + list(CONSOLIDATED_PRESETS.keys()),
+            format_func=lambda x: x or "Sin consolidado",
+            key="summary_consolidated",
+        )
+    with c4:
+        selected_types = st.multiselect(
+            "Tipo de cuenta",
+            options=account_type_options,
+            format_func=_fmt_account_type,
+            key="summary_account_types",
+        )
+    with c5:
+        if fecha_options:
+            if "summary_fecha" not in st.session_state or st.session_state["summary_fecha"] not in fecha_options:
+                st.session_state["summary_fecha"] = fecha_options[0]
+            selected_fecha = st.selectbox(
+                "Fecha",
+                options=fecha_options,
+                key="summary_fecha",
+            )
+        else:
+            selected_fecha = None
+            st.selectbox("Fecha", options=["Sin datos"], disabled=True, key="summary_fecha_empty")
+
+    preset_entities = list(CONSOLIDATED_PRESETS.get(selected_consolidated, []))
+    selected_entities_effective = sorted(set(selected_entities) | set(preset_entities))
+    if selected_consolidated and preset_entities:
+        st.caption(f"Consolidado activo: {', '.join(preset_entities)}")
+
+    selected_year = int(selected_fecha[:4]) if selected_fecha else None
 
     st.markdown("---")
 
-    # ── Obtener datos ────────────────────────────────────────────
     try:
-        data = api_client.post("/data/summary", json={
-            "years": [int(y) for y in selections.get("years", [])],
-            "bank_codes": selections.get("bank_codes", []),
-            "entity_names": selections.get("entity_names", []),
-            "account_types": selections.get("account_types", []),
-        })
-    except Exception as e:
+        data = api_client.post(
+            "/data/summary",
+            json={
+                "years": [selected_year] if selected_year else [],
+                "bank_codes": selected_banks,
+                "entity_names": selected_entities_effective,
+                "account_types": selected_types,
+            },
+        )
+    except Exception as exc:
         data = {"rows": [], "consolidated_rows": [], "chart_data": []}
-        st.error(f"Error: {e}")
+        st.error(f"Error: {exc}")
 
     detail_rows = data.get("rows", [])
     consolidated_rows = data.get("consolidated_rows", [])
     chart_data = data.get("chart_data", [])
 
-    # ── Gráficos (3 gráficos — datos consolidados) ──────────────
-    st.subheader("📊 Evolución 12 meses")
+    st.subheader("Evolucion 12 meses")
 
-    chart_months = []
-    chart_ev = []
-    chart_util = []
-    chart_ret = []
-    for cd in chart_data:
-        chart_months.append(_fecha_label(cd["fecha"]))
-        chart_ev.append(cd["ending_value"])
-        chart_util.append(cd["utilidad"])
-        chart_ret.append(cd["rent_pct"] if cd["rent_pct"] is not None else 0)
+    if selected_year is None and chart_data:
+        selected_year = max(int(str(r.get("fecha", ""))[:4]) for r in chart_data if r.get("fecha"))
+    if selected_year is None:
+        selected_year = 0
 
-    if not chart_months:
-        chart_months = MONTHS
-        chart_ev = [0] * 12
-        chart_util = [0] * 12
-        chart_ret = [0] * 12
+    month_keys = [f"{selected_year}-{m:02d}" for m in range(1, 13)] if selected_year else []
+    chart_map = {str(row.get("fecha")): row for row in chart_data if row.get("fecha")}
 
-    chart_col1, chart_col2, chart_col3 = st.columns(3)
+    chart_ev: list[float] = []
+    chart_util: list[float] = []
+    chart_ret_monthly: list[float | None] = []
+    for key in month_keys:
+        row = chart_map.get(key, {})
+        chart_ev.append(_to_float(row.get("ending_value")) or 0.0)
+        chart_util.append(_to_float(row.get("utilidad")) or 0.0)
+        chart_ret_monthly.append(_to_float(row.get("rent_pct")))
+    chart_ret_ytd = _compute_ytd_from_monthly(chart_ret_monthly)
 
-    with chart_col1:
+    if not month_keys:
+        month_keys = MONTHS
+        chart_ev = [0.0] * 12
+        chart_util = [0.0] * 12
+        chart_ret_ytd = [None] * 12
+
+    col_ch1, col_ch2, col_ch3 = st.columns(3)
+
+    with col_ch1:
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=chart_months, y=chart_ev,
-            name="Total Assets",
-            marker_color="steelblue",
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=MONTHS,
+                y=chart_ev,
+                name="Total Assets",
+                marker_color="#4F81BD",
+            )
+        )
         fig.update_layout(
             title="Total Assets por Mes",
             height=300,
@@ -148,13 +249,16 @@ def render():
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with chart_col2:
+    with col_ch2:
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=chart_months, y=chart_util,
-            name="Utilidad",
-            marker_color="mediumseagreen",
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=MONTHS,
+                y=chart_util,
+                name="Utilidad",
+                marker_color="#22A06B",
+            )
+        )
         fig.update_layout(
             title="Utilidad Mensual",
             height=300,
@@ -162,167 +266,153 @@ def render():
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with chart_col3:
+    with col_ch3:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=chart_months, y=chart_ret,
-            mode="lines+markers",
-            name="Rentabilidad",
-            line=dict(color="coral"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=MONTHS,
+                y=chart_ret_ytd,
+                mode="lines+markers",
+                name="Rentabilidad YTD",
+                line=dict(color="#E67E22", width=2),
+            )
+        )
         fig.update_layout(
-            title="Rentabilidad Mensual %",
+            title="Rentabilidad YTD (%)",
             height=300,
             margin=dict(l=20, r=20, t=40, b=20),
         )
+        fig.update_yaxes(tickformat=",.2f")
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
 
-    # ── Tablas: Resumen | Rango Personalizado ────────────────────
     col_table1, col_table2 = st.columns([6, 4])
 
-    # ── Tabla Resumen (consolidada, 13 meses) ────────────────────
     with col_table1:
-        st.subheader("📋 Tabla Resumen")
+        st.subheader("Tabla Resumen")
         if consolidated_rows:
             table_data = []
-            for cr in consolidated_rows:
-                is_prev = cr.get("is_prev_year", False)
-                table_data.append({
-                    "Fecha": _fecha_label(cr["fecha"]),
-                    "Ending Value": _fmt_number(cr["ending_value"]),
-                    "Caja": _fmt_number(cr.get("caja")),
-                    "Movimientos": _fmt_number(cr["movimientos"]),
-                    "Utilidad": _fmt_number(cr["utilidad"]),
-                    "Rent. Mensual (%)": (
-                        "" if is_prev
-                        else _fmt_pct(cr["rent_mensual_pct"])
-                    ),
-                    "Rent. Mensual sin Caja (%)": (
-                        "" if is_prev
-                        else _fmt_pct(cr["rent_mensual_sin_caja_pct"])
-                    ),
-                })
-            df_summary = pd.DataFrame(table_data)
-            render_table(df_summary)
+            for row in consolidated_rows:
+                is_prev = row.get("is_prev_year", False)
+                table_data.append(
+                    {
+                        "Fecha": _fecha_label(row["fecha"]),
+                        "Ending Value": _fmt_num(row.get("ending_value")),
+                        "Caja": _fmt_num(row.get("caja")),
+                        "Movimientos": _fmt_num(row.get("movimientos")),
+                        "Utilidad": _fmt_num(row.get("utilidad")),
+                        "Rent. Mensual (%)": "" if is_prev else _fmt_pct(row.get("rent_mensual_pct")),
+                        "Rent. Mensual sin Caja (%)": "" if is_prev else _fmt_pct(row.get("rent_mensual_sin_caja_pct")),
+                    }
+                )
+            render_table(pd.DataFrame(table_data), fixed_equal_cols=True)
         else:
-            st.info("Sin datos. Cargue documentos y aplique filtros.")
+            st.info("Sin datos para los filtros seleccionados.")
 
-    # ── Rango Personalizado ──────────────────────────────────────
     with col_table2:
-        st.subheader("📅 Rango Personalizado")
+        st.subheader("Rango Personalizado")
 
-        ym_available = sorted({
-            cr["fecha"] for cr in consolidated_rows
-            if not cr.get("is_prev_year", False)
-        })
-        ym_options = ym_available if ym_available else _build_ym_options()
-        rc1, rc2 = st.columns(2)
-        with rc1:
-            ym_start = st.selectbox(
-                "Desde",
-                options=ym_options,
-                index=ym_options.index("2025-01") if "2025-01" in ym_options else 0,
-                key="summary_range_start",
-            )
-        with rc2:
-            ym_end = st.selectbox(
-                "Hasta",
-                options=ym_options,
-                index=ym_options.index("2025-12") if "2025-12" in ym_options else len(ym_options) - 1,
-                key="summary_range_end",
-            )
-
-        if ym_start > ym_end:
-            st.warning("Rango inválido: 'Desde' debe ser menor o igual que 'Hasta'.")
-            return
-
-        # Filtrar consolidated_rows dentro del rango (excluir prev_year)
-        range_rows = [
-            cr for cr in consolidated_rows
-            if ym_start <= cr["fecha"] <= ym_end
-            and not cr.get("is_prev_year", False)
-        ]
-
-        # Mes anterior al inicio para Valor Inicial
-        prev_month_row = None
-        for cr in consolidated_rows:
-            if cr["fecha"] < ym_start:
-                prev_month_row = cr
-
-        if range_rows:
-            # Valor Inicial = ending_value del mes anterior al inicio
-            valor_inicial = prev_month_row["ending_value"] if prev_month_row else None
-
-            # Ending Value = ending_value del último mes del rango
-            ending_value = range_rows[-1]["ending_value"]
-
-            # Movimientos / Utilidad: suma de los valores mensuales mostrados
-            # (misma granularidad que Tabla Resumen para evitar descuadres visibles).
-            total_mov = sum(round(_to_float(r.get("movimientos")) or 0.0, 2) for r in range_rows)
-            total_util = sum(round(_to_float(r.get("utilidad")) or 0.0, 2) for r in range_rows)
-
-            # Rentabilidad compuesta sobre rentabilidades mensuales mostradas
-            # (redondeadas a 2 decimales, consistente con la tabla visible).
-            compound_ret = 1.0
-            compound_ret_sc = 1.0
-            has_ret = False
-            has_ret_sc = False
-            for r in range_rows:
-                ret_val = _to_float(r.get("rent_mensual_pct"))
-                ret_sc_val = _to_float(r.get("rent_mensual_sin_caja_pct"))
-                if ret_val is not None:
-                    compound_ret *= (1 + round(ret_val, 2) / 100)
-                    has_ret = True
-                if ret_sc_val is not None:
-                    compound_ret_sc *= (1 + round(ret_sc_val, 2) / 100)
-                    has_ret_sc = True
-
-            rent_pct = (compound_ret - 1) * 100 if has_ret else None
-            rent_sc_pct = (compound_ret_sc - 1) * 100 if has_ret_sc else None
-
-            # Tabla vertical de KPIs (2 columnas)
-            kpi_data = [
-                {"Concepto": "Valor Inicial", "Valor": _fmt_number(valor_inicial)},
-                {"Concepto": "Ending Value", "Valor": _fmt_number(ending_value)},
-                {"Concepto": "Movimientos", "Valor": _fmt_number(total_mov)},
-                {"Concepto": "Utilidad", "Valor": _fmt_number(total_util)},
-                {"Concepto": "Rentabilidad (%)", "Valor": _fmt_pct(rent_pct)},
-                {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_sc_pct)},
-            ]
-            df_range = pd.DataFrame(kpi_data)
-            render_table(df_range)
+        ym_available = sorted(
+            {
+                row["fecha"]
+                for row in consolidated_rows
+                if not row.get("is_prev_year", False) and row.get("fecha")
+            }
+        )
+        ym_options = sorted(ym_available if ym_available else fecha_options)
+        if not ym_options:
+            st.info("Sin datos para rango personalizado.")
         else:
-            st.info("Sin datos en el rango seleccionado.")
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                ym_start = st.selectbox(
+                    "Desde",
+                    options=ym_options,
+                    index=0,
+                    key="summary_range_start",
+                )
+            with rc2:
+                ym_end = st.selectbox(
+                    "Hasta",
+                    options=ym_options,
+                    index=len(ym_options) - 1,
+                    key="summary_range_end",
+                )
+
+            if ym_start > ym_end:
+                st.warning("Rango invalido: 'Desde' debe ser menor o igual que 'Hasta'.")
+            else:
+                range_rows = [
+                    row
+                    for row in consolidated_rows
+                    if ym_start <= row.get("fecha", "") <= ym_end and not row.get("is_prev_year", False)
+                ]
+                prev_month_row = None
+                for row in consolidated_rows:
+                    if row.get("fecha", "") < ym_start:
+                        prev_month_row = row
+
+                if range_rows:
+                    valor_inicial = prev_month_row.get("ending_value") if prev_month_row else None
+                    ending_value = range_rows[-1].get("ending_value")
+                    total_mov = sum(round(_to_float(r.get("movimientos")) or 0.0, 2) for r in range_rows)
+                    total_util = sum(round(_to_float(r.get("utilidad")) or 0.0, 2) for r in range_rows)
+
+                    comp_ret = 1.0
+                    comp_ret_nc = 1.0
+                    has_ret = False
+                    has_ret_nc = False
+                    for r in range_rows:
+                        ret = _to_float(r.get("rent_mensual_pct"))
+                        ret_nc = _to_float(r.get("rent_mensual_sin_caja_pct"))
+                        if ret is not None:
+                            comp_ret *= (1 + round(ret, 2) / 100)
+                            has_ret = True
+                        if ret_nc is not None:
+                            comp_ret_nc *= (1 + round(ret_nc, 2) / 100)
+                            has_ret_nc = True
+
+                    rent_pct = (comp_ret - 1) * 100 if has_ret else None
+                    rent_nc_pct = (comp_ret_nc - 1) * 100 if has_ret_nc else None
+
+                    range_df = pd.DataFrame(
+                        [
+                            {"Concepto": "Valor Inicial", "Valor": _fmt_num(valor_inicial)},
+                            {"Concepto": "Ending Value", "Valor": _fmt_num(ending_value)},
+                            {"Concepto": "Movimientos", "Valor": _fmt_num(total_mov)},
+                            {"Concepto": "Utilidad", "Valor": _fmt_num(total_util)},
+                            {"Concepto": "Rentabilidad (%)", "Valor": _fmt_pct(rent_pct)},
+                            {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_nc_pct)},
+                        ]
+                    )
+                    render_table(range_df, fixed_equal_cols=True)
+                else:
+                    st.info("Sin datos en el rango seleccionado.")
 
     st.markdown("---")
 
-    # ── Detalle Cartolas ─────────────────────────────────────────
-    st.subheader("📄 Detalle Cartolas")
-    st.caption("Detalle individual de cada cartola (cuenta/período).")
+    st.subheader("Detalle Cartolas")
+    st.caption("Detalle individual por cuenta y periodo.")
 
     if detail_rows:
-        table_data = []
-        for r in detail_rows:
-            table_data.append({
-                "Fecha": r["fecha"],
-                "Sociedad": r["sociedad"],
-                "Banco": _fmt_bank(r["banco"]),
-                "ID": r["id"],
-                "Moneda": r["moneda"],
-                "Ending Value": _fmt_number(r["ending_value"]),
-                "Caja": _fmt_number(r.get("caja")),
-                "Movimientos": _fmt_number(r["movimientos"]),
-                "Utilidad": _fmt_number(r["utilidad"]),
-                "Rent. Mensual (%)": _fmt_pct(r["rent_mensual_pct"]),
-                "Rent. Mensual sin Caja (%)": _fmt_pct(r["rent_mensual_sin_caja_pct"]),
-            })
-        df_detail = pd.DataFrame(table_data)
-        render_table(df_detail)
+        table_rows = []
+        for row in detail_rows:
+            table_rows.append(
+                {
+                    "Fecha": row.get("fecha"),
+                    "Sociedad": row.get("sociedad"),
+                    "Banco": _fmt_bank(str(row.get("banco", ""))),
+                    "ID": row.get("id"),
+                    "Moneda": row.get("moneda"),
+                    "Ending Value": _fmt_num(row.get("ending_value")),
+                    "Caja": _fmt_num(row.get("caja")),
+                    "Movimientos": _fmt_num(row.get("movimientos")),
+                    "Utilidad": _fmt_num(row.get("utilidad")),
+                    "Rent. Mensual (%)": _fmt_pct(row.get("rent_mensual_pct")),
+                    "Rent. Mensual sin Caja (%)": _fmt_pct(row.get("rent_mensual_sin_caja_pct")),
+                }
+            )
+        render_table(pd.DataFrame(table_rows), fixed_equal_cols=True)
     else:
-        st.info("Sin datos. Cargue cartolas para ver el detalle.")
-
-
-
-
+        st.info("Sin datos para mostrar.")

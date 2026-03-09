@@ -11,7 +11,7 @@ Este servicio se encarga de:
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from backend.db.models import Account, ValidationLog
+from backend.db.models import Account, MonthlyClosing, ValidationLog
 
 
 class AccountService:
@@ -193,12 +193,36 @@ class AccountService:
     def get_filter_options(self) -> dict[str, list[str]]:
         """Retorna opciones de filtro de cuentas para la UI."""
         accounts = self.get_all()
+        years = [
+            int(row[0])
+            for row in self.db.query(MonthlyClosing.year).distinct().order_by(MonthlyClosing.year).all()
+            if row[0] is not None
+        ]
+        fecha_rows = (
+            self.db.query(MonthlyClosing.year, MonthlyClosing.month)
+            .filter(MonthlyClosing.year.isnot(None), MonthlyClosing.month.isnot(None))
+            .distinct()
+            .all()
+        )
+        available_fechas = sorted(
+            {
+                f"{int(year)}-{int(month):02d}"
+                for year, month in fecha_rows
+                if year is not None and month is not None
+            },
+            reverse=True,
+        )
+        latest_fecha = available_fechas[0] if available_fechas else None
         return {
             "bank_codes": sorted(set(a.bank_code for a in accounts)),
             "entity_names": sorted(set(a.entity_name for a in accounts)),
+            "person_names": sorted(set(a.person_name for a in accounts if a.person_name)),
             "account_types": sorted(set(a.account_type for a in accounts)),
             "currencies": sorted(set(a.currency for a in accounts)),
             "countries": sorted(set(a.country for a in accounts)),
+            "years": years,
+            "available_fechas": available_fechas,
+            "latest_fecha": latest_fecha,
         }
 
     def _log(self, vtype: str, severity: str, message: str):

@@ -12,9 +12,10 @@ Este servicio es la pieza que conecta el parsing con el reporting.
 import json
 import logging
 import calendar
+import re
 from datetime import date, timezone, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Optional
+from typing import Optional, Any
 
 from sqlalchemy.orm import Session
 
@@ -55,18 +56,61 @@ def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[D
     except (TypeError, ValueError):
         return None
 
+    def _label_norm(label: Any) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
+
+    def _is_cash_umbrella(label_norm: str) -> bool:
+        return (
+            "cash" in label_norm
+            and "deposit" in label_norm
+            and ("moneymarket" in label_norm or "shortterm" in label_norm)
+        )
+
+    def _is_mixed_cash_bucket(label_norm: str) -> bool:
+        # Ej: "Cash & Fixed Income" no es caja pura.
+        return "cash" in label_norm and any(
+            tok in label_norm for tok in ("fixedincome", "bond", "equity", "stock")
+        )
+
+    def _value_from_payload(payload: Any) -> Optional[Decimal]:
+        if isinstance(payload, dict):
+            raw = (
+                payload.get("value")
+                or payload.get("total")
+                or payload.get("ending")
+                or payload.get("ending_value")
+                or payload.get("market_value")
+                or payload.get("amount")
+            )
+        else:
+            raw = payload
+        return _safe_decimal(raw)
+
     total = Decimal("0")
     found = False
     if isinstance(alloc, dict):
+        umbrella_values: list[Decimal] = []
         for key, payload in alloc.items():
-            key_l = str(key).lower()
-            if "cash" not in key_l and "money market" not in key_l and "deposit" not in key_l:
+            key_norm = _label_norm(key)
+            if _is_mixed_cash_bucket(key_norm):
                 continue
-            if isinstance(payload, dict):
-                raw = payload.get("value") or payload.get("market_value") or payload.get("amount")
-            else:
-                raw = payload
-            val = _safe_decimal(raw)
+            if not _is_cash_umbrella(key_norm):
+                continue
+            val = _value_from_payload(payload)
+            if val is not None:
+                umbrella_values.append(val)
+        if umbrella_values:
+            return max(umbrella_values)
+
+        for key, payload in alloc.items():
+            key_norm = _label_norm(key)
+            if _is_mixed_cash_bucket(key_norm):
+                continue
+            if not any(
+                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+            ):
+                continue
+            val = _value_from_payload(payload)
             if val is None:
                 continue
             total += val
@@ -75,15 +119,149 @@ def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[D
         for row in alloc:
             if not isinstance(row, dict):
                 continue
-            name = str(row.get("asset_class") or row.get("name") or row.get("label") or "").lower()
-            if "cash" not in name and "money market" not in name and "deposit" not in name:
+            name_norm = _label_norm(row.get("asset_class") or row.get("name") or row.get("label") or "")
+            if _is_mixed_cash_bucket(name_norm):
                 continue
-            val = _safe_decimal(row.get("value") or row.get("market_value") or row.get("amount"))
+            if not any(
+                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+            ):
+                continue
+            val = _value_from_payload(row)
             if val is None:
                 continue
             total += val
             found = True
     return total if found else None
+
+
+def _normalize_asset_label(label: Any) -> str:
+    text = str(label or "").strip().lower()
+    return re.sub(r"[^a-z0-9]", "", text)
+
+
+def _extract_asset_allocation_entries(asset_alloc: Any) -> list[tuple[str, Decimal]]:
+    """
+    Devuelve lista de (label_normalized, value) desde dict/list heterogéneo.
+    Prioriza campos de cierre/total para Mandatos.
+    """
+    entries: list[tuple[str, Decimal]] = []
+    if isinstance(asset_alloc, dict):
+        iterable = list(asset_alloc.items())
+    elif isinstance(asset_alloc, list):
+        iterable = []
+        for row in asset_alloc:
+            if not isinstance(row, dict):
+                continue
+            label = (
+                row.get("asset_class")
+                or row.get("name")
+                or row.get("label")
+                or row.get("class")
+                or row.get("category")
+            )
+            iterable.append((label, row))
+    else:
+        return entries
+
+    for raw_label, payload in iterable:
+        label_norm = _normalize_asset_label(raw_label)
+        if not label_norm:
+            continue
+        if isinstance(payload, dict):
+            raw_value = (
+                payload.get("total")
+                or payload.get("ending")
+                or payload.get("value")
+                or payload.get("market_value")
+                or payload.get("amount")
+                or payload.get("ending_value")
+            )
+        else:
+            raw_value = payload
+        val = _safe_decimal(raw_value)
+        if val is None:
+            continue
+        entries.append((label_norm, val))
+    return entries
+
+
+def _pick_asset_class_value(
+    entries: list[tuple[str, Decimal]],
+    *,
+    preferred_exact: list[str],
+    include_tokens: list[str],
+    exclude_tokens: list[str] | None = None,
+) -> Decimal | None:
+    if not entries:
+        return None
+    by_label: dict[str, Decimal] = {}
+    for label, val in entries:
+        by_label[label] = val
+
+    for label in preferred_exact:
+        if label in by_label:
+            return by_label[label]
+
+    total = Decimal("0")
+    found = False
+    excludes = exclude_tokens or []
+    for label, val in entries:
+        if not any(tok in label for tok in include_tokens):
+            continue
+        if any(tok in label for tok in excludes):
+            continue
+        total += val
+        found = True
+    return total if found else None
+
+
+def _normalize_mandate_asset_allocation(asset_alloc: Any) -> dict[str, dict[str, str]] | None:
+    """
+    Normaliza asset allocation de Mandatos a 3 clases:
+    - Cash, Deposits & Money Market
+    - Fixed Income
+    - Equities
+    """
+    entries = _extract_asset_allocation_entries(asset_alloc)
+    if not entries:
+        return None
+
+    cash = _pick_asset_class_value(
+        entries,
+        preferred_exact=[
+            "cashdepositsmoneymarketfunds",
+            "cashdepositsshortterm",
+            "liquidity",
+            "cash",
+        ],
+        include_tokens=["cash", "deposit", "moneymarket", "liquidity"],
+        exclude_tokens=["totalportfolio", "netassets", "totalmarketvalue", "totalnetmarketvalue"],
+    )
+    fixed_income = _pick_asset_class_value(
+        entries,
+        preferred_exact=["fixedincome", "bonds"],
+        include_tokens=["fixedincome", "bond"],
+        exclude_tokens=["totalportfolio", "netassets"],
+    )
+    equities = _pick_asset_class_value(
+        entries,
+        preferred_exact=["equities", "publicequity", "equity"],
+        include_tokens=["equity", "equities", "stock"],
+        exclude_tokens=["totalportfolio", "netassets"],
+    )
+
+    if cash is None and fixed_income is None and equities is None:
+        return None
+
+    cash = cash if cash is not None else Decimal("0")
+    fixed_income = fixed_income if fixed_income is not None else Decimal("0")
+    equities = equities if equities is not None else Decimal("0")
+
+    return {
+        "Cash, Deposits & Money Market": {"value": str(cash)},
+        "Fixed Income": {"value": str(fixed_income)},
+        "Equities": {"value": str(equities)},
+    }
 
 
 class DataLoadingService:
@@ -469,28 +647,33 @@ class DataLoadingService:
         3. Si no, intentar encontrar por bank_code + file_type del documento
         """
         accounts: list[Account] = []
+        parser_scoped_types = self._scoped_account_types_for_parser(result.parser_name)
+
+        def _query_account_by_number(acct_num: str) -> Optional[Account]:
+            q = self.db.query(Account).filter(Account.account_number == acct_num)
+            if parser_scoped_types:
+                q = q.filter(Account.account_type.in_(parser_scoped_types))
+            return q.first()
 
         # Multi-cuenta
         if result.account_numbers:
             for acct_num in result.account_numbers:
-                acct = (
-                    self.db.query(Account)
-                    .filter(Account.account_number == acct_num)
-                    .first()
-                )
+                acct = _query_account_by_number(acct_num)
                 if acct:
                     accounts.append(acct)
                 else:
                     logger.warning(
-                        "Cuenta %s no encontrada en maestro", acct_num
+                        "Cuenta %s no encontrada en maestro%s",
+                        acct_num,
+                        (
+                            f" (scope parser={result.parser_name}, tipos={parser_scoped_types})"
+                            if parser_scoped_types
+                            else ""
+                        ),
                     )
         # Cuenta única
         elif result.account_number and result.account_number != "Varios":
-            acct = (
-                self.db.query(Account)
-                .filter(Account.account_number == result.account_number)
-                .first()
-            )
+            acct = _query_account_by_number(result.account_number)
             if acct:
                 accounts.append(acct)
 
@@ -501,10 +684,34 @@ class DataLoadingService:
                 .filter(Account.id == doc.account_id)
                 .first()
             )
-            if acct:
+            if acct and (
+                not parser_scoped_types or acct.account_type in parser_scoped_types
+            ):
                 accounts.append(acct)
+            elif acct:
+                logger.warning(
+                    "Documento %s apunta a cuenta %s con tipo %s fuera del scope parser=%s (%s)",
+                    doc.id,
+                    acct.account_number,
+                    acct.account_type,
+                    result.parser_name,
+                    parser_scoped_types,
+                )
 
         return accounts
+
+    @staticmethod
+    def _scoped_account_types_for_parser(parser_name: str | None) -> list[str] | None:
+        """
+        Aislamiento explícito para parsers JPM con paquetes que contienen subcuentas mixtas.
+        Evita que un PDF ETF actualice cuentas Brokerage y viceversa.
+        """
+        key = (parser_name or "").strip().lower()
+        mapping = {
+            "parsers.jpmorgan.etf": ["etf"],
+            "parsers.jpmorgan.brokerage": ["brokerage"],
+        }
+        return mapping.get(key)
 
     # ═══════════════════════════════════════════════════════════════
     # PARSED STATEMENTS
@@ -616,8 +823,16 @@ class DataLoadingService:
         change_in_value = account_values.get("change_investment")
         accrual = account_values.get("accrual")
 
-        # Asset allocation (nivel consolidado)
-        asset_alloc = result.qualitative_data.get("asset_allocation")
+        # Asset allocation (normalizado para Mandatos, por cuenta cuando aplica).
+        raw_asset_alloc = self._resolve_asset_allocation_for_account(
+            result=result,
+            account=account,
+            account_values=account_values,
+        )
+        if account.account_type == "mandato":
+            asset_alloc = _normalize_mandate_asset_allocation(raw_asset_alloc) or raw_asset_alloc
+        else:
+            asset_alloc = raw_asset_alloc
         asset_alloc_json = json.dumps(asset_alloc) if asset_alloc else None
 
         # UNIQUE: account_id, year, month
@@ -857,6 +1072,78 @@ class DataLoadingService:
                     )
                 )
 
+    def _resolve_asset_allocation_for_account(
+        self,
+        result: ParseResult,
+        account: Account,
+        account_values: dict,
+    ) -> dict | list | None:
+        """
+        Obtiene asset allocation para la cuenta puntual.
+        Prioridad:
+        1) account_monthly_activity.asset_allocation (subcuentas multi-account)
+        2) qualitative_data.asset_allocation
+        3) fallback UBS desde balances.selected_portfolio / balances.portfolios
+        """
+        account_level = account_values.get("asset_allocation")
+        if isinstance(account_level, (dict, list)) and account_level:
+            return account_level
+
+        top_level = result.qualitative_data.get("asset_allocation")
+        if isinstance(top_level, (dict, list)) and top_level:
+            return top_level
+
+        if account.bank_code == "ubs":
+            balances = result.balances or {}
+            selected = balances.get("selected_portfolio")
+            if isinstance(selected, dict):
+                alloc = self._ubs_asset_allocation_from_portfolio_block(selected)
+                if alloc:
+                    return alloc
+
+            suffix_match = re.search(r"-(\d{2})$", account.account_number or "")
+            if suffix_match:
+                key = f"Portfolio{suffix_match.group(1)}"
+                portfolios = balances.get("portfolios")
+                if isinstance(portfolios, dict):
+                    pdata = portfolios.get(key)
+                    if isinstance(pdata, dict):
+                        alloc = self._ubs_asset_allocation_from_portfolio_block(pdata)
+                        if alloc:
+                            return alloc
+
+        return None
+
+    @staticmethod
+    def _ubs_asset_allocation_from_portfolio_block(
+        portfolio_block: dict[str, Any] | None,
+    ) -> dict[str, dict[str, str]] | None:
+        if not isinstance(portfolio_block, dict):
+            return None
+        classes = portfolio_block.get("asset_classes")
+        net_assets = _safe_decimal(portfolio_block.get("net_assets"))
+        if not isinstance(classes, dict):
+            if net_assets == Decimal("0"):
+                return {
+                    "Liquidity": {"total": "0"},
+                    "Bonds": {"total": "0"},
+                    "Equities": {"total": "0"},
+                }
+            return None
+
+        mapping = {
+            "liquidity": "Liquidity",
+            "bonds": "Bonds",
+            "equities": "Equities",
+        }
+        alloc: dict[str, dict[str, str]] = {}
+        for raw_key, label in mapping.items():
+            val = _safe_decimal(classes.get(raw_key))
+            if val is None:
+                continue
+            alloc[label] = {"total": str(val)}
+        return alloc or None
+
     def _upsert_ubs_historical_monthly_activity(
         self,
         result: ParseResult,
@@ -1017,6 +1304,9 @@ class DataLoadingService:
                 prior_adj_ytd = _safe_decimal(monthly.get("prior_period_adjustments_ytd"))
                 if prior_adj_ytd is not None:
                     values["prior_period_adjustments_ytd"] = prior_adj_ytd
+                monthly_alloc = monthly.get("asset_allocation")
+                if isinstance(monthly_alloc, (dict, list)) and monthly_alloc:
+                    values["asset_allocation"] = monthly_alloc
                 break
 
         # -- account_ytd (fallback if monthly not available) --

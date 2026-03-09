@@ -41,6 +41,8 @@ def _apply_account_filters(query, filters: FilterParams):
         query = query.filter(Account.bank_code.in_(filters.bank_codes))
     if filters.entity_names:
         query = query.filter(Account.entity_name.in_(filters.entity_names))
+    if getattr(filters, "person_names", None):
+        query = query.filter(Account.person_name.in_(filters.person_names))
     if filters.account_types:
         query = query.filter(Account.account_type.in_(filters.account_types))
     if filters.currencies:
@@ -83,11 +85,23 @@ def _get_filter_options(db: Session) -> dict:
             .all()
         )
     ]
+    person_names = [
+        row[0]
+        for row in (
+            db.query(Account.person_name)
+            .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
+            .filter(Account.person_name.isnot(None))
+            .distinct()
+            .all()
+        )
+        if row[0]
+    ]
     return {
         "years": years,
         "months": list(range(1, 13)),
         "bank_codes": bank_codes,
         "entity_names": entity_names,
+        "person_names": sorted(person_names),
         "account_types": account_types,
         "currencies": [],
     }
@@ -110,62 +124,86 @@ def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
     except (TypeError, ValueError):
         return 0.0
 
+    def _payload_value(payload) -> Optional[float]:
+        if isinstance(payload, dict):
+            raw = (
+                payload.get("value")
+                or payload.get("total")
+                or payload.get("ending")
+                or payload.get("ending_value")
+                or payload.get("market_value")
+                or payload.get("amount")
+            )
+        else:
+            raw = payload
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _label_norm(label: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
+
+    def _is_cash_umbrella(label_norm: str) -> bool:
+        return (
+            "cash" in label_norm
+            and "deposit" in label_norm
+            and ("moneymarket" in label_norm or "shortterm" in label_norm)
+        )
+
+    def _is_mixed_cash_bucket(label_norm: str) -> bool:
+        # Ej: "Cash & Fixed Income" no es caja pura.
+        return "cash" in label_norm and any(
+            tok in label_norm for tok in ("fixedincome", "bond", "equity", "stock")
+        )
+
     total = 0.0
     if isinstance(alloc, dict):
         items = list(alloc.items())
-        # Evitar doble conteo en bancos que reportan total + sublíneas (ej. Goldman).
-        umbrella_total = 0.0
+        # Evitar doble conteo en bancos que reportan total + sublineas (ej. Goldman).
+        umbrella_values: list[float] = []
         for key, payload in items:
-            key_l = str(key).lower().strip()
-            if "cash, deposits" in key_l and "money market" in key_l:
-                if isinstance(payload, dict):
-                    raw = (
-                        payload.get("value")
-                        or payload.get("market_value")
-                        or payload.get("amount")
-                    )
-                else:
-                    raw = payload
-                try:
-                    umbrella_total += float(raw)
-                except (TypeError, ValueError):
-                    pass
-        if umbrella_total > 0:
-            return umbrella_total
+            key_norm = _label_norm(key)
+            if _is_mixed_cash_bucket(key_norm):
+                continue
+            if not _is_cash_umbrella(key_norm):
+                continue
+            val = _payload_value(payload)
+            if val is not None:
+                umbrella_values.append(val)
+        if umbrella_values:
+            return max(max(umbrella_values), 0.0)
 
         for key, payload in items:
-            key_l = str(key).lower()
-            if "cash" not in key_l and "money market" not in key_l and "deposit" not in key_l:
+            key_norm = _label_norm(key)
+            if _is_mixed_cash_bucket(key_norm):
                 continue
-            if isinstance(payload, dict):
-                raw = (
-                    payload.get("value")
-                    or payload.get("market_value")
-                    or payload.get("amount")
-                )
-            else:
-                raw = payload
-            try:
-                total += float(raw)
-            except (TypeError, ValueError):
+            if not any(
+                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+            ):
                 continue
+            val = _payload_value(payload)
+            if val is None:
+                continue
+            total += val
     elif isinstance(alloc, list):
         for row in alloc:
             if not isinstance(row, dict):
                 continue
-            name = str(
+            name_norm = _label_norm(
                 row.get("asset_class")
                 or row.get("name")
                 or row.get("label")
                 or ""
-            ).lower()
-            if "cash" not in name and "money market" not in name and "deposit" not in name:
+            )
+            if not any(
+                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+            ):
                 continue
-            raw = row.get("value") or row.get("market_value") or row.get("amount")
-            try:
-                total += float(raw)
-            except (TypeError, ValueError):
+            val = _payload_value(row)
+            if val is None:
                 continue
+            total += val
 
     return max(total, 0.0)
 
@@ -209,6 +247,74 @@ def _extract_cash_from_etf_compositions(
             total += float(mv or 0)
         except (TypeError, ValueError):
             continue
+    return max(total, 0.0)
+
+
+def _extract_cash_from_parsed_statement_holdings(
+    db: Session,
+    account_id: int,
+    source_document_id: int | None,
+    year: int,
+    month: int,
+) -> float:
+    """
+    Fallback para cuentas sin caja explícita en asset_allocation.
+    Usa rows parseadas de ParsedStatement (holdings) y suma instrumentos cash-like.
+    """
+    query = db.query(ParsedStatement).filter(
+        ParsedStatement.account_id == account_id,
+        extract("year", ParsedStatement.statement_date) == year,
+        extract("month", ParsedStatement.statement_date) == month,
+    )
+    if source_document_id:
+        query = query.filter(ParsedStatement.raw_document_id == source_document_id)
+    statement = query.order_by(ParsedStatement.id.desc()).first()
+    if not statement:
+        return 0.0
+
+    try:
+        parsed = json.loads(statement.parsed_data_json or "{}")
+    except (TypeError, ValueError):
+        return 0.0
+
+    rows = parsed.get("rows") if isinstance(parsed, dict) else None
+    if not isinstance(rows, list):
+        return 0.0
+
+    # Palabras que identifican instrumentos de caja (dos buckets típicos en JPM: Liquidity + Deposit/Bank)
+    cash_keywords = (
+        "liquidity",
+        "sweep",
+        "money market",
+        "cash",
+        "deposit",
+        "proceeds from pending sales",
+        "li-liq",
+        "bank",
+        "available balance",
+        "credit balance",
+        "settlement",
+        "cash equivalent",
+    )
+    # Excluir totales/encabezados que contengan "balance" pero no sean caja
+    skip_if_in_name = ("opening balance", "ending balance", "total ", " total")
+
+    total = 0.0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("is_total"):
+            continue
+        name = str(row.get("instrument") or "").lower()
+        if any(skip in name for skip in skip_if_in_name):
+            continue
+        is_cash_like = any(kw in name for kw in cash_keywords)
+        if not is_cash_like:
+            continue
+        mv = _to_float(row.get("market_value"))
+        if mv is None:
+            continue
+        total += mv
     return max(total, 0.0)
 
 
@@ -303,12 +409,10 @@ def _resolve_cash_value(
     if is_cash_account:
         return end_w or 0.0
 
-    if norm:
-        normalized_cash = _to_float(norm.cash_value)
-        if normalized_cash is not None:
-            return normalized_cash
-
     cash = _extract_cash_from_asset_allocation(mc.asset_allocation_json)
+    if cash > 0.0:
+        return cash
+
     if cash == 0.0 and acct.account_type == "etf":
         cache_key = (mc.year, mc.month)
         if cache_key not in etf_cash_cache:
@@ -319,7 +423,29 @@ def _resolve_cash_value(
                 month=mc.month,
             )
         cash = etf_cash_cache[cache_key]
-    return cash
+
+    if (
+        cash == 0.0
+        and acct.bank_code == "jpmorgan"
+        and acct.account_type in {"brokerage", "etf"}
+    ):
+        cash = _extract_cash_from_parsed_statement_holdings(
+            db=db,
+            account_id=acct.id,
+            source_document_id=mc.source_document_id,
+            year=mc.year,
+            month=mc.month,
+        )
+
+    if cash > 0.0:
+        return cash
+
+    if norm:
+        normalized_cash = _to_float(norm.cash_value)
+        if normalized_cash is not None:
+            return max(normalized_cash, 0.0)
+
+    return max(cash, 0.0)
 
 
 def _resolve_movements_and_profit(
@@ -587,13 +713,25 @@ def get_mandates(
     db: Session = Depends(get_db),
 ):
     """
-    Retorna datos para la pestaña Mandatos.
+    Retorna datos para la pestana Mandatos.
     Filtra cuentas con account_type='mandato'.
     """
+    selected_years = set(filters.years) if filters.years else None
+    requested_fecha: Optional[str] = None
+
+    if filters.fecha:
+        m = re.fullmatch(r"(\d{4})-(\d{2})", filters.fecha.strip())
+        if m:
+            year = int(m.group(1))
+            month = int(m.group(2))
+            if 1 <= month <= 12:
+                selected_years = {year}
+                requested_fecha = f"{year}-{month:02d}"
+
     query = _query_closing_rows(
         db=db,
         filters=filters,
-        years=set(filters.years) if filters.years else None,
+        years=selected_years,
         account_type="mandato",
     )
 
@@ -608,18 +746,20 @@ def get_mandates(
             "aa_by_bank": {},
             "banks_by_month": [],
             "returns_table": [],
+            "available_fechas": [],
+            "selected_fecha": None,
             "message": "Sin datos de mandatos",
         }
 
-    # ── 1) Bancos x meses (base tabular) ─────────────────────────
     banks_by_month: list[dict] = []
     month_totals: dict[str, float] = {}
     month_by_mandate: dict[str, dict[str, float]] = {}
     month_asset_alloc: dict[str, dict[str, float]] = {}
-    bank_asset_alloc: dict[str, dict[str, float]] = {}
+    bank_asset_alloc_by_month: dict[str, dict[str, dict[str, float]]] = {}
     returns_by_bank: dict[str, dict[str, float]] = {}
     values_by_bank: dict[str, dict[str, float]] = {}
     income_by_bank: dict[str, dict[str, float]] = {}
+    movements_by_bank: dict[str, dict[str, float]] = {}
     months_seen: set[str] = set()
 
     for mc, acct, norm in results:
@@ -629,6 +769,9 @@ def get_mandates(
         income = _to_float(norm.profit_period) if norm else None
         if income is None:
             income = _to_float(mc.income) or 0.0
+        movements = _to_float(norm.movements_net) if norm else None
+        if movements is None:
+            movements = _to_float(mc.change_in_value) or 0.0
         mandate = (acct.mandate_type or "unknown").lower()
 
         banks_by_month.append({
@@ -639,6 +782,7 @@ def get_mandates(
             "month": mc.month,
             "net_value": net_value,
             "income": income,
+            "movements": movements,
         })
 
         month_totals[key] = month_totals.get(key, 0.0) + net_value
@@ -647,8 +791,12 @@ def get_mandates(
 
         values_by_bank.setdefault(acct.bank_code, {})
         income_by_bank.setdefault(acct.bank_code, {})
+        movements_by_bank.setdefault(acct.bank_code, {})
         values_by_bank[acct.bank_code][key] = values_by_bank[acct.bank_code].get(key, 0.0) + net_value
         income_by_bank[acct.bank_code][key] = income_by_bank[acct.bank_code].get(key, 0.0) + income
+        movements_by_bank[acct.bank_code][key] = (
+            movements_by_bank[acct.bank_code].get(key, 0.0) + movements
+        )
 
         if mc.asset_allocation_json:
             try:
@@ -657,7 +805,8 @@ def get_mandates(
                 alloc = {}
             if isinstance(alloc, dict):
                 month_asset_alloc.setdefault(key, {})
-                bank_asset_alloc.setdefault(acct.bank_code, {})
+                bank_asset_alloc_by_month.setdefault(key, {})
+                bank_asset_alloc_by_month[key].setdefault(acct.bank_code, {})
                 for asset_name, payload in alloc.items():
                     if isinstance(payload, dict):
                         raw = payload.get("value") or payload.get("market_value") or payload.get("amount")
@@ -669,9 +818,10 @@ def get_mandates(
                         continue
                     label = str(asset_name).strip() or "Other"
                     month_asset_alloc[key][label] = month_asset_alloc[key].get(label, 0.0) + val
-                    bank_asset_alloc[acct.bank_code][label] = bank_asset_alloc[acct.bank_code].get(label, 0.0) + val
+                    bank_asset_alloc_by_month[key][acct.bank_code][label] = (
+                        bank_asset_alloc_by_month[key][acct.bank_code].get(label, 0.0) + val
+                    )
 
-    # ── 2) % Mandatos 12m ─────────────────────────────────────────
     mandate_pcts: list[dict] = []
     for key in sorted(months_seen):
         total = month_totals.get(key, 0.0)
@@ -684,31 +834,43 @@ def get_mandates(
             "other": round((by_mandate.get("unknown", 0.0) / total * 100), 4) if total > 0 else 0.0,
         })
 
-    # ── 3) Asset allocation 12m ───────────────────────────────────
     asset_allocation: list[dict] = []
     for key in sorted(months_seen):
         row = {"fecha": key}
         row.update({k: round(v, 2) for k, v in month_asset_alloc.get(key, {}).items()})
         asset_allocation.append(row)
 
-    # ── 4) Asset allocation por banco (0-100%) ───────────────────
+    selected_fecha = requested_fecha if requested_fecha in months_seen else (max(months_seen) if months_seen else None)
     aa_by_bank: dict[str, dict[str, float]] = {}
-    for bank, vals in bank_asset_alloc.items():
+    selected_month_alloc = bank_asset_alloc_by_month.get(selected_fecha or "", {})
+    for bank, vals in selected_month_alloc.items():
         total = sum(vals.values())
         aa_by_bank[bank] = {
             k: round((v / total * 100), 4) if total > 0 else 0.0
             for k, v in vals.items()
         }
 
-    # ── 5) Returns mensual / YTD por banco ────────────────────────
     for bank, months in values_by_bank.items():
         sorted_keys = sorted(months.keys())
         prev_val = None
+        prev_year = None
         monthly_returns: list[Decimal] = []
         for key in sorted_keys:
-            curr = Decimal(str(months[key]))
-            inc = Decimal(str(income_by_bank.get(bank, {}).get(key, 0.0)))
-            ret = monthly_return_pct(inc, Decimal(str(prev_val))) if prev_val not in (None, 0.0) else None
+            curr_val = float(months[key])
+            curr_year = int(str(key).split("-")[0])
+            if prev_year is None or curr_year != prev_year:
+                monthly_returns = []
+            prev_year = curr_year
+            mov_val = movements_by_bank.get(bank, {}).get(key)
+            inc_val = income_by_bank.get(bank, {}).get(key)
+            ret: Optional[Decimal] = None
+            if prev_val not in (None, 0.0):
+                if mov_val is not None:
+                    ret = (
+                        (Decimal(str(curr_val - float(mov_val))) / Decimal(str(prev_val))) - Decimal("1")
+                    ) * Decimal("100")
+                elif inc_val is not None:
+                    ret = monthly_return_pct(Decimal(str(inc_val)), Decimal(str(prev_val)))
             ret_float = round(float(ret), 4) if ret is not None else None
             ytd_float = None
             if ret is not None:
@@ -717,7 +879,7 @@ def get_mandates(
             returns_by_bank.setdefault(bank, {})
             returns_by_bank[bank][f"{key}_monthly"] = ret_float
             returns_by_bank[bank][f"{key}_ytd"] = ytd_float
-            prev_val = float(curr)
+            prev_val = curr_val
 
     returns_table = []
     for bank in sorted(returns_by_bank.keys()):
@@ -725,19 +887,68 @@ def get_mandates(
         row.update(returns_by_bank[bank])
         returns_table.append(row)
 
+    # ETF total (para comparativo en Mandatos): serie mensual y YTD consolidada.
+    etf_query = _query_closing_rows(
+        db=db,
+        filters=filters,
+        years=selected_years,
+        account_type="etf",
+    )
+    etf_results = etf_query.order_by(MonthlyClosing.year, MonthlyClosing.month).all()
+
+    etf_totals_by_month: dict[str, dict[str, float]] = {}
+    for mc, _, norm in etf_results:
+        key = f"{mc.year}-{mc.month:02d}"
+        end_val = _resolve_ending_with_accrual(mc, norm) or 0.0
+        mov_val = _to_float(norm.movements_net) if norm else None
+        if mov_val is None:
+            mov_val = _to_float(mc.change_in_value) or 0.0
+        if key not in etf_totals_by_month:
+            etf_totals_by_month[key] = {"net_value": 0.0, "movements": 0.0}
+        etf_totals_by_month[key]["net_value"] += end_val
+        etf_totals_by_month[key]["movements"] += mov_val
+
+    etf_total_returns: dict[str, Optional[float]] = {}
+    prev_total: Optional[float] = None
+    prev_year: Optional[int] = None
+    etf_monthly_returns: list[Decimal] = []
+    for key in sorted(etf_totals_by_month.keys()):
+        curr_year = int(key.split("-")[0])
+        if prev_year is None or curr_year != prev_year:
+            etf_monthly_returns = []
+        prev_year = curr_year
+
+        curr_val = etf_totals_by_month[key]["net_value"]
+        mov_val = etf_totals_by_month[key]["movements"]
+        ret: Optional[Decimal] = None
+        if prev_total not in (None, 0.0):
+            ret = (
+                (Decimal(str(curr_val - mov_val)) / Decimal(str(prev_total))) - Decimal("1")
+            ) * Decimal("100")
+        ret_float = round(float(ret), 4) if ret is not None else None
+        etf_total_returns[f"{key}_monthly"] = ret_float
+
+        ytd_float = None
+        if ret is not None:
+            etf_monthly_returns.append(ret)
+            ytd_float = round(float(ytd_return_pct(etf_monthly_returns)), 4)
+        etf_total_returns[f"{key}_ytd"] = ytd_float
+        prev_total = curr_val
+
     return {
         "mandate_pcts": mandate_pcts,
         "asset_allocation": asset_allocation,
         "aa_by_bank": aa_by_bank,
         "banks_by_month": banks_by_month,
         "returns_table": returns_table,
+        "available_fechas": sorted(months_seen),
+        "selected_fecha": selected_fecha,
+        "etf_totals_by_month": etf_totals_by_month,
+        "etf_total_returns": etf_total_returns,
     }
 
 
-# ═══════════════════════════════════════════════════════════════════
-# ETF – Helpers
-# ═══════════════════════════════════════════════════════════════════
-
+# ETF - Helpers
 SOCIETY_MAPPING = [
     ("Boatview JPM", lambda en, bc: "boatview" in en.lower() and bc == "jpmorgan"),
     ("Boatview GS", lambda en, bc: "boatview" in en.lower() and bc == "goldman_sachs"),
@@ -1219,13 +1430,14 @@ def get_personal(
         months=filters.months if filters.months else None,
     )
 
-    rows = query.order_by(MonthlyClosing.year, MonthlyClosing.month).all()
+    rows = query.order_by(MonthlyClosing.year, MonthlyClosing.month, Account.bank_code).all()
     if not rows:
         return {
             "consolidated_usd": 0.0,
             "consolidated_clp": 0.0,
             "cash": 0.0,
             "pie_charts": {"by_bank": [], "by_type": []},
+            "by_bank_detail": [],
             "entities_table": [],
             "summary_table": [],
             "range_table": [],
@@ -1235,28 +1447,53 @@ def get_personal(
     by_month: dict[str, float] = {}
     by_bank: dict[str, float] = {}
     by_type: dict[str, float] = {}
+    by_bank_detail: dict[str, dict[str, float]] = {}
     entities_table: list[dict] = []
     consolidated_usd = 0.0
     consolidated_clp = 0.0
     cash_total = 0.0
+    etf_cash_cache_by_account: dict[int, dict[tuple[int, int], float]] = {}
 
     last_key = max(f"{mc.year}-{mc.month:02d}" for mc, _, _ in rows)
     for mc, acct, norm in rows:
         key = f"{mc.year}-{mc.month:02d}"
         net = _resolve_ending_with_accrual(mc, norm) or 0.0
+        movements = _to_float(norm.movements_net) if norm else None
+        if movements is None:
+            movements = _to_float(mc.change_in_value) or 0.0
+        account_cache = etf_cash_cache_by_account.setdefault(acct.id, {})
+        cash_value = _resolve_cash_value(
+            db=db,
+            acct=acct,
+            mc=mc,
+            norm=norm,
+            etf_cash_cache=account_cache,
+        )
         by_month[key] = by_month.get(key, 0.0) + net
         by_bank[acct.bank_code] = by_bank.get(acct.bank_code, 0.0) + net
         by_type[acct.account_type] = by_type.get(acct.account_type, 0.0) + net
-        if acct.account_type in {"current", "savings", "checking"}:
-            cash_total += net
+        cash_total += cash_value
         currency = (norm.currency if norm and norm.currency else mc.currency) or acct.currency
         if key == last_key:
+            if acct.bank_code not in by_bank_detail:
+                by_bank_detail[acct.bank_code] = {
+                    "monto_usd": 0.0,
+                    "movimientos_mes": 0.0,
+                    "caja_disponible": 0.0,
+                }
+            if (currency or "").upper() == "USD":
+                by_bank_detail[acct.bank_code]["monto_usd"] += net
+            by_bank_detail[acct.bank_code]["movimientos_mes"] += movements
+            by_bank_detail[acct.bank_code]["caja_disponible"] += cash_value
             entities_table.append({
                 "sociedad": acct.entity_name,
                 "banco": acct.bank_code,
+                "nombre": acct.person_name,
                 "tipo_cuenta": acct.account_type,
                 "moneda": currency,
                 "net_value": net,
+                "movimientos": movements,
+                "caja": cash_value,
             })
             if (currency or "").upper() == "USD":
                 consolidated_usd += net
@@ -1276,6 +1513,15 @@ def get_personal(
             "by_bank": [{"label": k, "value": round(v, 2)} for k, v in sorted(by_bank.items(), key=lambda x: -x[1])],
             "by_type": [{"label": k, "value": round(v, 2)} for k, v in sorted(by_type.items(), key=lambda x: -x[1])],
         },
+        "by_bank_detail": [
+            {
+                "bank_code": bank,
+                "monto_usd": round(vals["monto_usd"], 2),
+                "movimientos_mes": round(vals["movimientos_mes"], 2),
+                "caja_disponible": round(vals["caja_disponible"], 2),
+            }
+            for bank, vals in sorted(by_bank_detail.items(), key=lambda x: x[0])
+        ],
         "entities_table": sorted(
             entities_table, key=lambda x: (x["sociedad"], x["banco"], x["tipo_cuenta"])
         ),

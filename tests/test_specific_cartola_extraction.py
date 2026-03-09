@@ -71,6 +71,16 @@ def test_ubs_suiza_quarterly_performance_emits_history_activity():
     assert len(current) == 1
     assert _as_decimal(current[0].get("net_contributions")) == Decimal("0")
     assert _as_decimal(current[0].get("utilidad")) == Decimal("606973")
+    selected = result.balances.get("selected_portfolio", {})
+    assert selected.get("portfolio") == "Portfolio02"
+    assert _as_decimal(selected.get("asset_classes", {}).get("liquidity")) == Decimal("951473")
+    assert _as_decimal(selected.get("asset_classes", {}).get("bonds")) == Decimal("53411634")
+    assert _as_decimal(selected.get("asset_classes", {}).get("equities")) == Decimal("37633194")
+    assert _as_decimal(selected.get("net_assets")) == Decimal("91996301")
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("Liquidity", {}).get("total")) == Decimal("951473")
+    assert _as_decimal(alloc.get("Bonds", {}).get("total")) == Decimal("53411634")
+    assert _as_decimal(alloc.get("Equities", {}).get("total")) == Decimal("37633194")
 
 
 def test_ubs_suiza_statement_date_fallback_from_filename():
@@ -159,6 +169,10 @@ def test_jpm_mandato_extracts_three_subaccounts():
     assert set(monthly.keys()) == {"1179200", "1412600", "1483400"}
     assert _as_decimal(monthly["1412600"]["ending_value_with_accrual"]) == Decimal("148531792.87")
     assert _as_decimal(monthly["1483400"]["ending_value_with_accrual"]) == Decimal("188557765.96")
+    alloc_1412600 = monthly["1412600"].get("asset_allocation", {})
+    assert _as_decimal(alloc_1412600.get("Cash, Deposits & Short Term", {}).get("ending")) == Decimal("2811109.86")
+    assert _as_decimal(alloc_1412600.get("Fixed Income", {}).get("ending")) == Decimal("145720683.04")
+    assert _as_decimal(alloc_1412600.get("Equities", {}).get("ending")) in {None, Decimal("0")}
 
 
 def test_jpm_mandato_net_cash_with_parentheses_is_parsed():

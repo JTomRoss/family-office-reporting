@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 import hashlib
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from backend.services.data_loading_service import DataLoadingService
 from parsers.base import ParseResult, ParsedRow, ParserStatus
 from parsers.bbh.custody import BBHCustodyParser
 from parsers.goldman_sachs.custody import GoldmanSachsCustodyParser
+from parsers.jpmorgan.brokerage import JPMorganBrokerageParser
 from parsers.jpmorgan.etf import JPMorganEtfParser
 from parsers.ubs.custody import UBSSwitzerlandCustodyParser
 
@@ -120,6 +122,15 @@ def test_loader_maps_goldman_mandato_activity_to_monthly_closing(db_session):
     )
     assert mc.income == Decimal("1106908.06")
     assert mc.change_in_value == Decimal("0.00")
+    alloc = json.loads(mc.asset_allocation_json or "{}")
+    assert set(alloc.keys()) == {
+        "Cash, Deposits & Money Market",
+        "Fixed Income",
+        "Equities",
+    }
+    assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("38078891.58")
+    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("133671048.88")
+    assert Decimal(alloc["Equities"]["value"]) == Decimal("102110902.70")
 
     normalized = (
         db_session.query(MonthlyMetricNormalized)
@@ -170,6 +181,81 @@ def test_loader_maps_bbh_mandato_activity_to_monthly_closing(db_session):
     )
     assert mc.income is not None
     assert mc.change_in_value is not None
+    alloc = json.loads(mc.asset_allocation_json or "{}")
+    assert set(alloc.keys()) == {
+        "Cash, Deposits & Money Market",
+        "Fixed Income",
+        "Equities",
+    }
+    assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("516437.81")
+    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("51485414.23")
+    assert Decimal(alloc["Equities"]["value"]) == Decimal("38198758.82")
+
+
+def test_loader_prefers_account_level_asset_allocation_for_multi_account_mandate(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="1412600",
+        bank_code="jpmorgan",
+        account_type="mandato",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="jpm-multi.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = BBHCustodyParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-multi"),
+        bank_code="jpmorgan",
+        account_number="Varios",
+        account_numbers=["1179200", "1412600", "1483400"],
+        statement_date=date(2025, 12, 31),
+        period_start=date(2025, 12, 1),
+        period_end=date(2025, 12, 31),
+        closing_balance=Decimal("337089559.53"),
+        currency="USD",
+        qualitative_data={
+            "asset_allocation": {
+                "Cash, Deposits & Short Term": {"ending": "5633705.15"},
+                "Fixed Income": {"ending": "187640939.13"},
+                "Equities": {"ending": "143814915.29"},
+            },
+            "account_monthly_activity": [
+                {
+                    "account_number": "1412600",
+                    "ending_value_with_accrual": "148531792.87",
+                    "ending_value_without_accrual": "148531792.87",
+                    "net_contributions": "0",
+                    "utilidad": "280247.97",
+                    "asset_allocation": {
+                        "Cash, Deposits & Short Term": {"ending": "2811109.86"},
+                        "Fixed Income": {"ending": "145720683.04"},
+                    },
+                }
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id)
+        .one()
+    )
+    alloc = json.loads(mc.asset_allocation_json or "{}")
+    assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("2811109.86")
+    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("145720683.04")
+    assert Decimal(alloc["Equities"]["value"]) == Decimal("0")
 
 
 def test_loader_etf_collapses_same_etf_code_rows_without_integrity_error(db_session):
@@ -258,6 +344,170 @@ def test_loader_etf_collapses_same_etf_code_rows_without_integrity_error(db_sess
     assert len(rows) == 1
     assert rows[0].etf_code == "ISHARES_CORE_MSCI"
     assert rows[0].market_value == Decimal("12047297.01")
+
+
+def test_loader_jpm_etf_parser_isolates_subaccounts_to_etf_type(db_session):
+    acct_b = _create_account(
+        db_session,
+        account_number="B99719001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    acct_e = _create_account(
+        db_session,
+        account_number="E31070007",
+        bank_code="jpmorgan",
+        account_type="etf",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202512 Boatview JPM NY ETF (0007).pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganEtfParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-etf-scope"),
+        bank_code="jpmorgan",
+        account_number="Varios",
+        account_numbers=[acct_b.account_number, acct_e.account_number],
+        statement_date=date(2025, 12, 31),
+        period_start=date(2025, 12, 1),
+        period_end=date(2025, 12, 31),
+        opening_balance=Decimal("1000"),
+        closing_balance=Decimal("2000"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct_b.account_number,
+                    "beginning_value": "1000",
+                    "ending_value": "1500",
+                },
+                {
+                    "account_number": acct_e.account_number,
+                    "beginning_value": "2000",
+                    "ending_value": "2500",
+                },
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct_b.account_number,
+                    "ending_value_with_accrual": "1500",
+                    "ending_value_without_accrual": "1500",
+                    "net_contributions": "10",
+                    "utilidad": "20",
+                },
+                {
+                    "account_number": acct_e.account_number,
+                    "ending_value_with_accrual": "2500",
+                    "ending_value_without_accrual": "2500",
+                    "net_contributions": "30",
+                    "utilidad": "40",
+                },
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    closings = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.year == 2025, MonthlyClosing.month == 12)
+        .all()
+    )
+    assert len(closings) == 1
+    assert closings[0].account_id == acct_e.id
+    assert closings[0].net_value == Decimal("2500")
+
+
+def test_loader_jpm_brokerage_parser_isolates_subaccounts_to_brokerage_type(db_session):
+    acct_b = _create_account(
+        db_session,
+        account_number="B99719001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    acct_e = _create_account(
+        db_session,
+        account_number="E31070007",
+        bank_code="jpmorgan",
+        account_type="etf",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202512 Boatview JPM NY Brokerage (9001).pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-brokerage-scope"),
+        bank_code="jpmorgan",
+        account_number="Varios",
+        account_numbers=[acct_b.account_number, acct_e.account_number],
+        statement_date=date(2025, 12, 31),
+        period_start=date(2025, 12, 1),
+        period_end=date(2025, 12, 31),
+        opening_balance=Decimal("1000"),
+        closing_balance=Decimal("2000"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct_b.account_number,
+                    "beginning_value": "1000",
+                    "ending_value": "1500",
+                },
+                {
+                    "account_number": acct_e.account_number,
+                    "beginning_value": "2000",
+                    "ending_value": "2500",
+                },
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct_b.account_number,
+                    "ending_value_with_accrual": "1500",
+                    "ending_value_without_accrual": "1500",
+                    "net_contributions": "10",
+                    "utilidad": "20",
+                },
+                {
+                    "account_number": acct_e.account_number,
+                    "ending_value_with_accrual": "2500",
+                    "ending_value_without_accrual": "2500",
+                    "net_contributions": "30",
+                    "utilidad": "40",
+                },
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    closings = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.year == 2025, MonthlyClosing.month == 12)
+        .all()
+    )
+    assert len(closings) == 1
+    assert closings[0].account_id == acct_b.id
+    assert closings[0].net_value == Decimal("1500")
 
 
 def test_loader_ubs_history_backfills_prior_months(db_session):

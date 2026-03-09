@@ -32,6 +32,14 @@ SOCIETY_COLUMNS = [
 ]
 
 INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
+BENCHMARK_BY_INSTRUMENT = {
+    "IWDA": 36.0,
+    "IEMA": 4.0,
+    "VDCA": 27.0,
+    "VDPA": 23.0,
+    "IHYA": 10.0,
+    "Money Market": 0.0,
+}
 SOCIETY_DISPLAY_MAP = {
     "Armel Holdings": "Armel Hold.",
     "Ecoterra Internacional": "Ect. Internacional",
@@ -45,10 +53,14 @@ def _fmt_bank(code):
 def _fmt_num(val):
     if val is None or val == 0:
         return ""
-    return fmt_number(val, decimals=2)
+    return fmt_number(val, decimals=1)
 
 
 def _fmt_pct(val):
+    return fmt_percent(val, decimals=1)
+
+
+def _fmt_pct_ret(val):
     return fmt_percent(val, decimals=2)
 
 
@@ -61,6 +73,20 @@ def _to_float(val):
         return float(val)
     except (TypeError, ValueError):
         return None
+
+
+def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float | None]:
+    ytd_values: list[float | None] = []
+    compound = 1.0
+    has_data = False
+    for ret in monthly_returns:
+        if ret is None:
+            ytd_values.append(round((compound - 1) * 100, 4) if has_data else None)
+            continue
+        compound *= (1 + (ret / 100))
+        has_data = True
+        ytd_values.append(round((compound - 1) * 100, 4))
+    return ytd_values
 
 
 def render():
@@ -148,6 +174,86 @@ def render():
         etf_summary = {"consolidated_rows": []}
     etf_consolidated = etf_summary.get("consolidated_rows", [])
 
+    st.subheader("Evolucion Mensual de Rentabilidad YTD")
+    chart_year = selected_year
+    if chart_year is None and fecha and len(str(fecha)) >= 4 and str(fecha)[:4].isdigit():
+        chart_year = int(str(fecha)[:4])
+
+    if chart_year:
+        month_keys = [f"{chart_year}-{m:02d}" for m in range(1, 13)]
+        chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
+        monthly_returns = [_to_float(chart_map.get(key, {}).get("rent_mensual_pct")) for key in month_keys]
+        ytd_returns = _compute_ytd_from_monthly(monthly_returns)
+        monthly_vals = [v for v in monthly_returns if v is not None]
+        if monthly_vals:
+            ytd_vals = [v for v in ytd_returns if v is not None]
+            mensual_max_raw = max(monthly_vals + [0.0])
+            mensual_min_raw = min(monthly_vals + [0.0])
+            mensual_max = max(5.0, mensual_max_raw * 1.1)
+            mensual_min = min(-1.0, mensual_min_raw * 1.1)
+            if mensual_max <= mensual_min:
+                mensual_max = mensual_min + 1.0
+
+            ytd_max_raw = max(ytd_vals + [0.0]) if ytd_vals else 0.0
+            ytd_min_raw = min(ytd_vals + [0.0]) if ytd_vals else 0.0
+            ytd_max = max(5.0, ytd_max_raw * 1.1)
+            ytd_min = min(-1.0, ytd_min_raw * 1.1)
+            if ytd_max <= ytd_min:
+                ytd_max = ytd_min + 1.0
+
+            fig_ret = go.Figure()
+            fig_ret.add_trace(
+                go.Scatter(
+                    x=MONTHS,
+                    y=ytd_returns,
+                    mode="lines+markers",
+                    name="Rentabilidad YTD",
+                    line=dict(color="#E67E22", width=2),
+                    yaxis="y",
+                )
+            )
+            fig_ret.add_trace(
+                go.Bar(
+                    x=MONTHS,
+                    y=monthly_returns,
+                    name="Rentabilidad Mensual",
+                    marker_color="#AFC8E2",
+                    opacity=0.95,
+                    yaxis="y2",
+                )
+            )
+            fig_ret.update_layout(
+                height=340,
+                margin=dict(l=20, r=20, t=20, b=20),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                yaxis=dict(
+                    title="%YTD",
+                    tickformat=",.2f",
+                    range=[ytd_min, ytd_max],
+                    showgrid=False,
+                    zeroline=False,
+                ),
+                yaxis2=dict(
+                    title="% Mensual",
+                    tickformat=",.2f",
+                    range=[mensual_min, mensual_max],
+                    overlaying="y",
+                    side="right",
+                    showgrid=True,
+                    gridcolor="#D6DCE5",
+                    zeroline=True,
+                    zerolinecolor="#9EA7B3",
+                ),
+            )
+            fig_ret.update_xaxes(showgrid=False)
+            st.plotly_chart(fig_ret, use_container_width=True)
+        else:
+            st.info("Sin datos para graficar rentabilidad ETF.")
+    else:
+        st.info("Sin datos para graficar rentabilidad ETF.")
+
+    st.markdown("---")
+
     # ── Tabla 1: Instrumentos × Sociedades (MONTOS) ─────────────
     st.subheader("Instrumentos × Sociedades (Montos)")
     st.caption("Solo afectado por el filtro Fecha. Muestra la foto de instrumentos en la cartola.")
@@ -180,7 +286,7 @@ def render():
                 control_row[col] = (
                     "OK"
                     if diff <= 1
-                    else f"DIFERENCIA ({fmt_number(signed_diff, decimals=2)})"
+                    else f"DIFERENCIA ({fmt_number(signed_diff, decimals=1)})"
                 )
             else:
                 control_row[col] = "OK" if diff <= 1 else "DIFERENCIA"
@@ -194,6 +300,7 @@ def render():
             bold_cols=["Total"],
             small_row_labels={"control"},
             label_col="Instrumento",
+            fixed_equal_cols=True,
         )
     else:
         st.info("Sin datos. Seleccione una fecha con datos ETF.")
@@ -206,9 +313,10 @@ def render():
 
     if instruments_pct_table:
         pct_rows = []
-        totals_pct = {"Instrumento": "Total"}
+        totals_pct = {"Instrumento": "Total", "Benchmark": ""}
         for col in SOCIETY_COLUMNS:
             totals_pct[col] = 0.0
+        benchmark_total = 0.0
 
         for instr in INSTRUMENT_ORDER:
             if instr in instruments_pct_table:
@@ -221,6 +329,9 @@ def render():
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)
                     totals_pct[col] += float(v or 0)
+                bench = BENCHMARK_BY_INSTRUMENT.get(instr)
+                row["Benchmark"] = _fmt_pct(bench) if bench is not None else ""
+                benchmark_total += float(bench or 0.0)
                 pct_rows.append(row)
 
         for instr, vals in instruments_pct_table.items():
@@ -232,19 +343,22 @@ def render():
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)
                     totals_pct[col] += float(v or 0)
+                row["Benchmark"] = ""
                 pct_rows.append(row)
 
         for col in SOCIETY_COLUMNS:
             totals_pct[col] = _fmt_pct(totals_pct[col])
+        totals_pct["Benchmark"] = _fmt_pct(benchmark_total)
         pct_rows.append(totals_pct)
 
-        df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
+        df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + SOCIETY_COLUMNS + ["Benchmark"])
         df_pct = df_pct.rename(columns={c: _society_label(c) for c in SOCIETY_COLUMNS})
         render_table(
             df_pct,
             bold_row_labels={"Total"},
             bold_cols=["Total"],
             label_col="Instrumento",
+            fixed_equal_cols=True,
         )
     else:
         st.info("Sin datos de pesos %.")
@@ -342,8 +456,8 @@ def render():
                             {"Concepto": "Ending Value", "Valor": _fmt_num(ending_value)},
                             {"Concepto": "Movimientos", "Valor": _fmt_num(total_mov)},
                             {"Concepto": "Utilidad", "Valor": _fmt_num(total_util)},
-                            {"Concepto": "Rentabilidad (%)", "Valor": _fmt_pct(rent_pct)},
-                            {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct(rent_sc_pct)},
+                            {"Concepto": "Rentabilidad (%)", "Valor": _fmt_pct_ret(rent_pct)},
+                            {"Concepto": "Rentabilidad sin Caja (%)", "Valor": _fmt_pct_ret(rent_sc_pct)},
                         ]
                     )
                     render_table(df_rng)
@@ -477,7 +591,7 @@ def render():
 
         for col in ret_cols:
             if col in df_ret.columns:
-                df_ret[col] = df_ret[col].apply(lambda x: _fmt_pct(x))
+                df_ret[col] = df_ret[col].apply(lambda x: _fmt_pct_ret(x))
 
         render_table(
             df_ret,
