@@ -21,6 +21,7 @@ data/snapshots/*
 data/db/*.db
 data/db/*.db-shm
 data/db/*.db-wal
+data/db/backups/
 !data/raw/.gitkeep
 !data/cache/.gitkeep
 !data/snapshots/.gitkeep
