@@ -77,7 +77,7 @@ def create_git_tag(tag_name: str) -> bool:
     if result.returncode != 0:
         print(f"ERROR creando tag: {result.stderr}")
         return False
-    print(f"✓ Git tag creado: {tag_name}")
+    print(f"[OK] Git tag creado: {tag_name}")
     return True
 
 
@@ -106,7 +106,7 @@ def create_snapshot(tag_name: str) -> Path:
     db_file = DB_DIR / "fo_reporting.db"
     if db_file.exists():
         shutil.copy2(str(db_file), str(snapshot_dir / "fo_reporting.db"))
-        print(f"  ✓ DB copiada ({db_file.stat().st_size / 1024:.1f} KB)")
+        print(f"  [OK] DB copiada ({db_file.stat().st_size / 1024:.1f} KB)")
 
     # Copiar raw docs (como archive)
     if RAW_DIR.exists() and any(RAW_DIR.iterdir()):
@@ -115,7 +115,7 @@ def create_snapshot(tag_name: str) -> Path:
             "zip",
             str(RAW_DIR),
         )
-        print("  ✓ Raw docs archivados")
+        print("  [OK] Raw docs archivados")
 
     # Copiar cache
     if CACHE_DIR.exists() and any(CACHE_DIR.iterdir()):
@@ -124,7 +124,7 @@ def create_snapshot(tag_name: str) -> Path:
             "zip",
             str(CACHE_DIR),
         )
-        print("  ✓ Cache archivado")
+        print("  [OK] Cache archivado")
 
     return snapshot_dir
 
@@ -145,7 +145,7 @@ def verify_integrity(snapshot_dir: Path) -> bool:
     all_ok = all(ok for _, ok in checks)
 
     for name, ok in checks:
-        status = "✓" if ok else "✗"
+        status = "[OK]" if ok else "[FAIL]"
         print(f"  {status} {name}")
 
     return all_ok
@@ -163,7 +163,7 @@ SNAPSHOT_HASH={snapshot_hash}
 FECHA={now}
 """
     LATEST_FILE.write_text(content)
-    print(f"✓ LATEST_VALID_BACKUP.txt actualizado")
+    print(f"[OK] LATEST_VALID_BACKUP.txt actualizado")
 
 
 def freeze(label: str) -> bool:
@@ -176,7 +176,7 @@ def freeze(label: str) -> bool:
     print("\n[1/5] Verificando git status...")
     if not check_git_clean():
         return False
-    print("  ✓ Git limpio")
+    print("  [OK] Git limpio")
 
     # 2) Generar ID
     now = datetime.now(timezone.utc)
@@ -199,13 +199,13 @@ def freeze(label: str) -> bool:
     # 6) Verificar integridad
     print("\n[5/5] Verificando integridad...")
     if not verify_integrity(snapshot_dir):
-        print("⚠️ Verificación de integridad falló. Snapshot puede estar incompleto.")
+        print("[AVISO] Verificacion de integridad fallo. Snapshot puede estar incompleto.")
 
     # 7) Actualizar LATEST
     update_latest(tag_name, git_hash, snapshot_dir)
 
     print("\n" + "=" * 60)
-    print(f"  ✅ FREEZE COMPLETADO: {tag_name}")
+    print(f"  FREEZE COMPLETADO: {tag_name}")
     print("=" * 60)
     return True
 
