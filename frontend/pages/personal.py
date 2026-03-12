@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend import api_client
+from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_currency, fmt_number
 from frontend.components.table_utils import render_table
@@ -234,6 +235,16 @@ def render():
     except Exception:
         ytd_data = {"chart_data": []}
     ytd_values = _build_ytd_series(ytd_data.get("chart_data", []), selected_year) if selected_year else [None] * 12
+
+    render_health_warning(
+        {
+            "years": [selected_year] if selected_year else [],
+            "months": [selected_month] if selected_month else [],
+            "entity_names": selected_entities_effective,
+            "person_names": effective_people,
+        },
+        label="Detalle",
+    )
 
     st.markdown("---")
     st.subheader("Saldo Consolidado")

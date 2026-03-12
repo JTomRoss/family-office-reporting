@@ -153,6 +153,139 @@ def test_jpm_brokerage_extracts_two_real_subaccounts():
     assert set(monthly.keys()) == {"B99719001", "E31070007"}
 
 
+def test_jpm_brokerage_keeps_change_investment_in_profit_for_security_transfers():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. E63535000",
+                "Account Summary",
+                "Accruals 12.06 12.40 0.34",
+                "Market Value with Accruals 16,349.18 16,361.63",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 16,337.12 14,076.19",
+                "Net Contributions/Withdrawals (5,894.95) (7,018.61)",
+                "Income & Distributions 12.11 3,396.70",
+                "Change In Investment Value 5,894.95 5,894.95",
+                "Ending Market Value 16,349.23 16,349.23",
+            ]
+        ),
+        "E63535000",
+    )
+    assert row is not None
+    assert _as_decimal(row["net_contributions"]) == Decimal("-5894.95")
+    assert _as_decimal(row["change_investment"]) == Decimal("5894.95")
+    assert _as_decimal(row["utilidad"]) == Decimal("5907.40")
+    notes = row.get("interpretation_notes", [])
+    assert not any("duplicar Net Contributions/Withdrawals" in note for note in notes)
+
+
+def test_jpm_brokerage_single_value_uses_ytd_only_and_monthly_zero():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. E92671008",
+                "Account Summary",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 3.69 0.00",
+                "Net Contributions/Withdrawals 0.00 0.00",
+                "Income & Distributions 5.91",
+                "Ending Market Value 3.69",
+            ]
+        ),
+        "E92671008",
+    )
+    assert row is not None
+    assert _as_decimal(row["net_contributions"]) == Decimal("0")
+    assert _as_decimal(row["income_distributions"]) == Decimal("0")
+    assert _as_decimal(row["income_distributions_ytd"]) == Decimal("5.91")
+    assert _as_decimal(row["utilidad"]) == Decimal("0")
+    notes = row.get("interpretation_notes", [])
+    assert any("Income & Distributions mensual en blanco interpretado como 0" in note for note in notes)
+
+
+def test_jpm_brokerage_single_net_contribution_value_stays_monthly():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. E63535000",
+                "Account Summary",
+                "Accruals 12.06 12.40 0.34",
+                "Market Value with Accruals 16,349.18 16,361.63",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 16,337.12 14,076.19",
+                "Net Contributions/Withdrawals ($5,894.95)",
+                "Income & Distributions 12.11 3,396.70",
+                "Change In Investment Value 5,894.95 5,894.95",
+                "Ending Market Value 16,349.23 16,349.23",
+            ]
+        ),
+        "E63535000",
+    )
+    assert row is not None
+    assert _as_decimal(row["net_contributions"]) == Decimal("-5894.95")
+    assert row.get("net_contributions_ytd") is None
+    assert _as_decimal(row["utilidad"]) == Decimal("5907.40")
+
+
+def test_jpm_brokerage_reads_negative_net_contributions_with_minus_sign():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. E92671008",
+                "Account Summary",
+                "Accruals 2.22 0.00 (2.22)",
+                "Market Value with Accruals 2.20 0.00",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 2.20 0.00",
+                "Net Contributions / Withdrawals -2.20 -2.20",
+                "Income & Distributions 2.22 2.22",
+                "Ending Market Value 0.00 0.00",
+            ]
+        ),
+        "E92671008",
+    )
+    assert row is not None
+    assert _as_decimal(row["net_contributions"]) == Decimal("-2.20")
+    assert _as_decimal(row["net_contributions_ytd"]) == Decimal("-2.20")
+    assert _as_decimal(row["utilidad"]) == Decimal("0.00")
+
+
+def test_jpm_brokerage_reads_net_contributions_when_amounts_wrap_to_next_line():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. E37222008",
+                "Account Summary",
+                "Accruals 4,590.62 11,773.45 7,182.83",
+                "Market Value with Accruals 4,055,259.59 2,027,944.29",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 4,050,668.97 742,968.98",
+                "Net Contributions / Withdrawals",
+                "-2,038,883.00 1,274,776.69",
+                "Income & Distributions 4,590.62 8,196.36",
+                "Change In Investment Value -205.75 -205.83",
+                "Ending Market Value 2,016,170.84 2,016,170.84",
+            ]
+        ),
+        "E37222008",
+    )
+    assert row is not None
+    assert _as_decimal(row["net_contributions"]) == Decimal("-2038883.00")
+    assert _as_decimal(row["net_contributions_ytd"]) == Decimal("1274776.69")
+    assert _as_decimal(row["change_investment"]) == Decimal("-205.75")
+    assert _as_decimal(row["utilidad"]) == Decimal("11567.70")
+
+
 def test_jpm_mandato_extracts_three_subaccounts():
     path = _cartola_path("20251231-statements-2600-Mandato - JPMorgan.pdf")
     _require(path)

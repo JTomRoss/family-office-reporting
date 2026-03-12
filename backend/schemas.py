@@ -137,6 +137,11 @@ class FilterParams(BaseModel):
     sin_caja: bool = False  # True = excluir caja/money market de cálculos %
 
 
+class HealthAuditParams(FilterParams):
+    """Parámetros para auditoría read-only de salud de datos."""
+    limit: int = 200
+
+
 class SummaryRow(BaseModel):
     """Fila de tabla resumen."""
     entity_name: str

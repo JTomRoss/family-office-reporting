@@ -1,6 +1,6 @@
-﻿# AGENT_CONTEXT - Quick Context (SSOT Lite)
+# AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-03-09
+Last updated: 2026-03-10 (identity/YTD controls + health audit)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -42,6 +42,10 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - Parser output loads via `DataLoadingService` into reporting tables.
 - `monthly_metrics_normalized` is primary reporting layer.
 - `monthly_closings` is historical source + fallback.
+- Identity control is mandatory: `ending_current - movements - profit = ending_previous`.
+- YTD is control-only. Never use YTD to auto-fill, overwrite, or "force" monthly movements/profit.
+- If identity or YTD controls fail, reporting must alert; it must not silently mutate values to make them match.
+- JPMorgan `brokerage` can expose blank monthly current-period cells or duplicate `Change In Investment Value`; interpret monthly from current-period data plus accrual delta, and never fill monthly from YTD.
 
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`
@@ -53,7 +57,7 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - Main pages: `frontend/pages/summary.py`, `mandates.py`, `etf.py`, `personal.py`, `upload.py`
 
 ## 7) Current Baseline
-- Tests baseline from project context: 131 passed, 1 skipped.
+- Tests baseline from project context: 135 passed, 1 skipped.
 - Worktree can be dirty; do not assume clean state.
 
 ## 8) Context File Policy

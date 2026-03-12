@@ -15,11 +15,13 @@ from backend.db.models import (
     MonthlyMetricNormalized,
     ParserVersion,
     RawDocument,
+    ValidationLog,
 )
 from backend.services.data_loading_service import DataLoadingService
 from parsers.base import ParseResult, ParsedRow, ParserStatus
 from parsers.bbh.custody import BBHCustodyParser
 from parsers.goldman_sachs.custody import GoldmanSachsCustodyParser
+from parsers.jpmorgan.bonds import JPMorganBondsParser
 from parsers.jpmorgan.brokerage import JPMorganBrokerageParser
 from parsers.jpmorgan.etf import JPMorganEtfParser
 from parsers.ubs.custody import UBSSwitzerlandCustodyParser
@@ -510,6 +512,87 @@ def test_loader_jpm_brokerage_parser_isolates_subaccounts_to_brokerage_type(db_s
     assert closings[0].net_value == Decimal("1500")
 
 
+def test_loader_jpm_brokerage_does_not_fill_monthly_from_account_ytd(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="E92671008",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20251130-statements-1008-.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-brokerage-no-ytd-fill"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2025, 11, 30),
+        period_start=date(2025, 11, 1),
+        period_end=date(2025, 11, 30),
+        opening_balance=Decimal("3.69"),
+        closing_balance=Decimal("3.69"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "3.69",
+                    "ending_value": "3.69",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "3.69",
+                    "ending_value_without_accrual": "3.69",
+                    "net_contributions": "0",
+                    "interpretation_notes": [
+                        "Income & Distributions mensual en blanco interpretado como 0; YTD se conserva solo como control."
+                    ],
+                }
+            ],
+            "account_ytd": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "0",
+                    "ending_value": "3.69",
+                    "income": "5.91",
+                    "change_investment": "5.91",
+                }
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 11)
+        .one()
+    )
+    assert mc.net_value == Decimal("3.69")
+    assert mc.change_in_value == Decimal("0")
+    assert mc.income is None
+
+    logs = (
+        db_session.query(ValidationLog)
+        .filter(ValidationLog.account_id == acct.id)
+        .all()
+    )
+    assert any("mensual en blanco interpretado como 0" in (log.message or "") for log in logs)
+
+
 def test_loader_ubs_history_backfills_prior_months(db_session):
     parser = UBSSwitzerlandCustodyParser()
     # Reproduce producción: Session autoflush deshabilitado en backend.db.session
@@ -682,7 +765,7 @@ def test_loader_ubs_history_backfills_prior_months(db_session):
     assert march.income == Decimal("-831817")
 
 
-def test_loader_bbh_prior_adjustment_updates_previous_month(db_session):
+def test_loader_bbh_prior_adjustment_is_control_only(db_session):
     parser = BBHCustodyParser()
     acct = _create_account(
         db_session,
@@ -761,7 +844,7 @@ def test_loader_bbh_prior_adjustment_updates_previous_month(db_session):
         .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
         .one()
     )
-    assert jan.change_in_value == Decimal("2210.88")
+    assert jan.change_in_value == Decimal("59.65")
     assert feb.change_in_value == Decimal("0")
 
     jan_norm = (
@@ -785,8 +868,15 @@ def test_loader_bbh_prior_adjustment_updates_previous_month(db_session):
     assert jan_norm.movements_net == jan.change_in_value
     assert feb_norm.movements_net == feb.change_in_value
 
+    logs = (
+        db_session.query(ValidationLog)
+        .filter(ValidationLog.account_id == acct.id)
+        .all()
+    )
+    assert any("YTD caja inconsistente" in (log.message or "") for log in logs)
 
-def test_loader_ytd_alignment_adjusts_current_month_non_bbh(db_session):
+
+def test_loader_ytd_alignment_is_control_only_non_bbh(db_session):
     parser = BBHCustodyParser()
     acct = _create_account(
         db_session,
@@ -860,10 +950,8 @@ def test_loader_ytd_alignment_adjusts_current_month_non_bbh(db_session):
         .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
         .one()
     )
-    # ytd_mov=130 vs (100+20) => +10 on current month
-    assert feb.change_in_value == Decimal("30")
-    # ytd_util=120 vs (50+40) => +30 on current month
-    assert feb.income == Decimal("70")
+    assert feb.change_in_value == Decimal("20")
+    assert feb.income == Decimal("40")
 
     feb_norm = (
         db_session.query(MonthlyMetricNormalized)
@@ -876,3 +964,188 @@ def test_loader_ytd_alignment_adjusts_current_month_non_bbh(db_session):
     )
     assert feb_norm.movements_net == feb.change_in_value
     assert feb_norm.profit_period == feb.income
+
+    logs = (
+        db_session.query(ValidationLog)
+        .filter(ValidationLog.account_id == acct.id)
+        .all()
+    )
+    assert any("YTD caja inconsistente" in (log.message or "") for log in logs)
+    assert any("YTD utilidad inconsistente" in (log.message or "") for log in logs)
+
+
+def test_loader_jpmorgan_bonds_uses_portfolio_activity_when_monthly_block_missing(db_session):
+    parser = JPMorganBondsParser()
+    acct = _create_account(
+        db_session,
+        account_number="1531100",
+        bank_code="jpmorgan",
+        account_type="bonds",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202504 Ect Intl JPM NY BO (1100).pdf",
+        bank_code="jpmorgan",
+    )
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-bonds-1100"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2025, 4, 30),
+        period_start=date(2025, 4, 1),
+        period_end=date(2025, 4, 30),
+        opening_balance=Decimal("30796534.06"),
+        closing_balance=Decimal("13445790.01"),
+        currency="USD",
+        qualitative_data={
+            "asset_allocation": {
+                "Cash, Deposits & Short Term": {
+                    "beginning": "3492594.23",
+                    "ending": "816748.33",
+                    "change": "-2675845.90",
+                },
+                "Fixed Income": {
+                    "beginning": "27303939.83",
+                    "ending": "12629041.68",
+                    "change": "-14674898.15",
+                },
+            },
+            "portfolio_activity": {
+                "beginning_market_value": {
+                    "current_period": "30796534.06",
+                    "ytd": "30143562.64",
+                },
+                "net_cash_contributions": {
+                    "current_period": "-17260955.84",
+                    "ytd": "-17260955.84",
+                },
+                "income_distributions": {
+                    "current_period": "81538.61",
+                    "ytd": "432542.54",
+                },
+                "change_investment": {
+                    "current_period": "-171326.82",
+                    "ytd": "130640.66",
+                },
+                "ending_market_value": {
+                    "current_period": "13445790.01",
+                    "ytd": "13445790.00",
+                },
+            },
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 4)
+        .one()
+    )
+    assert mc.change_in_value == Decimal("-17260955.84")
+    assert mc.income == Decimal("-89788.21")
+
+    norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 4,
+        )
+        .one()
+    )
+    assert norm.movements_net == mc.change_in_value
+    assert norm.profit_period == mc.income
+
+
+# ── Parser selection by account_id (regression) ─────────────────────
+
+
+def test_process_document_prefers_account_type_bonds_over_autodetect(db_session, tmp_dir):
+    """JPMorgan doc with account_id pointing to bonds account must select
+    parsers.jpmorgan.bonds even when the filename has no bonds hint."""
+    from backend.services.document_service import DocumentService
+
+    acct = _create_account(
+        db_session,
+        account_number="1531100-test-bonds",
+        bank_code="jpmorgan",
+        account_type="bonds",
+    )
+
+    dummy_pdf = tmp_dir / "20250430-jpmorgan-cartola.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy content for test")
+
+    doc = RawDocument(
+        filename="20250430-jpmorgan-cartola.pdf",
+        filepath=str(dummy_pdf),
+        file_type="pdf_cartola",
+        sha256_hash=_mk_hash("test-bonds-account-priority"),
+        file_size_bytes=dummy_pdf.stat().st_size,
+        bank_code="jpmorgan",
+        account_id=acct.id,
+        status="uploaded",
+    )
+    db_session.add(doc)
+    db_session.flush()
+
+    service = DocumentService(db_session)
+    service.process_document(doc.id)
+
+    db_session.refresh(doc)
+    assert doc.parser_version_id is not None
+    pv = (
+        db_session.query(ParserVersion)
+        .filter(ParserVersion.id == doc.parser_version_id)
+        .one()
+    )
+    assert pv.parser_name == "parsers.jpmorgan.bonds"
+
+
+def test_process_document_prefers_account_type_brokerage_over_autodetect(db_session, tmp_dir):
+    """JPMorgan doc with account_id pointing to brokerage account must select
+    parsers.jpmorgan.brokerage even when the filename has no brokerage hint."""
+    from backend.services.document_service import DocumentService
+
+    acct = _create_account(
+        db_session,
+        account_number="E92755009-test-brok",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+
+    dummy_pdf = tmp_dir / "20250531-jpmorgan-cartola.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy content for test")
+
+    doc = RawDocument(
+        filename="20250531-jpmorgan-cartola.pdf",
+        filepath=str(dummy_pdf),
+        file_type="pdf_cartola",
+        sha256_hash=_mk_hash("test-brokerage-account-priority"),
+        file_size_bytes=dummy_pdf.stat().st_size,
+        bank_code="jpmorgan",
+        account_id=acct.id,
+        status="uploaded",
+    )
+    db_session.add(doc)
+    db_session.flush()
+
+    service = DocumentService(db_session)
+    service.process_document(doc.id)
+
+    db_session.refresh(doc)
+    assert doc.parser_version_id is not None
+    pv = (
+        db_session.query(ParserVersion)
+        .filter(ParserVersion.id == doc.parser_version_id)
+        .one()
+    )
+    assert pv.parser_name == "parsers.jpmorgan.brokerage"

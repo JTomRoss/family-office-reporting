@@ -1,0 +1,46 @@
+---
+description: Protocolo de contextualización al iniciar un chat — qué leer y qué no
+alwaysApply: true
+---
+
+# Contexto inicial en un nuevo chat
+
+Al empezar a trabajar en este proyecto, **solo** cargar:
+
+1. **AGENT_CONTEXT.md** — reglas estables, arquitectura resumida, rutas clave.
+2. **SESSION_STATE.md** — estado actual del sprint/sesión, prioridades, siguiente acción.
+3. **git status --short** y, si hay cambios, los **archivos modificados relevantes** para la tarea.
+
+**No leer** a menos que el usuario lo pida:
+
+- **DEEP_CONTEXT.md** (contexto histórico largo; solo si hace falta).
+- Todo el repo o exploraciones amplias; leer solo lo necesario para la tarea.
+
+Si el usuario pide "contextualízate" o similar, aplicar este protocolo: AGENT_CONTEXT + SESSION_STATE + git status + archivos relevantes. No asumir que hay que leer DEEP_CONTEXT ni el repo completo.
+
+---
+
+# Aviso proactivo cuando el contexto se llena
+
+El agente **no tiene acceso** al porcentaje real del context window (es interno de Cursor). Por eso:
+
+- **En conversaciones largas** (varios intercambios o al cerrar una tarea), el agente debe **avisar proactivamente** algo como: *"Si ves que la barra de contexto del chat está llena o al límite, avísame y te indico los pasos para seguir en un nuevo chat y te doy un resumen de traspaso."*
+- Así el usuario sabe que puede avisar cuando vea el contexto lleno y el agente actuará en consecuencia.
+
+---
+
+# Cuando el usuario avisa que el contexto está lleno
+
+Cuando el usuario indique que el context window está al límite (p. ej. 100 %) o que la conversación es muy larga:
+
+1. **Recordarle explícitamente qué tiene que hacer:**
+   - Abrir un **nuevo chat**.
+   - En el nuevo chat, aplicar el **protocolo de contextualización**: cargar AGENT_CONTEXT.md, SESSION_STATE.md, git status --short y archivos cambiados relevantes.
+   - Pegar el **resumen de traspaso** que el agente le entregue a continuación.
+2. **Generar y entregar un resumen de traspaso** con:
+   - qué se estaba haciendo o el último objetivo;
+   - qué se hizo en esta sesión (cambios, archivos tocados);
+   - qué queda pendiente o el siguiente paso sugerido;
+   - cualquier decisión o detalle importante para no perder el hilo.
+
+Así, en el nuevo chat el usuario pega ese resumen, el agente aplica las reglas de contextualización y puede seguir trabajando sin tener que re-explicar todo.

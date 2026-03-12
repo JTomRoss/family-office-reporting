@@ -82,236 +82,400 @@ def render():
     with tab1:
         st.subheader("Carga de PDFs")
 
-        st.caption(
-            "💡 **Tip:** Carga primero el maestro de cuentas (pestaña Excel) para "
-            "que el auto-relleno funcione al ingresar el dígito verificador."
+        # Modo: Carga guiada (una por una) vs Carga por lote
+        upload_mode = st.radio(
+            "Modo de carga",
+            ["Carga guiada (una por una)", "Carga por lote con reconocimiento"],
+            key="pdf_upload_mode",
+            horizontal=True,
         )
-
-        # ── Fila 1: Tipo documento y Banco ──────────────────────
-        col1, col2 = st.columns(2)
-        with col1:
-            pdf_type = st.selectbox(
-                "Tipo de documento",
-                ["pdf_cartola", "pdf_report"],
-                format_func=lambda x: {
-                    "pdf_cartola": "📃 Cartola bancaria",
-                    "pdf_report": "📘 Reporte mandato",
-                }[x],
-            )
-        with col2:
-            bank_options = list(BANCOS.keys())
-            bank_code = st.selectbox(
-                "Banco *",
-                bank_options,
-                format_func=lambda x: BANCOS[x],
-                key="pdf_bank",
-            )
-
-        # ── Fila 2: Sociedad, Dígito verificador, Auto-llenar ──
-        is_multi_account = st.checkbox(
-            "📑 Varias cuentas en un documento (ej: JP Morgan Mandatos)",
-            key="pdf_multi_account",
-        )
-        master_accounts = _load_master_accounts()
-        master_entities = sorted({
-            (a.get("entity_name") or "").strip()
-            for a in master_accounts
-            if (a.get("entity_name") or "").strip()
-        })
-
-        if is_multi_account:
-            identification_number = "Varios"
-            col_soc, col_sub = st.columns(2)
-            with col_soc:
-                use_new_entity_multi = st.checkbox(
-                    "Crear nueva sociedad",
-                    key="pdf_new_entity_multi",
-                )
-                if use_new_entity_multi:
-                    entity_name = st.text_input(
-                        "Sociedad nueva *",
-                        placeholder="Ej: Boatview",
-                        key="pdf_entity_name_new_multi",
-                    )
-                else:
-                    if master_entities:
-                        entity_name = st.selectbox(
-                            "Sociedad *",
-                            options=[""] + master_entities,
-                            key="pdf_entity_name_sel_multi",
-                        )
-                    else:
-                        entity_name = st.text_input(
-                            "Sociedad *",
-                            placeholder="Ej: Boatview",
-                            key="pdf_entity_name_no_master_multi",
-                        )
-            with col_sub:
-                sub_accounts = st.text_input(
-                    "Sub-cuentas (dígitos verificadores, separados por coma) *",
-                    placeholder="Ej: 2600, 3400, 9200",
-                    key="pdf_sub_accounts",
-                    help="El parser detectará automáticamente la información de cada sub-cuenta del PDF",
-                )
-            if sub_accounts:
-                st.caption(
-                    f"🔢 Sub-cuentas: {', '.join(s.strip() for s in sub_accounts.split(',') if s.strip())}"
-                )
-            auto_fill_clicked = False
-        else:
-            sub_accounts = ""
-            col_soc, col_id, col_btn = st.columns([2, 1, 1])
-            with col_soc:
-                use_new_entity = st.checkbox(
-                    "Crear nueva sociedad",
-                    key="pdf_new_entity",
-                )
-                if use_new_entity:
-                    entity_name = st.text_input(
-                        "Sociedad nueva *",
-                        placeholder="Ej: Armel Holdings",
-                        key="pdf_entity_name_new",
-                    )
-                else:
-                    if master_entities:
-                        entity_name = st.selectbox(
-                            "Sociedad *",
-                            options=[""] + master_entities,
-                            key="pdf_entity_name_sel",
-                        )
-                    else:
-                        entity_name = st.text_input(
-                            "Sociedad *",
-                            placeholder="Ej: Armel Holdings",
-                            key="pdf_entity_name_no_master",
-                        )
-            with col_id:
-                ids_for_combo = sorted({
-                    (a.get("identification_number") or "").strip()
-                    for a in master_accounts
-                    if (a.get("identification_number") or "").strip()
-                    and (not bank_code or (a.get("bank_code") or "") == bank_code)
-                    and (not entity_name.strip() or (a.get("entity_name") or "").strip() == entity_name.strip())
-                })
-                use_new_id = st.checkbox("Nuevo dígito verificador", key="pdf_new_id")
-                if use_new_id:
-                    identification_number = st.text_input(
-                        "Dígito verificador nuevo *",
-                        placeholder="Ej: 5001",
-                        key="pdf_identification_number_new",
-                    )
-                else:
-                    if ids_for_combo:
-                        identification_number = st.selectbox(
-                            "Dígito verificador *",
-                            options=[""] + ids_for_combo,
-                            key="pdf_identification_number_sel",
-                            help="Opciones filtradas por Banco + Sociedad desde maestro de cuentas",
-                        )
-                    else:
-                        identification_number = st.text_input(
-                            "Dígito verificador *",
-                            placeholder="Ej: 5001",
-                            key="pdf_identification_number_no_master",
-                        )
-            with col_btn:
-                st.markdown("<br>", unsafe_allow_html=True)  # alinear con input
-                auto_fill_clicked = st.button("🔍 Auto-llenar", key="btn_autofill")
-
-        # ── Auto-fill logic ─────────────────────────────────────
-        if "autofill_data" not in st.session_state:
-            st.session_state.autofill_data = {}
-        if "autofill_version" not in st.session_state:
-            st.session_state.autofill_version = 0
-
-        if not is_multi_account and auto_fill_clicked and identification_number:
-            af = _try_auto_fill_by_id(identification_number, bank_code, entity_name)
-            if af:
-                st.session_state.autofill_data = af
-                st.session_state.autofill_version += 1
-                st.success("✅ Datos auto-completados desde el maestro de cuentas")
-            else:
-                st.session_state.autofill_data = {}
-                st.session_state.autofill_version += 1
-                st.warning(
-                    "⚠️ Cuenta no encontrada en el maestro. "
-                    "Verifica sociedad, banco y dígito verificador."
-                )
-
-        af = st.session_state.get("autofill_data", {}) if not is_multi_account else {}
-        _v = st.session_state.get("autofill_version", 0)
-
-        # ── Campos auto-rellenados (expandible) ─────────────────
-        if af:
-            with st.expander("📋 Datos del maestro (auto-rellenados)", expanded=True):
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key=f"af_acct_{_v}")
-                with c2:
-                    st.text_input("Tipo de cuenta", value=_fmt_account_type(af.get("account_type", "")), disabled=True, key=f"af_type_{_v}")
-                with c3:
-                    st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key=f"af_cur_{_v}")
-                c4, c5, c6 = st.columns(3)
-                with c4:
-                    st.text_input("Portafolio/Personal", value=af.get("entity_type", ""), disabled=True, key=f"af_et_{_v}")
-                with c5:
-                    st.text_input("Persona", value=af.get("person_name", "") or "", disabled=True, key=f"af_person_{_v}")
-                with c6:
-                    st.text_input("Código interno", value=af.get("internal_code", "") or "", disabled=True, key=f"af_code_{_v}")
-
-        # Resolver valores finales (del auto-fill o vacíos)
-        account_number = af.get("account_number", "")
-        account_type = af.get("account_type", "")
-        currency = af.get("currency", "")
-        entity_type = af.get("entity_type", "")
-        person_name = af.get("person_name", "") or ""
-        internal_code = af.get("internal_code", "") or ""
-
+        is_batch_mode = upload_mode == "Carga por lote con reconocimiento"
         st.markdown("---")
 
-        # ── File uploader ───────────────────────────────────────
-        uploaded_files = st.file_uploader(
-            "Arrastra PDFs aquí (uno o varios)",
-            type=["pdf"],
-            accept_multiple_files=True,
-            key="pdf_upload",
-        )
+        if is_batch_mode:
+            # ── OPCIÓN A: Carga por lote (solo selectores, sin texto) ──
+            st.caption(
+                "Opcional: indica Banco, Sociedad y/o Tipo de cuenta para pre-llenar la tabla y aumentar la probabilidad de reconocimiento."
+            )
+            opts = api_client.get("/accounts/filter-options")
+            batch_entities = sorted(opts.get("entity_names", []) or [])
+            batch_types = sorted(opts.get("account_types", []) or [])
+            bank_options = [k for k in BANCOS if k]
+            col_b, col_e, col_t = st.columns(3)
+            with col_b:
+                batch_ctx_bank = st.selectbox(
+                    "Banco (contexto)",
+                    options=[""] + bank_options,
+                    format_func=lambda x: BANCOS.get(x, x) if x else "— Ninguno —",
+                    key="batch_ctx_bank",
+                )
+            with col_e:
+                batch_ctx_entity = st.selectbox(
+                    "Sociedad (contexto)",
+                    options=[""] + batch_entities,
+                    key="batch_ctx_entity",
+                )
+            with col_t:
+                batch_ctx_type = st.selectbox(
+                    "Tipo de cuenta (contexto)",
+                    options=[""] + batch_types,
+                    format_func=lambda x: _fmt_account_type(x) if x else "— Ninguno —",
+                    key="batch_ctx_type",
+                )
+            st.markdown("---")
+            batch_files = st.file_uploader(
+                "Subir varias cartolas (PDFs)",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="batch_pdf_upload",
+            )
+            if batch_files:
+                master_accounts = _load_master_accounts()
+                # Filtrar cuentas según contexto para opciones por defecto
+                def _filter_accounts(bank="", entity="", acct_type=""):
+                    out = master_accounts
+                    if bank:
+                        out = [a for a in out if (a.get("bank_code") or "") == bank]
+                    if entity:
+                        out = [a for a in out if (a.get("entity_name") or "").strip() == entity]
+                    if acct_type:
+                        out = [a for a in out if (a.get("account_type") or "") == acct_type]
+                    return out
 
-        if uploaded_files:
-            st.info(f"📎 {len(uploaded_files)} archivo(s) seleccionado(s)")
+                st.info(f"Selecciona Banco, Sociedad, Tipo y Cuenta para cada archivo y procesa.")
+                pdf_type_batch = st.selectbox(
+                    "Tipo de documento",
+                    ["pdf_cartola", "pdf_report"],
+                    format_func=lambda x: "Cartola bancaria" if x == "pdf_cartola" else "Reporte mandato",
+                    key="batch_pdf_type",
+                )
+                for idx, file in enumerate(batch_files):
+                    with st.expander(f"📄 {file.name}", expanded=(idx == 0)):
+                        def _bank_index():
+                            if not batch_ctx_bank or batch_ctx_bank not in bank_options:
+                                return 0
+                            return bank_options.index(batch_ctx_bank) + 1
+                        def _entity_index():
+                            if not batch_ctx_entity or batch_ctx_entity not in batch_entities:
+                                return 0
+                            return batch_entities.index(batch_ctx_entity) + 1
+                        def _type_index():
+                            if not batch_ctx_type or batch_ctx_type not in batch_types:
+                                return 0
+                            return batch_types.index(batch_ctx_type) + 1
+                        row_bank = st.selectbox(
+                            "Banco",
+                            options=[""] + bank_options,
+                            format_func=lambda x: BANCOS.get(x, x) if x else "— Seleccionar —",
+                            index=min(_bank_index(), len(bank_options)),
+                            key=f"batch_row_bank_{idx}_{file.name}",
+                        )
+                        row_entity = st.selectbox(
+                            "Sociedad",
+                            options=[""] + batch_entities,
+                            index=min(_entity_index(), len(batch_entities)),
+                            key=f"batch_row_entity_{idx}_{file.name}",
+                        )
+                        row_type = st.selectbox(
+                            "Tipo de cuenta",
+                            options=[""] + batch_types,
+                            format_func=lambda x: _fmt_account_type(x) if x else "— Seleccionar —",
+                            index=min(_type_index(), len(batch_types)),
+                            key=f"batch_row_type_{idx}_{file.name}",
+                        )
+                        row_accounts = _filter_accounts(row_bank, row_entity, row_type)
+                        account_options = [
+                            a for a in row_accounts
+                            if (a.get("identification_number") or a.get("account_number"))
+                        ]
+                        account_numbers = [a.get("account_number", "") for a in account_options]
+                        account_labels = [
+                            f"{a.get('identification_number') or a.get('account_number')} ({a.get('entity_name','')})"
+                            for a in account_options
+                        ]
+                        options_cuenta = [""] + account_numbers
+                        labels_cuenta = ["— Seleccionar —"] + account_labels
+                        def _fmt_cuenta(v):
+                            if not v:
+                                return "— Seleccionar —"
+                            for a in account_options:
+                                if a.get("account_number") == v:
+                                    return f"{a.get('identification_number') or v} ({a.get('entity_name','')})"
+                            return v
+                        selected_account_number = st.selectbox(
+                            "Cuenta (dígito verificador)",
+                            options=options_cuenta,
+                            format_func=_fmt_cuenta,
+                            key=f"batch_row_account_{idx}_{file.name}",
+                        )
+                        acc = next((a for a in account_options if a.get("account_number") == selected_account_number), None)
+                        if acc and st.button("Procesar este archivo", key=f"batch_btn_{idx}_{file.name}"):
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                                file.seek(0)
+                                tmp.write(file.read())
+                                tmp_path = tmp.name
+                            try:
+                                result = api_client.upload_file(
+                                    "/documents/upload-and-process",
+                                    filepath=tmp_path,
+                                    filename=file.name,
+                                    file_type=pdf_type_batch,
+                                    extra_data={
+                                        "bank_code": acc.get("bank_code", ""),
+                                        "account_number": acc.get("account_number", ""),
+                                        "identification_number": acc.get("identification_number", ""),
+                                        "entity_name": acc.get("entity_name", ""),
+                                        "account_type": acc.get("account_type", ""),
+                                        "entity_type": acc.get("entity_type", ""),
+                                        "person_name": acc.get("person_name", "") or "",
+                                        "internal_code": acc.get("internal_code", "") or "",
+                                        "currency": acc.get("currency", ""),
+                                    },
+                                )
+                                if result.get("is_duplicate"):
+                                    st.warning(f"Documento ya existe (ID: {result.get('id')}). Reclasificar u omitir en Carga guiada.")
+                                else:
+                                    st.success(f"Procesado: {result.get('process_result', {}).get('status', 'OK')}")
+                            except Exception as e:
+                                st.error(str(e))
+                            finally:
+                                Path(tmp_path).unlink(missing_ok=True)
+                st.caption("Usa **Procesar este archivo** dentro de cada expander para subir ese PDF con la cuenta seleccionada.")
+            else:
+                st.caption("Selecciona uno o más PDFs para ver la tabla de asignación.")
 
-            # Validar campos obligatorios (solo banco, sociedad, dígito verificador)
-            missing = []
-            if not bank_code:
-                missing.append("Banco")
-            if not entity_name.strip():
-                missing.append("Sociedad")
-            if is_multi_account and not sub_accounts.strip():
-                missing.append("Sub-cuentas")
-            elif not is_multi_account and not identification_number.strip():
-                missing.append("Dígito verificador")
+        else:
+            # ── Carga guiada (flujo actual) ─────────────────────
+            st.caption(
+                "💡 **Tip:** Carga primero el maestro de cuentas (pestaña Excel) para "
+                "que el auto-relleno funcione al ingresar el dígito verificador."
+            )
 
-            if missing:
-                st.warning(f"⚠️ Campos obligatorios faltantes: **{', '.join(missing)}**")
+            # ── Fila 1: Tipo documento y Banco ──────────────────────
+            col1, col2 = st.columns(2)
+            with col1:
+                pdf_type = st.selectbox(
+                    "Tipo de documento",
+                    ["pdf_cartola", "pdf_report"],
+                    format_func=lambda x: {
+                        "pdf_cartola": "📃 Cartola bancaria",
+                        "pdf_report": "📘 Reporte mandato",
+                    }[x],
+                )
+            with col2:
+                bank_options = list(BANCOS.keys())
+                bank_code = st.selectbox(
+                    "Banco *",
+                    bank_options,
+                    format_func=lambda x: BANCOS[x],
+                    key="pdf_bank",
+                )
 
-            if st.button("🚀 Procesar PDFs", type="primary", disabled=bool(missing)):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+            # ── Fila 2: Sociedad, Dígito verificador, Auto-llenar ──
+            is_multi_account = st.checkbox(
+                "📑 Varias cuentas en un documento (ej: JP Morgan Mandatos)",
+                key="pdf_multi_account",
+            )
+            master_accounts = _load_master_accounts()
+            master_entities = sorted({
+                (a.get("entity_name") or "").strip()
+                for a in master_accounts
+                if (a.get("entity_name") or "").strip()
+            })
 
-                for idx, file in enumerate(uploaded_files):
-                    pct = int((idx / len(uploaded_files)) * 100)
-                    progress_bar.progress(pct)
-                    status_text.text(f"Procesando: {file.name}...")
+            if is_multi_account:
+                identification_number = "Varios"
+                col_soc, col_sub = st.columns(2)
+                with col_soc:
+                    use_new_entity_multi = st.checkbox(
+                        "Crear nueva sociedad",
+                        key="pdf_new_entity_multi",
+                    )
+                    if use_new_entity_multi:
+                        entity_name = st.text_input(
+                            "Sociedad nueva *",
+                            placeholder="Ej: Boatview",
+                            key="pdf_entity_name_new_multi",
+                        )
+                    else:
+                        if master_entities:
+                            entity_name = st.selectbox(
+                                "Sociedad *",
+                                options=[""] + master_entities,
+                                key="pdf_entity_name_sel_multi",
+                            )
+                        else:
+                            entity_name = st.text_input(
+                                "Sociedad *",
+                                placeholder="Ej: Boatview",
+                                key="pdf_entity_name_no_master_multi",
+                            )
+                with col_sub:
+                    sub_accounts = st.text_input(
+                        "Sub-cuentas (dígitos verificadores, separados por coma) *",
+                        placeholder="Ej: 2600, 3400, 9200",
+                        key="pdf_sub_accounts",
+                        help="El parser detectará automáticamente la información de cada sub-cuenta del PDF",
+                    )
+                if sub_accounts:
+                    st.caption(
+                        f"🔢 Sub-cuentas: {', '.join(s.strip() for s in sub_accounts.split(',') if s.strip())}"
+                    )
+                auto_fill_clicked = False
+            else:
+                sub_accounts = ""
+                col_soc, col_id, col_btn = st.columns([2, 1, 1])
+                with col_soc:
+                    use_new_entity = st.checkbox(
+                        "Crear nueva sociedad",
+                        key="pdf_new_entity",
+                    )
+                    if use_new_entity:
+                        entity_name = st.text_input(
+                            "Sociedad nueva *",
+                            placeholder="Ej: Armel Holdings",
+                            key="pdf_entity_name_new",
+                        )
+                    else:
+                        if master_entities:
+                            entity_name = st.selectbox(
+                                "Sociedad *",
+                                options=[""] + master_entities,
+                                key="pdf_entity_name_sel",
+                            )
+                        else:
+                            entity_name = st.text_input(
+                                "Sociedad *",
+                                placeholder="Ej: Armel Holdings",
+                                key="pdf_entity_name_no_master",
+                            )
+                with col_id:
+                    ids_for_combo = sorted({
+                        (a.get("identification_number") or "").strip()
+                        for a in master_accounts
+                        if (a.get("identification_number") or "").strip()
+                        and (not bank_code or (a.get("bank_code") or "") == bank_code)
+                        and (not entity_name.strip() or (a.get("entity_name") or "").strip() == entity_name.strip())
+                    })
+                    use_new_id = st.checkbox("Nuevo dígito verificador", key="pdf_new_id")
+                    if use_new_id:
+                        identification_number = st.text_input(
+                            "Dígito verificador nuevo *",
+                            placeholder="Ej: 5001",
+                            key="pdf_identification_number_new",
+                        )
+                    else:
+                        if ids_for_combo:
+                            identification_number = st.selectbox(
+                                "Dígito verificador *",
+                                options=[""] + ids_for_combo,
+                                key="pdf_identification_number_sel",
+                                help="Opciones filtradas por Banco + Sociedad desde maestro de cuentas",
+                            )
+                        else:
+                            identification_number = st.text_input(
+                                "Dígito verificador *",
+                                placeholder="Ej: 5001",
+                                key="pdf_identification_number_no_master",
+                            )
+                with col_btn:
+                    st.markdown("<br>", unsafe_allow_html=True)  # alinear con input
+                    auto_fill_clicked = st.button("🔍 Auto-llenar", key="btn_autofill")
 
-                    # Guardar temp y subir
-                    with tempfile.NamedTemporaryFile(
-                        delete=False, suffix=".pdf"
-                    ) as tmp:
-                        tmp.write(file.read())
-                        tmp_path = tmp.name
+            # ── Auto-fill logic ─────────────────────────────────────
+            if "autofill_data" not in st.session_state:
+                st.session_state.autofill_data = {}
+            if "autofill_version" not in st.session_state:
+                st.session_state.autofill_version = 0
 
-                    try:
-                        upload_data = {
+            if not is_multi_account and auto_fill_clicked and identification_number:
+                af = _try_auto_fill_by_id(identification_number, bank_code, entity_name)
+                if af:
+                    st.session_state.autofill_data = af
+                    st.session_state.autofill_version += 1
+                    st.success("✅ Datos auto-completados desde el maestro de cuentas")
+                else:
+                    st.session_state.autofill_data = {}
+                    st.session_state.autofill_version += 1
+                    st.warning(
+                        "⚠️ Cuenta no encontrada en el maestro. "
+                        "Verifica sociedad, banco y dígito verificador."
+                    )
+
+            af = st.session_state.get("autofill_data", {}) if not is_multi_account else {}
+            _v = st.session_state.get("autofill_version", 0)
+
+            # ── Campos auto-rellenados (expandible) ─────────────────
+            if af:
+                with st.expander("📋 Datos del maestro (auto-rellenados)", expanded=True):
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        st.text_input("Nº Cuenta", value=af.get("account_number", ""), disabled=True, key=f"af_acct_{_v}")
+                    with c2:
+                        st.text_input("Tipo de cuenta", value=_fmt_account_type(af.get("account_type", "")), disabled=True, key=f"af_type_{_v}")
+                    with c3:
+                        st.text_input("Moneda", value=af.get("currency", ""), disabled=True, key=f"af_cur_{_v}")
+                    c4, c5, c6 = st.columns(3)
+                    with c4:
+                        st.text_input("Portafolio/Personal", value=af.get("entity_type", ""), disabled=True, key=f"af_et_{_v}")
+                    with c5:
+                        st.text_input("Persona", value=af.get("person_name", "") or "", disabled=True, key=f"af_person_{_v}")
+                    with c6:
+                        st.text_input("Código interno", value=af.get("internal_code", "") or "", disabled=True, key=f"af_code_{_v}")
+
+            # Resolver valores finales (del auto-fill o vacíos)
+            account_number = af.get("account_number", "")
+            account_type = af.get("account_type", "")
+            currency = af.get("currency", "")
+            entity_type = af.get("entity_type", "")
+            person_name = af.get("person_name", "") or ""
+            internal_code = af.get("internal_code", "") or ""
+
+            st.markdown("---")
+
+            # ── File uploader ───────────────────────────────────────
+            uploaded_files = st.file_uploader(
+                "Arrastra PDFs aquí (uno o varios)",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="pdf_upload",
+            )
+
+            if uploaded_files:
+                st.info(f"📎 {len(uploaded_files)} archivo(s) seleccionado(s)")
+
+                # Validar campos obligatorios (solo banco, sociedad, dígito verificador)
+                missing = []
+                if not bank_code:
+                    missing.append("Banco")
+                if not entity_name.strip():
+                    missing.append("Sociedad")
+                if is_multi_account and not sub_accounts.strip():
+                    missing.append("Sub-cuentas")
+                elif not is_multi_account and not identification_number.strip():
+                    missing.append("Dígito verificador")
+
+                if missing:
+                    st.warning(f"⚠️ Campos obligatorios faltantes: **{', '.join(missing)}**")
+
+                if st.button("🚀 Procesar PDFs", type="primary", disabled=bool(missing)):
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+
+                    for idx, file in enumerate(uploaded_files):
+                        pct = int((idx / len(uploaded_files)) * 100)
+                        progress_bar.progress(pct)
+                        status_text.text(f"Procesando: {file.name}...")
+
+                        # Guardar temp y subir
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".pdf"
+                        ) as tmp:
+                            tmp.write(file.read())
+                            tmp_path = tmp.name
+
+                        try:
+                            upload_data = {
                                 "bank_code": bank_code,
                                 "account_number": account_number.strip() if account_number else "",
                                 "identification_number": identification_number.strip() if identification_number else "",
@@ -321,106 +485,106 @@ def render():
                                 "person_name": person_name.strip() if person_name else "",
                                 "internal_code": internal_code.strip() if internal_code else "",
                                 "currency": currency,
-                        }
-                        if is_multi_account and sub_accounts.strip():
-                            upload_data["sub_accounts"] = sub_accounts.strip()
+                            }
+                            if is_multi_account and sub_accounts.strip():
+                                upload_data["sub_accounts"] = sub_accounts.strip()
 
-                        result = api_client.upload_file(
-                            "/documents/upload-and-process",
-                            filepath=tmp_path,
-                            filename=file.name,
-                            file_type=pdf_type,
-                            extra_data=upload_data,
-                        )
-
-                        if result.get("is_duplicate"):
-                            dup_id = result.get("id")
-                            dup_key = f"dup_action_{file.name}"
-                            existing_meta = result.get("existing_metadata", {})
-
-                            st.warning(
-                                f"⚠️ **{file.name}** ya existe en el sistema "
-                                f"(ID: {dup_id})."
-                            )
-                            if existing_meta:
-                                with st.expander("📋 Clasificación actual del documento existente"):
-                                    for k, v in existing_meta.items():
-                                        if v:
-                                            st.text(f"  {k}: {v}")
-
-                            # Detectar si la clasificación nueva es diferente
-                            old_bank = existing_meta.get("bank_code", "")
-                            old_acct = existing_meta.get("account_number", "")
-                            old_entity = existing_meta.get("entity_name", "")
-                            new_classification_differs = (
-                                (old_bank and old_bank != bank_code) or
-                                (old_acct and old_acct != account_number.strip()) or
-                                (old_entity and old_entity != entity_name.strip())
+                            result = api_client.upload_file(
+                                "/documents/upload-and-process",
+                                filepath=tmp_path,
+                                filename=file.name,
+                                file_type=pdf_type,
+                                extra_data=upload_data,
                             )
 
-                            if new_classification_differs:
-                                st.info(
-                                    "🔄 La clasificación que ingresaste es **diferente** "
-                                    "a la del documento existente."
+                            if result.get("is_duplicate"):
+                                dup_id = result.get("id")
+                                dup_key = f"dup_action_{file.name}"
+                                existing_meta = result.get("existing_metadata", {})
+
+                                st.warning(
+                                    f"⚠️ **{file.name}** ya existe en el sistema "
+                                    f"(ID: {dup_id})."
+                                )
+                                if existing_meta:
+                                    with st.expander("📋 Clasificación actual del documento existente"):
+                                        for k, v in existing_meta.items():
+                                            if v:
+                                                st.text(f"  {k}: {v}")
+
+                                # Detectar si la clasificación nueva es diferente
+                                old_bank = existing_meta.get("bank_code", "")
+                                old_acct = existing_meta.get("account_number", "")
+                                old_entity = existing_meta.get("entity_name", "")
+                                new_classification_differs = (
+                                    (old_bank and old_bank != bank_code) or
+                                    (old_acct and old_acct != account_number.strip()) or
+                                    (old_entity and old_entity != entity_name.strip())
                                 )
 
-                            col_a, col_b = st.columns(2)
-                            with col_a:
-                                if st.button(
-                                    f"🔄 Reclasificar",
-                                    key=f"reclass_{idx}",
-                                    help="Actualiza la clasificación del documento existente con los nuevos datos",
-                                ):
-                                    try:
-                                        reclass_result = api_client.post(
-                                            f"/documents/{dup_id}/reclassify",
-                                            json={
-                                                "bank_code": bank_code,
-                                                "account_number": account_number.strip(),
-                                                "entity_name": entity_name.strip(),
-                                                "account_type": account_type,
-                                                "entity_type": entity_type,
-                                                "currency": currency,
-                                            },
-                                        )
-                                        st.success(f"✅ {file.name}: Reclasificado correctamente")
-                                    except Exception as re_err:
-                                        st.error(f"❌ Error reclasificando: {re_err}")
-                            with col_b:
-                                st.button(
-                                    "⏭️ Omitir",
-                                    key=f"skip_{idx}",
-                                    help="No hacer nada, mantener el documento como está",
-                                )
-                        else:
-                            proc = result.get("process_result", {})
-                            proc_status = proc.get("status", "")
-                            loading = proc.get("loading_stats", {})
-                            mc = loading.get("monthly_closings", 0)
-                            ec = loading.get("etf_compositions", 0)
-                            rows = proc.get("rows_parsed", 0)
-                            if proc_status in ("success", "partial"):
-                                detail = f"{rows} filas parseadas"
-                                if mc:
-                                    detail += f", {mc} cierres mensuales"
-                                if ec:
-                                    detail += f", {ec} composiciones ETF"
-                                st.success(f"✅ {file.name}: {detail}")
-                            elif proc_status == "error":
-                                st.error(
-                                    f"❌ {file.name}: "
-                                    f"{proc.get('errors', ['error desconocido'])}"
-                                )
+                                if new_classification_differs:
+                                    st.info(
+                                        "🔄 La clasificación que ingresaste es **diferente** "
+                                        "a la del documento existente."
+                                    )
+
+                                col_a, col_b = st.columns(2)
+                                with col_a:
+                                    if st.button(
+                                        f"🔄 Reclasificar",
+                                        key=f"reclass_{idx}",
+                                        help="Actualiza la clasificación del documento existente con los nuevos datos",
+                                    ):
+                                        try:
+                                            reclass_result = api_client.post(
+                                                f"/documents/{dup_id}/reclassify",
+                                                json={
+                                                    "bank_code": bank_code,
+                                                    "account_number": account_number.strip(),
+                                                    "entity_name": entity_name.strip(),
+                                                    "account_type": account_type,
+                                                    "entity_type": entity_type,
+                                                    "currency": currency,
+                                                },
+                                            )
+                                            st.success(f"✅ {file.name}: Reclasificado correctamente")
+                                        except Exception as re_err:
+                                            st.error(f"❌ Error reclasificando: {re_err}")
+                                with col_b:
+                                    st.button(
+                                        "⏭️ Omitir",
+                                        key=f"skip_{idx}",
+                                        help="No hacer nada, mantener el documento como está",
+                                    )
                             else:
-                                st.success(f"✅ {file.name}: Cargado (ID: {result.get('id')})")
+                                proc = result.get("process_result", {})
+                                proc_status = proc.get("status", "")
+                                loading = proc.get("loading_stats", {})
+                                mc = loading.get("monthly_closings", 0)
+                                ec = loading.get("etf_compositions", 0)
+                                rows = proc.get("rows_parsed", 0)
+                                if proc_status in ("success", "partial"):
+                                    detail = f"{rows} filas parseadas"
+                                    if mc:
+                                        detail += f", {mc} cierres mensuales"
+                                    if ec:
+                                        detail += f", {ec} composiciones ETF"
+                                    st.success(f"✅ {file.name}: {detail}")
+                                elif proc_status == "error":
+                                    st.error(
+                                        f"❌ {file.name}: "
+                                        f"{proc.get('errors', ['error desconocido'])}"
+                                    )
+                                else:
+                                    st.success(f"✅ {file.name}: Cargado (ID: {result.get('id')})")
 
-                    except Exception as e:
-                        st.error(f"❌ {file.name}: {e}")
-                    finally:
-                        Path(tmp_path).unlink(missing_ok=True)
+                        except Exception as e:
+                            st.error(f"❌ {file.name}: {e}")
+                        finally:
+                            Path(tmp_path).unlink(missing_ok=True)
 
-                progress_bar.progress(100)
-                status_text.text("✅ Procesamiento completado")
+                    progress_bar.progress(100)
+                    status_text.text("✅ Procesamiento completado")
 
     # ═══════════════════════════════════════════════════════════════
     # TAB 2: Carga Excel/CSV
@@ -672,6 +836,8 @@ def render():
             if docs:
                 import pandas as pd
                 df_docs = pd.DataFrame(docs)
+                # Índice 0..n-1 para alinear selección con filas
+                df_docs = df_docs.reset_index(drop=True)
 
                 # Renombrar columnas para display
                 col_rename = {
@@ -683,9 +849,15 @@ def render():
                     "uploaded_at": "Subido",
                 }
                 show_cols = [c for c in col_rename if c in df_docs.columns]
-                df_show = df_docs[show_cols].rename(columns=col_rename)
+                df_show = df_docs[show_cols].rename(columns=col_rename).reset_index(drop=True)
                 if "ID" in df_show.columns:
                     df_show["ID"] = df_show["ID"].astype(str)
+
+                # Mensaje en verde tras eliminar (persiste después del rerun)
+                if "doc_deleted_count" in st.session_state:
+                    n = st.session_state.pop("doc_deleted_count", 0)
+                    if n > 0:
+                        st.success("✅ Selección eliminada.")
 
                 # Agregar columna de selección para eliminación
                 df_show.insert(len(df_show.columns), "Eliminar", False)
@@ -707,8 +879,14 @@ def render():
                 )
 
                 # ── Eliminar seleccionados ──────────────────────
-                selected_mask = edited_df["Eliminar"] == True
-                selected_count = selected_mask.sum()
+                eliminar_col = edited_df["Eliminar"].fillna(False)
+                # Aceptar True, 1, "true" por compatibilidad con el widget
+                selected_mask = (
+                    (eliminar_col == True)
+                    | (eliminar_col.astype(str).str.lower() == "true")
+                    | (eliminar_col == 1)
+                )
+                selected_count = int(selected_mask.sum())
 
                 col_del, col_reproc, col_info = st.columns([1, 1, 2])
                 with col_del:
@@ -717,16 +895,25 @@ def render():
                         disabled=selected_count == 0,
                         key="btn_del_selected",
                     ):
-                        selected_ids = df_docs.loc[selected_mask.values, "id"].tolist()
+                        # IDs por índice desde df_docs: misma fila que ve el usuario
+                        selected_indices = edited_df.index[selected_mask]
+                        doc_ids = df_docs.loc[selected_indices, "id"].astype(int).tolist()
                         deleted = 0
-                        for doc_id in selected_ids:
+                        errors = []
+                        for doc_id in doc_ids:
                             try:
                                 api_client.delete(f"/documents/{doc_id}")
                                 deleted += 1
-                            except Exception:
-                                pass
-                        st.success(f"✅ {deleted} documento(s) eliminado(s)")
-                        st.rerun()
+                            except Exception as e:
+                                errors.append(f"ID {doc_id}: {e}")
+                        if errors:
+                            for err in errors:
+                                st.error(err)
+                        if deleted > 0:
+                            st.session_state["doc_deleted_count"] = deleted
+                            st.rerun()
+                        elif doc_ids and not errors:
+                            st.warning("No se eliminó ningún documento (revisar IDs).")
                 with col_reproc:
                     # Contar docs uploaded (no procesados)
                     unprocessed = df_docs[df_docs["status"] == "uploaded"]

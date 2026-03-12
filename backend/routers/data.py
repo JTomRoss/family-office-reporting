@@ -25,7 +25,7 @@ from backend.db.models import (
     Reconciliation,
 )
 from backend.db.session import get_db
-from backend.schemas import FilterParams
+from backend.schemas import FilterParams, HealthAuditParams
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -474,6 +474,394 @@ def _resolve_movements_and_profit(
         utilidad = movements
 
     return movements, utilidad
+
+
+def _resolve_raw_movements(mc: MonthlyClosing, norm: Optional[MonthlyMetricNormalized]) -> Optional[float]:
+    """Lee movimientos guardados, sin forzar identidad."""
+    if norm:
+        v = _to_float(norm.movements_net)
+        if v is not None:
+            return v
+    return _to_float(mc.change_in_value)
+
+
+def _resolve_raw_profit(mc: MonthlyClosing, norm: Optional[MonthlyMetricNormalized]) -> Optional[float]:
+    """Lee utilidad guardada, sin forzar identidad."""
+    if norm:
+        v = _to_float(norm.profit_period)
+        if v is not None:
+            return v
+    return _to_float(mc.income)
+
+
+def _resolve_audit_movements(
+    *,
+    ending_value: Optional[float],
+    previous_ending: Optional[float],
+    movements: Optional[float],
+    profit: Optional[float],
+) -> Optional[float]:
+    """
+    Interpretación read-only para Salud BD.
+
+    Si movimientos faltan pero la identidad mensual cuadra con movimiento implícito
+    ~0, el reporte de salud los trata como 0 para no marcar un falso faltante.
+    No persiste nada ni modifica la BD.
+    """
+    if movements is not None:
+        return movements
+    if ending_value is None or previous_ending is None or profit is None:
+        return None
+    implied_movement = ending_value - previous_ending - profit
+    if abs(implied_movement) <= 1:
+        return 0.0
+    return None
+
+
+def _extract_ytd_controls_from_payload(
+    payload: dict,
+    account_number: str | None,
+) -> dict[str, Optional[float]] | None:
+    """Extrae controles YTD desde parsed_data_json sin mutar datos mensuales."""
+    qualitative = payload.get("qualitative_data") or {}
+    account_number = str(account_number or "").strip()
+
+    monthly_rows = qualitative.get("account_monthly_activity") or []
+    monthly = next(
+        (row for row in monthly_rows if str(row.get("account_number") or "").strip() == account_number),
+        None,
+    )
+    if monthly is None and len(monthly_rows) == 1:
+        monthly = monthly_rows[0]
+    if isinstance(monthly, dict):
+        mov_ytd = _to_float(monthly.get("net_contributions_ytd"))
+        util_ytd = _to_float(monthly.get("utilidad_ytd"))
+        if util_ytd is None:
+            util_ytd = _to_float(monthly.get("income_ytd"))
+        if mov_ytd is not None or util_ytd is not None:
+            return {
+                "movements_ytd": mov_ytd,
+                "profit_ytd": util_ytd,
+                "source": "account_monthly_activity",
+            }
+
+    account_ytd = qualitative.get("account_ytd") or []
+    ytd_row = next(
+        (row for row in account_ytd if str(row.get("account_number") or "").strip() == account_number),
+        None,
+    )
+    if ytd_row is None and len(account_ytd) == 1:
+        ytd_row = account_ytd[0]
+    if isinstance(ytd_row, dict):
+        mov_ytd = _to_float(ytd_row.get("net_contributions"))
+        inc_ytd = _to_float(ytd_row.get("income"))
+        chg_ytd = _to_float(ytd_row.get("change_investment"))
+        util_ytd = None
+        if inc_ytd is not None or chg_ytd is not None:
+            util_ytd = (inc_ytd or 0.0) + (chg_ytd or 0.0)
+        if mov_ytd is not None or util_ytd is not None:
+            return {
+                "movements_ytd": mov_ytd,
+                "profit_ytd": util_ytd,
+                "source": "account_ytd",
+            }
+
+    portfolio_activity = qualitative.get("portfolio_activity") or {}
+    if isinstance(portfolio_activity, dict):
+        mov_ytd = _to_float((portfolio_activity.get("net_cash_contributions") or {}).get("ytd"))
+        inc_ytd = _to_float((portfolio_activity.get("income_distributions") or {}).get("ytd"))
+        chg_ytd = _to_float((portfolio_activity.get("change_investment") or {}).get("ytd"))
+        util_ytd = None
+        if inc_ytd is not None or chg_ytd is not None:
+            util_ytd = (inc_ytd or 0.0) + (chg_ytd or 0.0)
+        if mov_ytd is not None or util_ytd is not None:
+            return {
+                "movements_ytd": mov_ytd,
+                "profit_ytd": util_ytd,
+                "source": "portfolio_activity",
+            }
+
+    return None
+
+
+def _build_health_report(
+    db: Session,
+    filters: HealthAuditParams,
+) -> dict:
+    years = set(filters.years) if filters.years else None
+    months = filters.months or None
+    limit = max(1, min(int(filters.limit or 200), 1000))
+
+    filtered_results = (
+        _query_closing_rows(
+            db=db,
+            filters=filters,
+            years=years,
+            months=months,
+        )
+        .order_by(Account.id, MonthlyClosing.year, MonthlyClosing.month)
+        .all()
+    )
+    if not filtered_results:
+        return {
+            "summary": {
+                "total_rows": 0,
+                "rows_with_previous": 0,
+                "identity_mismatch_count": 0,
+                "missing_components_count": 0,
+                "ytd_movement_mismatch_count": 0,
+                "ytd_profit_mismatch_count": 0,
+                "alert_count": 0,
+            },
+            "by_bank_type": [],
+            "identity_issues": [],
+            "missing_component_issues": [],
+            "ytd_issues": [],
+        }
+
+    account_ids = sorted({acct.id for _, acct, _ in filtered_results})
+    history_results = (
+        db.query(MonthlyClosing, Account, MonthlyMetricNormalized)
+        .join(Account, MonthlyClosing.account_id == Account.id)
+        .outerjoin(
+            MonthlyMetricNormalized,
+            and_(
+                MonthlyMetricNormalized.account_id == MonthlyClosing.account_id,
+                MonthlyMetricNormalized.year == MonthlyClosing.year,
+                MonthlyMetricNormalized.month == MonthlyClosing.month,
+            ),
+        )
+        .filter(MonthlyClosing.account_id.in_(account_ids))
+        .order_by(Account.id, MonthlyClosing.year, MonthlyClosing.month)
+        .all()
+    )
+
+    history_by_account: dict[int, dict[tuple[int, int], dict]] = {}
+    for mc, acct, norm in history_results:
+        history_by_account.setdefault(acct.id, {})[(mc.year, mc.month)] = {
+            "entity_name": acct.entity_name,
+            "bank_code": acct.bank_code,
+            "account_type": acct.account_type,
+            "account_number": acct.account_number,
+            "year": mc.year,
+            "month": mc.month,
+            "ending_value": _resolve_ending_with_accrual(mc, norm),
+            "movements": _resolve_raw_movements(mc, norm),
+            "profit": _resolve_raw_profit(mc, norm),
+        }
+
+    by_bank_type: dict[tuple[str, str], dict] = {}
+    identity_issues: list[dict] = []
+    missing_component_issues: list[dict] = []
+    rows_with_previous = 0
+
+    def _bucket(bank_code: str, account_type: str) -> dict:
+        key = (bank_code, account_type)
+        if key not in by_bank_type:
+            by_bank_type[key] = {
+                "bank_code": bank_code,
+                "account_type": account_type,
+                "identity_mismatch_count": 0,
+                "missing_components_count": 0,
+                "ytd_movement_mismatch_count": 0,
+                "ytd_profit_mismatch_count": 0,
+            }
+        return by_bank_type[key]
+
+    for mc, acct, norm in filtered_results:
+        prev_year = mc.year if mc.month > 1 else mc.year - 1
+        prev_month = mc.month - 1 if mc.month > 1 else 12
+        current = history_by_account.get(acct.id, {}).get((mc.year, mc.month), {})
+        previous = history_by_account.get(acct.id, {}).get((prev_year, prev_month))
+        bucket = _bucket(acct.bank_code, acct.account_type)
+        if previous is None or previous.get("ending_value") is None:
+            continue
+
+        rows_with_previous += 1
+        ending_value = current.get("ending_value")
+        movements = current.get("movements")
+        profit = current.get("profit")
+        prev_ending = previous.get("ending_value")
+        audit_movements = _resolve_audit_movements(
+            ending_value=ending_value,
+            previous_ending=prev_ending,
+            movements=movements,
+            profit=profit,
+        )
+
+        if audit_movements is None or profit is None:
+            bucket["missing_components_count"] += 1
+            if len(missing_component_issues) < limit:
+                missing_component_issues.append(
+                    {
+                        "entity_name": acct.entity_name,
+                        "bank_code": acct.bank_code,
+                        "account_type": acct.account_type,
+                        "account_number": acct.account_number,
+                        "year": mc.year,
+                        "month": mc.month,
+                        "prev_ending_value": prev_ending,
+                        "ending_value": ending_value,
+                        "movements": audit_movements,
+                        "profit": profit,
+                        "missing_fields": [
+                            field_name
+                            for field_name, field_val in (
+                                ("movements", audit_movements),
+                                ("profit", profit),
+                            )
+                            if field_val is None
+                        ],
+                    }
+                )
+            continue
+
+        if ending_value is None:
+            continue
+
+        identity_diff = ending_value - audit_movements - profit - prev_ending
+        if abs(identity_diff) > 1:
+            bucket["identity_mismatch_count"] += 1
+            if len(identity_issues) < limit:
+                identity_issues.append(
+                    {
+                        "entity_name": acct.entity_name,
+                        "bank_code": acct.bank_code,
+                        "account_type": acct.account_type,
+                        "account_number": acct.account_number,
+                        "year": mc.year,
+                        "month": mc.month,
+                        "prev_ending_value": prev_ending,
+                        "ending_value": ending_value,
+                        "movements": audit_movements,
+                        "profit": profit,
+                        "identity_diff": round(identity_diff, 4),
+                    }
+                )
+
+    ytd_issues: list[dict] = []
+    parsed_statements = (
+        db.query(ParsedStatement, Account)
+        .join(Account, ParsedStatement.account_id == Account.id)
+        .filter(ParsedStatement.account_id.in_(account_ids))
+        .order_by(
+            Account.id,
+            ParsedStatement.statement_date.desc(),
+            ParsedStatement.parsed_at.desc(),
+            ParsedStatement.id.desc(),
+        )
+        .all()
+    )
+
+    seen_ytd_keys: set[tuple[int, int, int]] = set()
+    for ps, acct in parsed_statements:
+        if years and ps.statement_date.year not in years:
+            continue
+        if months and ps.statement_date.month not in months:
+            continue
+        ytd_key = (acct.id, ps.statement_date.year, ps.statement_date.month)
+        if ytd_key in seen_ytd_keys:
+            continue
+        seen_ytd_keys.add(ytd_key)
+        try:
+            payload = json.loads(ps.parsed_data_json or "{}")
+        except (TypeError, ValueError):
+            continue
+
+        ctrl = _extract_ytd_controls_from_payload(payload, acct.account_number)
+        if not ctrl:
+            continue
+
+        account_history = history_by_account.get(acct.id, {})
+        rows = [
+            row
+            for (year, month), row in account_history.items()
+            if year == ps.statement_date.year and month <= ps.statement_date.month
+        ]
+        if not rows:
+            continue
+
+        mov_sum = sum((row.get("movements") or 0.0) for row in rows)
+        profit_sum = sum((row.get("profit") or 0.0) for row in rows)
+        bucket = _bucket(acct.bank_code, acct.account_type)
+
+        mov_ytd = ctrl.get("movements_ytd")
+        if mov_ytd is not None:
+            diff_mov = mov_ytd - mov_sum
+            if abs(diff_mov) > 1:
+                bucket["ytd_movement_mismatch_count"] += 1
+                if len(ytd_issues) < limit:
+                    ytd_issues.append(
+                        {
+                            "metric": "movements_ytd",
+                            "entity_name": acct.entity_name,
+                            "bank_code": acct.bank_code,
+                            "account_type": acct.account_type,
+                            "account_number": acct.account_number,
+                            "year": ps.statement_date.year,
+                            "month": ps.statement_date.month,
+                            "ytd_value": mov_ytd,
+                            "monthly_sum": round(mov_sum, 4),
+                            "difference": round(diff_mov, 4),
+                            "source": ctrl.get("source"),
+                        }
+                    )
+
+        profit_ytd = ctrl.get("profit_ytd")
+        if profit_ytd is not None:
+            diff_profit = profit_ytd - profit_sum
+            if abs(diff_profit) > 1:
+                bucket["ytd_profit_mismatch_count"] += 1
+                if len(ytd_issues) < limit:
+                    ytd_issues.append(
+                        {
+                            "metric": "profit_ytd",
+                            "entity_name": acct.entity_name,
+                            "bank_code": acct.bank_code,
+                            "account_type": acct.account_type,
+                            "account_number": acct.account_number,
+                            "year": ps.statement_date.year,
+                            "month": ps.statement_date.month,
+                            "ytd_value": profit_ytd,
+                            "monthly_sum": round(profit_sum, 4),
+                            "difference": round(diff_profit, 4),
+                            "source": ctrl.get("source"),
+                        }
+                    )
+
+    by_bank_type_rows = []
+    for row in by_bank_type.values():
+        row["total_issues"] = (
+            row["identity_mismatch_count"]
+            + row["missing_components_count"]
+            + row["ytd_movement_mismatch_count"]
+            + row["ytd_profit_mismatch_count"]
+        )
+        by_bank_type_rows.append(row)
+    by_bank_type_rows.sort(key=lambda x: x["total_issues"], reverse=True)
+
+    summary = {
+        "total_rows": len(filtered_results),
+        "rows_with_previous": rows_with_previous,
+        "identity_mismatch_count": sum(row["identity_mismatch_count"] for row in by_bank_type_rows),
+        "missing_components_count": sum(row["missing_components_count"] for row in by_bank_type_rows),
+        "ytd_movement_mismatch_count": sum(row["ytd_movement_mismatch_count"] for row in by_bank_type_rows),
+        "ytd_profit_mismatch_count": sum(row["ytd_profit_mismatch_count"] for row in by_bank_type_rows),
+    }
+    summary["alert_count"] = (
+        summary["identity_mismatch_count"]
+        + summary["missing_components_count"]
+        + summary["ytd_movement_mismatch_count"]
+        + summary["ytd_profit_mismatch_count"]
+    )
+
+    return {
+        "summary": summary,
+        "by_bank_type": by_bank_type_rows,
+        "identity_issues": identity_issues,
+        "missing_component_issues": missing_component_issues,
+        "ytd_issues": ytd_issues,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1715,6 +2103,19 @@ def get_validation_logs(
         }
         for log in logs
     ]
+
+
+@router.post("/health-report")
+def get_health_report(
+    filters: HealthAuditParams,
+    db: Session = Depends(get_db),
+):
+    """
+    Auditoría read-only de salud de datos.
+
+    Revisa identidad mensual, faltantes y consistencia YTD sin modificar la BD.
+    """
+    return _build_health_report(db=db, filters=filters)
 
 
 @router.get("/parser-quality")

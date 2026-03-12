@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
-from backend.db.models import Account, EtfComposition, MonthlyClosing, MonthlyMetricNormalized
-from backend.routers.data import get_etf, get_normalization_quality, get_summary
-from backend.schemas import FilterParams
+from backend.db.models import (
+    Account,
+    EtfComposition,
+    MonthlyClosing,
+    MonthlyMetricNormalized,
+    ParserVersion,
+    ParsedStatement,
+    RawDocument,
+)
+from backend.routers.data import _build_health_report, get_etf, get_normalization_quality, get_summary
+from backend.schemas import FilterParams, HealthAuditParams
 
 
 def _mk_account(
@@ -30,6 +39,18 @@ def _mk_account(
     db_session.add(acct)
     db_session.flush()
     return acct
+
+
+def _mk_parser_version(db_session, *, name: str) -> ParserVersion:
+    parser_version = ParserVersion(
+        parser_name=name,
+        version="test",
+        source_hash="0" * 64,
+        description="test parser version",
+    )
+    db_session.add(parser_version)
+    db_session.flush()
+    return parser_version
 
 
 def test_summary_prefers_normalized_monthly_metrics(db_session):
@@ -524,3 +545,296 @@ def test_normalization_quality_reports_coverage_and_missing_rows(db_session):
     assert payload["totals"]["normalized_rows"] == 1
     assert payload["totals"]["coverage_pct"] == 50.0
     assert payload["missing_count"] == 1
+
+
+def test_health_report_treats_missing_movements_as_zero_when_identity_implies_zero(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="HEALTH-BRO-001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Health Brokerage",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("105.00"),
+                income=Decimal("5.00"),
+                change_in_value=None,
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = _build_health_report(
+        db=db_session,
+        filters=HealthAuditParams(years=[2025], bank_codes=["jpmorgan"], account_types=["brokerage"], limit=50),
+    )
+
+    assert report["summary"]["identity_mismatch_count"] == 0
+    assert report["summary"]["missing_components_count"] == 0
+    assert report["identity_issues"] == []
+    assert report["missing_component_issues"] == []
+
+
+def test_health_report_keeps_missing_movements_when_identity_implies_non_zero(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="HEALTH-BRO-002",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Health Brokerage NonZero",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("115.00"),
+                income=Decimal("5.00"),
+                change_in_value=None,
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = _build_health_report(
+        db=db_session,
+        filters=HealthAuditParams(years=[2025], bank_codes=["jpmorgan"], account_types=["brokerage"], limit=50),
+    )
+
+    assert report["summary"]["missing_components_count"] == 1
+    assert len(report["missing_component_issues"]) == 1
+    issue = report["missing_component_issues"][0]
+    assert issue["entity_name"] == "Health Brokerage NonZero"
+    assert issue["movements"] is None
+    assert issue["missing_fields"] == ["movements"]
+
+
+def test_health_report_account_ytd_maps_net_contributions_and_total_profit(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="B99719001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Boatview",
+    )
+    parser_version = _mk_parser_version(db_session, name="tests.health.account_ytd")
+    raw_doc = RawDocument(
+        filename="202512 Boatview JPM NY Brokerage (9001).pdf",
+        filepath="data/raw/jpmorgan/pdf_cartola/202512 Boatview JPM NY Brokerage (9001).pdf",
+        file_type="pdf_cartola",
+        sha256_hash="health-ytd-account-ytd-doc",
+        file_size_bytes=1,
+        bank_code="jpmorgan",
+        account_id=acct.id,
+        status="parsed",
+    )
+    db_session.add_all(
+        [
+            raw_doc,
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("13389560.81"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                net_value=Decimal("18885468.69"),
+                income=Decimal("1023877.61"),
+                change_in_value=Decimal("4422799.12"),
+                currency="USD",
+                source_document_id=1,
+            ),
+        ]
+    )
+    db_session.flush()
+    raw_doc_id = raw_doc.id
+    closing = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 12)
+        .one()
+    )
+    closing.source_document_id = raw_doc_id
+    db_session.add(
+        ParsedStatement(
+            raw_document_id=raw_doc_id,
+            account_id=acct.id,
+            statement_date=date(2025, 12, 31),
+            period_start=date(2025, 12, 1),
+            period_end=date(2025, 12, 31),
+            closing_balance=Decimal("18885468.69"),
+            currency="USD",
+                parser_version_id=parser_version.id,
+            parsed_data_json=json.dumps(
+                {
+                    "qualitative_data": {
+                        "account_ytd": [
+                            {
+                                "account_number": "B99719001",
+                                "beginning_value": "13389560.81",
+                                "net_contributions": "4422799.12",
+                                "income": "406188.90",
+                                "change_investment": "617688.71",
+                                "ending_value": "18885468.69",
+                            }
+                        ]
+                    }
+                }
+            ),
+        )
+    )
+    db_session.commit()
+
+    report = _build_health_report(
+        db=db_session,
+        filters=HealthAuditParams(years=[2025], bank_codes=["jpmorgan"], account_types=["brokerage"], limit=50),
+    )
+
+    assert report["ytd_issues"] == []
+    assert report["summary"]["ytd_movement_mismatch_count"] == 0
+    assert report["summary"]["ytd_profit_mismatch_count"] == 0
+
+
+def test_health_report_dedupes_ytd_issues_for_duplicate_parsed_statements_same_month(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="HEALTH-YTD-DUPE-001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Health YTD Duplicate",
+    )
+    parser_version = _mk_parser_version(db_session, name="tests.health.ytd_dupe")
+    raw_doc_1 = RawDocument(
+        filename="health-ytd-dupe-1.pdf",
+        filepath="data/raw/jpmorgan/pdf_cartola/health-ytd-dupe-1.pdf",
+        file_type="pdf_cartola",
+        sha256_hash="health-ytd-dupe-doc-1",
+        file_size_bytes=1,
+        bank_code="jpmorgan",
+        account_id=acct.id,
+        status="parsed",
+    )
+    raw_doc_2 = RawDocument(
+        filename="health-ytd-dupe-2.pdf",
+        filepath="data/raw/jpmorgan/pdf_cartola/health-ytd-dupe-2.pdf",
+        file_type="pdf_cartola",
+        sha256_hash="health-ytd-dupe-doc-2",
+        file_size_bytes=1,
+        bank_code="jpmorgan",
+        account_id=acct.id,
+        status="parsed",
+    )
+    db_session.add_all(
+        [
+            raw_doc_1,
+            raw_doc_2,
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("125.00"),
+                income=Decimal("10.00"),
+                change_in_value=Decimal("5.00"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.flush()
+    payload = json.dumps(
+        {
+            "qualitative_data": {
+                "account_ytd": [
+                    {
+                        "account_number": "HEALTH-YTD-DUPE-001",
+                        "net_contributions": "99.00",
+                        "income": "50.00",
+                        "change_investment": "60.00",
+                    }
+                ]
+            }
+        }
+    )
+    db_session.add_all(
+        [
+            ParsedStatement(
+                raw_document_id=raw_doc_1.id,
+                account_id=acct.id,
+                statement_date=date(2025, 1, 31),
+                period_start=date(2025, 1, 1),
+                period_end=date(2025, 1, 31),
+                closing_balance=Decimal("125.00"),
+                currency="USD",
+                parser_version_id=parser_version.id,
+                parsed_data_json=payload,
+            ),
+            ParsedStatement(
+                raw_document_id=raw_doc_2.id,
+                account_id=acct.id,
+                statement_date=date(2025, 1, 31),
+                period_start=date(2025, 1, 1),
+                period_end=date(2025, 1, 31),
+                closing_balance=Decimal("125.00"),
+                currency="USD",
+                parser_version_id=parser_version.id,
+                parsed_data_json=payload,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = _build_health_report(
+        db=db_session,
+        filters=HealthAuditParams(years=[2025], bank_codes=["jpmorgan"], account_types=["brokerage"], limit=50),
+    )
+
+    assert report["summary"]["ytd_movement_mismatch_count"] == 1
+    assert report["summary"]["ytd_profit_mismatch_count"] == 1
+    assert len(report["ytd_issues"]) == 2

@@ -824,6 +824,15 @@ class UBSSwitzerlandCustodyParser(BaseParser):
         - Bonds 52 991 545 420 089 53 411 634 58.06
         - Liquidity 951 473 951 473 1.03
         y devuelve la última columna monetaria (Total), no el porcentaje.
+
+        NOTA – Por qué en algunos meses (ej. 2025-05, 2025-08, 2025-11) la caja sale mal:
+        La página "Total assets" no tiene el mismo layout en todos los PDFs. Cuando UBS cambia
+        la maqueta (tabla, fuentes, posiciones), pdfplumber extract_text() puede devolver
+        la fila Liquidity con todos los números pegados en un solo token (ej. "5408515154236")
+        en lugar de separados ("54 236 54 236 1.03"). Entonces el parser interpreta un solo
+        número gigante. En los meses que se leen bien, el mismo PDF devuelve espacios entre
+        cifras. Solución robusta: usar extracción por tablas (extract_tables) en esa página
+        cuando se detecte un solo token numérico enorme en la fila Liquidity.
         """
         parts = [p.replace(",", "").strip() for p in line.split() if p.strip()]
         if not parts:

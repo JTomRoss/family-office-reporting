@@ -12,6 +12,8 @@ import streamlit as st
 import pandas as pd
 
 from frontend import api_client
+from frontend.components.data_health import fetch_health_report
+from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.table_utils import render_table
 
 
@@ -19,11 +21,12 @@ def render():
     st.title("⚙️ Operacional")
     st.markdown("---")
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🔄 Conciliación",
         "📝 Logs de Validación",
         "🔧 Parsers",
         "⚠️ Errores Clasificación",
+        "🏥 Salud BD",
     ])
 
     # ═══════════════════════════════════════════════════════════════
@@ -141,5 +144,108 @@ def render():
                 st.success("✅ Sin errores de clasificación")
         except Exception as e:
             st.error(f"Error: {e}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # TAB 5: Salud BD
+    # ═══════════════════════════════════════════════════════════════
+    with tab5:
+        st.subheader("Auditoría Read-Only de Salud de Datos")
+        st.caption(
+            "Revisa identidad mensual, faltantes y diferencias YTD. "
+            "Este informe no modifica la base de datos."
+        )
+
+        try:
+            filter_opts = api_client.get("/accounts/filter-options")
+        except Exception:
+            filter_opts = {
+                "years": [],
+                "bank_codes": [],
+                "account_types": [],
+            }
+
+        health_year_options = [""] + [str(y) for y in sorted(filter_opts.get("years", []), reverse=True)]
+        health_bank_options = [""] + sorted(filter_opts.get("bank_codes", []))
+        health_type_options = [""] + sorted(filter_opts.get("account_types", []))
+
+        hc1, hc2, hc3, hc4 = st.columns(4)
+        with hc1:
+            year_filter = st.selectbox(
+                "Año",
+                options=health_year_options,
+                key="health_year_filter",
+            )
+        with hc2:
+            bank_filter = st.selectbox(
+                "Banco",
+                options=health_bank_options,
+                format_func=lambda x: BANK_DISPLAY_NAMES.get(x, x.replace("_", " ").title()) if x else "Todos",
+                key="health_bank_filter",
+            )
+        with hc3:
+            type_filter = st.selectbox(
+                "Tipo cuenta",
+                options=health_type_options,
+                format_func=lambda x: x.replace("_", " ").title() if x else "Todos",
+                key="health_type_filter",
+            )
+        with hc4:
+            health_limit = st.number_input(
+                "Límite detalle",
+                value=100,
+                min_value=20,
+                max_value=500,
+                step=20,
+                key="health_limit_filter",
+            )
+
+        payload = {
+            "years": [int(year_filter)] if year_filter else [],
+            "bank_codes": [bank_filter] if bank_filter else [],
+            "account_types": [type_filter] if type_filter else [],
+        }
+
+        try:
+            report = fetch_health_report(payload, limit=int(health_limit))
+            summary = report.get("summary", {})
+
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            with mc1:
+                st.metric("Incumplimientos identidad", summary.get("identity_mismatch_count", 0))
+            with mc2:
+                st.metric("Faltantes mov/util", summary.get("missing_components_count", 0))
+            with mc3:
+                st.metric("Diferencias YTD mov", summary.get("ytd_movement_mismatch_count", 0))
+            with mc4:
+                st.metric("Diferencias YTD util", summary.get("ytd_profit_mismatch_count", 0))
+
+            by_bank_type = report.get("by_bank_type", [])
+            if by_bank_type:
+                st.markdown("---")
+                st.markdown("### Resumen por Banco y Tipo")
+                render_table(pd.DataFrame(by_bank_type))
+
+            identity_issues = report.get("identity_issues", [])
+            if identity_issues:
+                st.markdown("---")
+                st.markdown("### Incumplimientos de Identidad")
+                render_table(pd.DataFrame(identity_issues))
+
+            missing_issues = report.get("missing_component_issues", [])
+            if missing_issues:
+                st.markdown("---")
+                st.markdown("### Filas con Datos Faltantes")
+                render_table(pd.DataFrame(missing_issues))
+
+            ytd_issues = report.get("ytd_issues", [])
+            if ytd_issues:
+                st.markdown("---")
+                st.markdown("### Diferencias YTD")
+                render_table(pd.DataFrame(ytd_issues))
+
+            if not any([by_bank_type, identity_issues, missing_issues, ytd_issues]):
+                st.success("✅ Sin alertas para los filtros seleccionados.")
+        except Exception as e:
+            st.error(f"Error auditoría salud BD: {e}")
 
 

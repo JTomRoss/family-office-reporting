@@ -822,6 +822,17 @@ class DataLoadingService:
         income = account_values.get("income")
         change_in_value = account_values.get("change_investment")
         accrual = account_values.get("accrual")
+        for note in account_values.get("interpretation_notes", []):
+            self._log(
+                "load",
+                "info",
+                (
+                    f"Heurística mensual aplicada {account.bank_code}/{account.account_number} "
+                    f"{year}-{month:02d}: {note}"
+                ),
+                raw_document_id=doc.id,
+                account_id=account.id,
+            )
 
         # Asset allocation (normalizado para Mandatos, por cuenta cuando aplica).
         raw_asset_alloc = self._resolve_asset_allocation_for_account(
@@ -1258,6 +1269,8 @@ class DataLoadingService:
         3. income_summary
         """
         values: dict = {}
+        parser_key = (result.parser_name or "").strip().lower()
+        allow_ytd_monthly_fill = parser_key not in {"parsers.jpmorgan.brokerage"}
 
         # -- accounts (summary) --
         for acct_info in result.qualitative_data.get("accounts", []):
@@ -1307,7 +1320,70 @@ class DataLoadingService:
                 monthly_alloc = monthly.get("asset_allocation")
                 if isinstance(monthly_alloc, (dict, list)) and monthly_alloc:
                     values["asset_allocation"] = monthly_alloc
+                interpretation_notes = monthly.get("interpretation_notes")
+                if isinstance(interpretation_notes, list) and interpretation_notes:
+                    values["interpretation_notes"] = [str(note) for note in interpretation_notes]
                 break
+
+        # -- portfolio_activity (fallback para JPMorgan single-account bonds/custody) --
+        if (
+            "income" not in values
+            or "change_investment" not in values
+            or "ending_value" not in values
+        ):
+            single_account_jpm = parser_key in {
+                "parsers.jpmorgan.bonds",
+                "parsers.jpmorgan.custody",
+            }
+            portfolio_activity = result.qualitative_data.get("portfolio_activity") or {}
+            if (
+                single_account_jpm
+                and isinstance(portfolio_activity, dict)
+                and str(result.account_number or "").strip() == account.account_number
+            ):
+                beginning = _safe_decimal(
+                    (portfolio_activity.get("beginning_market_value") or {}).get("current_period")
+                )
+                ending = _safe_decimal(
+                    (portfolio_activity.get("ending_market_value") or {}).get("current_period")
+                )
+                net_cash = _safe_decimal(
+                    (portfolio_activity.get("net_cash_contributions") or {}).get("current_period")
+                )
+                net_cash_ytd = _safe_decimal(
+                    (portfolio_activity.get("net_cash_contributions") or {}).get("ytd")
+                )
+                income_dist = _safe_decimal(
+                    (portfolio_activity.get("income_distributions") or {}).get("current_period")
+                )
+                income_dist_ytd = _safe_decimal(
+                    (portfolio_activity.get("income_distributions") or {}).get("ytd")
+                )
+                change_inv = _safe_decimal(
+                    (portfolio_activity.get("change_investment") or {}).get("current_period")
+                )
+                change_inv_ytd = _safe_decimal(
+                    (portfolio_activity.get("change_investment") or {}).get("ytd")
+                )
+
+                if "beginning_value" not in values and beginning is not None:
+                    values["beginning_value"] = beginning
+                if "ending_value" not in values and ending is not None:
+                    values["ending_value"] = ending
+                if "change_investment" not in values and net_cash is not None:
+                    values["change_investment"] = net_cash
+                if "change_investment_ytd" not in values and net_cash_ytd is not None:
+                    values["change_investment_ytd"] = net_cash_ytd
+                if "income" not in values and (income_dist is not None or change_inv is not None):
+                    values["income"] = (income_dist or Decimal("0")) + (change_inv or Decimal("0"))
+                if "income_ytd" not in values and (
+                    income_dist_ytd is not None or change_inv_ytd is not None
+                ):
+                    values["income_ytd"] = (income_dist_ytd or Decimal("0")) + (change_inv_ytd or Decimal("0"))
+                if "asset_allocation" not in values:
+                    top_alloc = result.qualitative_data.get("asset_allocation")
+                    if isinstance(top_alloc, (dict, list)) and top_alloc:
+                        values["asset_allocation"] = top_alloc
 
         # -- account_ytd (fallback if monthly not available) --
         if "income" not in values or "change_investment" not in values:
@@ -1317,9 +1393,9 @@ class DataLoadingService:
                         values["beginning_value"] = _safe_decimal(ytd.get("beginning_value"))
                     if "ending_value" not in values:
                         values["ending_value"] = _safe_decimal(ytd.get("ending_value"))
-                    if "income" not in values:
+                    if allow_ytd_monthly_fill and "income" not in values:
                         values["income"] = _safe_decimal(ytd.get("income"))
-                    if "change_investment" not in values:
+                    if allow_ytd_monthly_fill and "change_investment" not in values:
                         values["change_investment"] = _safe_decimal(ytd.get("change_investment"))
                     break
 
@@ -1409,35 +1485,6 @@ class DataLoadingService:
                     raw_document_id=raw_document_id,
                     account_id=account.id,
                 )
-                target = current
-                # BBH rule: prior-period adjustment belongs to previous month.
-                if (
-                    account.bank_code == "bbh"
-                    and month > 1
-                    and prior_adj is not None
-                    and abs(prior_adj) > Decimal("0.0001")
-                ):
-                    target = (
-                        self.db.query(MonthlyClosing)
-                        .filter(
-                            MonthlyClosing.account_id == account.id,
-                            MonthlyClosing.year == year,
-                            MonthlyClosing.month == month - 1,
-                        )
-                        .first()
-                    )
-                if target is not None:
-                    target.change_in_value = (target.change_in_value or Decimal("0")) + diff_mov
-                    self._log(
-                        "load",
-                        "info",
-                        (
-                            f"YTD caja alineada {account.bank_code}/{account.account_number} "
-                            f"{year}-{month:02d}: ajuste={diff_mov}"
-                        ),
-                        raw_document_id=raw_document_id,
-                        account_id=account.id,
-                    )
 
         if ytd_util is not None:
             diff_util = ytd_util - sum_util
@@ -1453,18 +1500,6 @@ class DataLoadingService:
                     raw_document_id=raw_document_id,
                     account_id=account.id,
                 )
-                if current is not None:
-                    current.income = (current.income or Decimal("0")) + diff_util
-                    self._log(
-                        "load",
-                        "info",
-                        (
-                            f"YTD utilidad alineada {account.bank_code}/{account.account_number} "
-                            f"{year}-{month:02d}: ajuste={diff_util}"
-                        ),
-                        raw_document_id=raw_document_id,
-                        account_id=account.id,
-                    )
 
     def _recompute_ubs_income_from_identity(
         self,
@@ -1577,37 +1612,28 @@ class DataLoadingService:
             if ytd_mov is not None:
                 diff_mov = ytd_mov - sum_mov
                 if abs(diff_mov) > Decimal("1"):
-                    target = current
-                    if (
-                        account.bank_code == "bbh"
-                        and month > 1
-                        and prior_adj is not None
-                        and abs(prior_adj) > Decimal("0.0001")
-                    ):
-                        target = next((r for r in rows if r.month == month - 1), target)
-                    if target is not None:
-                        target.change_in_value = (target.change_in_value or Decimal("0")) + diff_mov
-                        self._log(
-                            "load",
-                            "info",
-                            (
-                                f"YTD serie caja alineada {account.bank_code}/{account.account_number} "
-                                f"{year}-{month:02d}: ajuste={diff_mov}"
-                            ),
-                            raw_document_id=raw_document_id,
-                            account_id=account.id,
-                        )
+                    self._log(
+                        "load",
+                        "warning",
+                        (
+                            f"YTD serie caja inconsistente {account.bank_code}/{account.account_number} "
+                            f"{year}-{month:02d}: ytd={ytd_mov} vs suma={sum_mov} "
+                            f"(diff={diff_mov})"
+                        ),
+                        raw_document_id=raw_document_id,
+                        account_id=account.id,
+                    )
 
             if ytd_util is not None:
                 diff_util = ytd_util - sum_util
                 if abs(diff_util) > Decimal("1"):
-                    current.income = (current.income or Decimal("0")) + diff_util
                     self._log(
                         "load",
-                        "info",
+                        "warning",
                         (
-                            f"YTD serie utilidad alineada {account.bank_code}/{account.account_number} "
-                            f"{year}-{month:02d}: ajuste={diff_util}"
+                            f"YTD serie utilidad inconsistente {account.bank_code}/{account.account_number} "
+                            f"{year}-{month:02d}: ytd={ytd_util} vs suma={sum_util} "
+                            f"(diff={diff_util})"
                         ),
                         raw_document_id=raw_document_id,
                         account_id=account.id,

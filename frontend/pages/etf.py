@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import pandas as pd
 
 from frontend import api_client
+from frontend.components.data_health import render_health_warning
 from frontend.components.table_utils import render_table
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.filters import (
@@ -163,6 +164,17 @@ def render():
     society_returns_monthly = data.get("society_returns_monthly", [])
     society_returns_ytd = data.get("society_returns_ytd", [])
     selected_year = data.get("selected_year")
+
+    render_health_warning(
+        {
+            "years": [selected_year] if selected_year else [],
+            "bank_codes": selected_banks,
+            "entity_names": selected_entities,
+            "account_types": ["etf"],
+        },
+        label="ETF",
+    )
+
     try:
         etf_summary = api_client.post("/data/summary", json={
             "years": [selected_year] if selected_year else [],

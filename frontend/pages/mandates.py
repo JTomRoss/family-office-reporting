@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend import api_client
+from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
@@ -479,6 +480,17 @@ def render():
     effective_fecha = data.get("selected_fecha") or selected_fecha
     chart_year = _year_from_fecha(effective_fecha)
     chart_month = int(effective_fecha[5:7]) if effective_fecha and len(effective_fecha) >= 7 else 12
+
+    render_health_warning(
+        {
+            "years": [chart_year] if chart_year else [],
+            "months": list(range(1, chart_month + 1)) if chart_year else [],
+            "bank_codes": selected_banks,
+            "entity_names": selected_entities,
+            "account_types": ["mandato", "etf"],
+        },
+        label="Mandatos",
+    )
 
     # Mov YTD alineado a Resumen para Mandato y ETF.
     summary_mand = api_client.post("/data/summary", json={

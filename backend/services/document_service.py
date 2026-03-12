@@ -165,9 +165,24 @@ class DocumentService:
         if parser_key:
             parser = registry.get_parser(parser_key[0], parser_key[1])
         elif doc.bank_code and doc.file_type:
-            # Intentar parser específico para PDFs tipados
             account_type = doc.file_type.replace("pdf_", "").replace("excel_", "")
             parser = registry.get_parser(doc.bank_code, account_type)
+
+        # Prioridad: si el documento tiene account_id, resolver parser desde Account.
+        if parser is None and doc.account_id:
+            account = self.db.query(Account).filter(Account.id == doc.account_id).first()
+            if account and account.bank_code and account.account_type:
+                candidate = registry.get_parser(account.bank_code, account.account_type)
+                if candidate:
+                    parser = candidate
+                    self._log_validation(
+                        "parse", "info",
+                        f"Parser seleccionado por cuenta asignada: "
+                        f"{account.bank_code}/{account.account_type} → {candidate.get_parser_name()}",
+                        raw_document_id=doc.id,
+                        account_id=account.id,
+                    )
+
         # Hint por nombre para JPM pdf_cartola (evita ambigüedad entre motores JPM).
         if parser is None and doc.file_type == "pdf_cartola" and doc.bank_code == "jpmorgan":
             fname = (doc.filename or "").lower()
@@ -177,6 +192,12 @@ class DocumentService:
                 parser = registry.get_parser("jpmorgan", "brokerage")
             elif "etf" in fname:
                 parser = registry.get_parser("jpmorgan", "etf")
+            elif (
+                "bond" in fname
+                or "bono" in fname
+                or re.search(r"(?:^|[\s_.()-])bo(?:[\s_.()-]|$)", fname)
+            ):
+                parser = registry.get_parser("jpmorgan", "bonds")
             else:
                 # Fallback robusto para nombres genéricos tipo "statements-5001-".
                 # Usar dígito verificador del filename y maestro de cuentas para inferir motor.
@@ -200,6 +221,8 @@ class DocumentService:
                         inferred = next(iter(acct_types))
                         if inferred == "etf":
                             parser = registry.get_parser("jpmorgan", "etf")
+                        elif inferred == "bonds":
+                            parser = registry.get_parser("jpmorgan", "bonds")
                         elif inferred in {"custody", "mandato"}:
                             parser = registry.get_parser("jpmorgan", "custody")
                         elif inferred == "brokerage":
@@ -453,13 +476,18 @@ class DocumentService:
 
     def delete_document(self, document_id: int) -> bool:
         """Elimina un documento, sus registros dependientes, y su archivo raw."""
-        from backend.db.models import MonthlyClosing, EtfComposition, Reconciliation
+        from backend.db.models import (
+            MonthlyClosing,
+            MonthlyMetricNormalized,
+            EtfComposition,
+            Reconciliation,
+        )
 
         doc = self.db.query(RawDocument).filter(RawDocument.id == document_id).first()
         if not doc:
             return False
 
-        # Eliminar registros que referencian este documento (sin cascade en ORM)
+        # Eliminar registros que referencian este documento (orden por FK)
         self.db.query(Reconciliation).filter(
             Reconciliation.monthly_closing_id.in_(
                 self.db.query(MonthlyClosing.id).filter(
@@ -469,6 +497,9 @@ class DocumentService:
         ).delete(synchronize_session=False)
         self.db.query(MonthlyClosing).filter(
             MonthlyClosing.source_document_id == document_id
+        ).delete(synchronize_session=False)
+        self.db.query(MonthlyMetricNormalized).filter(
+            MonthlyMetricNormalized.source_document_id == document_id
         ).delete(synchronize_session=False)
         self.db.query(EtfComposition).filter(
             EtfComposition.source_document_id == document_id

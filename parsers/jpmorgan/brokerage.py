@@ -54,6 +54,9 @@ def _parse_date_mdy_short(text: str) -> Optional[date]:
         return None
 
 
+_ACTIVITY_VALUE_RE = re.compile(r"-?\(?\$?[\d,]+\.\d{2}\)?")
+
+
 # ── Parser ───────────────────────────────────────────────────────
 
 class JPMorganBrokerageParser(BaseParser):
@@ -67,6 +70,13 @@ class JPMorganBrokerageParser(BaseParser):
         "J.P. Morgan",
         "JPMorgan",
         "Consolidated Statement",
+    ]
+    _ACTIVITY_ROW_PATTERNS = [
+        r"Beginning\s+Market\s+Value",
+        r"Net\s+Contributions\s*/\s*Withdrawals",
+        r"Income\s*(?:&|and)\s*Distributions",
+        r"Change\s+[Ii]n\s+Investment\s+Value",
+        r"Ending\s+Market\s+Value",
     ]
 
     def parse(self, filepath: Path) -> ParseResult:
@@ -312,38 +322,62 @@ class JPMorganBrokerageParser(BaseParser):
             val = _parse_usd(with_accrual_m.group(2))
             data["ending_value_with_accrual"] = str(val) if val is not None else None
 
+        activity_text = text[activity_pos:] if activity_pos > 0 else text
+
         without_accrual_m = re.search(
             r"Ending Market Value\s+\$?([\d,]+\.\d{2})",
-            text[activity_pos:] if activity_pos > 0 else text,
+            activity_text,
         )
         if without_accrual_m:
             val = _parse_usd(without_accrual_m.group(1))
             data["ending_value_without_accrual"] = str(val) if val is not None else None
 
-        net_contrib_m = re.search(
-            r"Net Contributions/Withdrawals\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)",
-            text,
+        interpretation_notes: list[str] = []
+        net_contributions, net_contributions_ytd, net_blank_current = self._extract_activity_values(
+            activity_text,
+            r"Net\s+Contributions\s*/\s*Withdrawals",
+            single_value_means_ytd=False,
         )
-        net_contributions = _parse_usd(net_contrib_m.group(1)) if net_contrib_m else None
+        if net_blank_current:
+            interpretation_notes.append(
+                "Net Contributions/Withdrawals mensual en blanco interpretado como 0; YTD se conserva solo como control."
+            )
 
-        income_m = re.search(
-            r"Income & Distributions\s+([\d,]+\.\d{2})",
-            text[activity_pos:] if activity_pos > 0 else text,
+        income_distributions, income_distributions_ytd, income_blank_current = self._extract_activity_values(
+            activity_text,
+            r"Income\s*(?:&|and)\s*Distributions",
+            single_value_means_ytd=True,
         )
-        income_distributions = _parse_usd(income_m.group(1)) if income_m else None
+        if income_blank_current:
+            interpretation_notes.append(
+                "Income & Distributions mensual en blanco interpretado como 0; YTD se conserva solo como control."
+            )
 
-        change_m = re.search(
-            r"Change [Ii]n Investment Value\s+(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
-            text[activity_pos:] if activity_pos > 0 else text,
+        change_investment, change_investment_ytd, change_blank_current = self._extract_activity_values(
+            activity_text,
+            r"Change\s+[Ii]n\s+Investment\s+Value",
+            single_value_means_ytd=True,
         )
-        change_investment = _parse_usd(change_m.group(1)) if change_m else None
+        if change_blank_current:
+            interpretation_notes.append(
+                "Change in Investment Value mensual en blanco interpretado como 0; YTD se conserva solo como control."
+            )
 
         if net_contributions is None and income_distributions is None:
             return None
 
         data["net_contributions"] = str(net_contributions) if net_contributions is not None else None
+        data["net_contributions_ytd"] = (
+            str(net_contributions_ytd) if net_contributions_ytd is not None else None
+        )
         data["income_distributions"] = str(income_distributions) if income_distributions is not None else None
+        data["income_distributions_ytd"] = (
+            str(income_distributions_ytd) if income_distributions_ytd is not None else None
+        )
         data["change_investment"] = str(change_investment) if change_investment is not None else None
+        data["change_investment_ytd"] = (
+            str(change_investment_ytd) if change_investment_ytd is not None else None
+        )
 
         utilidad = Decimal("0")
         if income_distributions is not None:
@@ -355,7 +389,50 @@ class JPMorganBrokerageParser(BaseParser):
         if accrual_beginning is not None:
             utilidad -= accrual_beginning
         data["utilidad"] = str(utilidad)
+        if interpretation_notes:
+            data["interpretation_notes"] = interpretation_notes
         return data
+
+    @staticmethod
+    def _extract_activity_values(
+        text: str,
+        label_pattern: str,
+        *,
+        single_value_means_ytd: bool,
+    ) -> tuple[Optional[Decimal], Optional[Decimal], bool]:
+        """
+        Extrae columnas Current Period / YTD desde una fila de Portfolio Activity.
+
+        Si la fila tiene un solo monto, se interpreta como YTD y el valor mensual
+        en blanco se trata como 0 para no rellenar mensual con YTD.
+        """
+        label_re = re.compile(label_pattern, re.IGNORECASE)
+        match = label_re.search(text)
+        if not match:
+            return None, None, False
+
+        next_start = len(text)
+        for next_pattern in JPMorganBrokerageParser._ACTIVITY_ROW_PATTERNS:
+            if next_pattern == label_pattern:
+                continue
+            next_re = re.compile(next_pattern, re.IGNORECASE)
+            next_match = next_re.search(text, match.end())
+            if next_match:
+                next_start = min(next_start, next_match.start())
+
+        row_block = text[match.end():next_start]
+        tokens = _ACTIVITY_VALUE_RE.findall(row_block)
+        amounts = [_parse_usd(token) for token in tokens]
+        amounts = [amount for amount in amounts if amount is not None]
+        if len(amounts) >= 2:
+            return amounts[0], amounts[1], False
+        if len(amounts) == 1:
+            if single_value_means_ytd:
+                return Decimal("0"), amounts[0], True
+            return amounts[0], None, False
+        if single_value_means_ytd:
+            return Decimal("0"), None, True
+        return None, None, False
 
     def _finalize_account_mapping(self, result: ParseResult) -> None:
         extracted = [

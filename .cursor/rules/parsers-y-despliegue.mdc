@@ -1,0 +1,110 @@
+---
+description: Reglas no negociables FO Reporting (DEEP_CONTEXT): stack, arquitectura, parsers, capa normalizada, protocolo operación
+alwaysApply: true
+---
+
+# Reglas no negociables — FO Reporting (desde DEEP_CONTEXT)
+
+## 1. Stack tecnológico (no negociable)
+
+- **Lenguaje**: Python 3.12.8. **Backend**: FastAPI + Uvicorn 0.104+. **Frontend**: Streamlit 1.29+. **ORM/BD**: SQLAlchemy 2.0 + SQLite WAL. **Migraciones**: Alembic. **PDF**: pdfplumber (principal) + PyMuPDF/fitz (fallback GS). **Excel**: pandas + openpyxl. **HTTP**: httpx. **Charts**: Plotly. **Schemas**: Pydantic v2. **Tests**: pytest + hypothesis.
+- **Moneda en BD**: `Numeric(20,4)` — **NUNCA Float**.
+- **Entorno**: venv `.venv/`. Instalar: `pip install -e ".[dev]"`. Iniciar: `.\scripts\start.ps1` (backend 8000, frontend 8501, **SIN --reload**). Detener: `.\scripts\stop.ps1`. Reiniciar: `.\scripts\stop.ps1 ; .\scripts\start.ps1`. Tests: `python -m pytest tests/ -x -q`.
+- **NUNCA** usar `--reload` ni `--log-level debug`.
+
+---
+
+## 2. Arquitectura — Separación estricta de capas
+
+- **frontend/**: SOLO presentación. CERO lógica de negocio. **TODA** comunicación UI→Backend por `api_client.py` (httpx).
+- **backend/**: API REST. Toda lógica de negocio. main.py, routers/, services/, db/.
+- **parsers/**: Plugins aislados. Un parser = un archivo por banco y tipo de cuenta. base.py, registry.py, carpeta por banco.
+- **calculations/**: Cálculos financieros puros (sin I/O). allocation, profit, reconciliation.
+
+### 2.1 Reglas de hierro
+
+1. **La UI NUNCA importa nada de `backend/` ni `parsers/`**. Solo usa `api_client.py`.
+2. **Parsers son islas**: cada parser es un archivo autocontenido. **Aislamiento obligatorio por banco y por tipo de cuenta**. Cambios en un motor PDF no pueden afectar a otros. NO comparten helpers entre bancos distintos (excepción: `goldman_sachs/_gs_common.py` solo entre los 2 parsers GS con PyMuPDF).
+3. **Idempotencia**: todo upload verifica SHA-256. Mismo archivo = mismo resultado.
+4. **Moneda SIEMPRE en `Numeric(20,4)`**, nunca Float.
+5. **UTC everywhere**: `datetime.now(timezone.utc)`, nunca `datetime.utcnow()`.
+6. **Versionado de parsers**: cada parser tiene `VERSION = "X.Y.Z"`. Hash del código se registra en BD.
+7. **`safe_parse()` en vez de `parse()`**: el wrapper valida el contrato.
+8. **La cartola bancaria (PDF) es la VERDAD** para conciliación mensual. Los Excel son datos operativos diarios.
+9. **Auto-detección determinista**: en empate de parsers, gana orden alfabético por nombre.
+10. **Identidad mensual obligatoria**: `valor_final_mes_actual - movimientos_mes - utilidad_mes = valor_final_mes_anterior`.
+11. **YTD solo como control**: los valores YTD se usan para auditar la consistencia de los datos mensuales; **NUNCA** para completar o sobreescribir movimientos/utilidad mensuales.
+12. **No forzar identidad**: si falla la identidad mensual o el control YTD, la aplicación debe alertar; no debe mutar datos silenciosamente para hacerlos cuadrar.
+
+---
+
+## 3. Reglas de trabajo con el agente (no negociables)
+
+1. **Aislamiento de motores PDF**: Mantener siempre aislamiento por banco y tipo de cuenta. Cambios en un parser no pueden afectar a otros.
+2. **Motores PDF ya optimizados**: No leer PDFs desde UI. Tablas y gráficos obtienen datos de la **capa normalizada / BD** (`monthly_metrics_normalized`, `monthly_closings`). **Si se va a cambiar algo en un parser: avisar primero y no hacer el cambio sin OK del usuario.**
+3. **Instancia de prueba antes de oficial**: Cambios en preview (8100/8601); solo después del OK del usuario pasan a app oficial (8000/8501).
+4. **Reinicio y aviso tras cada cambio**: Reiniciar la app como corresponde y avisar, o indicar "solo refresca navegador". **Nunca** varias versiones/procesos de la app corriendo a la vez.
+
+---
+
+## 4. Capa normalizada de reporting (no negociable)
+
+- La interpretación financiera mensual de cartolas vive en la **capa normalizada (backend)**, no en UI.
+- Las tablas/pestañas de reporte leen la **capa normalizada como fuente primaria**.
+- `monthly_closings` es **respaldo/fallback** y fuente histórica base.
+- Si existe dato en `monthly_metrics_normalized`, ese valor manda; si falta, fallback a `monthly_closings`.
+- Los reportes deben mostrar alertas si detectan incumplimientos de identidad mensual o diferencias YTD en los datos visibles.
+
+---
+
+## 5. Regla permanente UBS Suiza
+
+- **Solo para UBS Suiza**: Si existe cartola mensual del mes, ese `net_value` manda. El trimestral se usa para completar/controlar movimientos y utilidad por identidad en no-trimestre. **No mezclar esta lógica con otros bancos ni otros tipos de cuenta.**
+
+---
+
+## 6. Prohibiciones absolutas (operación)
+
+1. **NUNCA usar `--reload`** en uvicorn (procesos zombis, puertos ocupados).
+2. **NUNCA usar `--log-level debug`** en producción/testing.
+3. **NUNCA levantar un segundo proceso** sin verificar que el puerto está libre.
+4. **NUNCA asumir que matar un proceso libera el puerto al instante** — esperar 2 segundos y verificar.
+
+---
+
+## 7. Scripts de gestión (usar SIEMPRE)
+
+- **Detener**: `.\scripts\stop.ps1`
+- **Iniciar**: `.\scripts\start.ps1`
+- **Reiniciar tras cambios**: `.\scripts\stop.ps1 ; .\scripts\start.ps1`
+- No usar comandos manuales de uvicorn ni streamlit.
+
+---
+
+## 8. Flujo obligatorio para el agente al hacer cambios
+
+**ANTES de cualquier cambio:** Leer contexto/archivos a modificar. Correr tests (`python -m pytest tests/ -x -q`); suite debe estar verde.
+
+**DESPUÉS de cada cambio:** Correr tests. Detener con `.\scripts\stop.ps1`. Esperar 2 segundos. Levantar con `.\scripts\start.ps1`. Indicar al usuario que refresque el navegador.
+
+**Reinicio automático:** Si el cambio requiere reinicio, ejecutarlo **sin preguntar** (stop → 2 s → verificar puertos 8000/8501 → start). Avisar: "app reiniciada, ya puedes revisar" o "solo refresca navegador".
+
+---
+
+## 9. Protocolo de respaldo ("guardar" / "respaldar")
+
+1. Explicar qué se hará antes de ejecutar.
+2. Detener app (`.\scripts\stop.ps1`), verificar puertos libres.
+3. `git status` limpio o commit explícito; ejecutar tests.
+4. `python scripts/freeze.py --label "<etiqueta>"` (snapshot DB + raw + cache).
+5. Commit en master, push y tags.
+6. Entregar al usuario: tag, hash commit, ruta snapshot, cómo restaurar (`scripts/restore.py --tag <tag>` o `--latest`).
+7. Dejar app operativa con `.\scripts\start.ps1`.
+
+---
+
+## 10. Prioridades de calidad (orden estricto)
+
+1. **Confianza de datos y cálculos** (exactitud y trazabilidad) — prioridad #1.
+2. **Estabilidad operativa** (procesos y puertos bajo control) — prioridad #2.
+3. **Performance/experiencia de uso** — prioridad #3, sin sacrificar exactitud.

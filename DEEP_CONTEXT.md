@@ -1,7 +1,56 @@
 # AGENT_CONTEXT — Family Office Reporting System
 
 > **Propósito**: Este archivo es el SSOT de contexto para cualquier agente AI que trabaje en este proyecto. Léelo COMPLETO antes de hacer cualquier cambio.
-> **Última actualización**: 2026-03-04 (dashboards negocio + hardening parsers JPM/UBS/BBH + regla UBS trimestral)
+> **Última actualización**: 2026-03-10 (cierre bloque Eliminar seleccionados: IDs desde edited_df, mensaje éxito/error)
+
+---
+
+## 0. CIERRE TÉCNICO RECIENTE (2026-03-10)
+
+### Auditoría read-only de salud BD
+- Se agregó un endpoint read-only de auditoría (`/data/health-report`) para revisar:
+  - incumplimientos de identidad mensual;
+  - filas con movimientos/utilidad faltantes;
+  - diferencias entre suma mensual acumulada y YTD.
+- Se agregó una pestaña nueva en UI: `Operacional > Salud BD`.
+- Se agregaron alertas visibles en `Resumen`, `Mandatos`, `ETF` y `Detalle` cuando los filtros activos muestran inconsistencias.
+- Esta auditoría **no corrige ni muta datos**; solo informa.
+
+### Regla estable nueva
+- La identidad mensual quedó fijada como regla no negociable:
+  `valor_final_mes_actual - movimientos_mes - utilidad_mes = valor_final_mes_anterior`
+- YTD queda como **control solamente**.
+- El sistema **no debe** usar YTD para completar, alinear o sobrescribir movimientos/utilidad mensuales.
+- Si hay diferencias, debe haber alerta/log, no mutación silenciosa.
+
+### JPMorgan bonds
+- Se corrigió el loader para `parsers.jpmorgan.bonds`:
+  cuando falta `account_monthly_activity`, ahora usa `portfolio_activity` como fuente de:
+  - movimientos (`Net Cash Contributions / Withdrawals`);
+  - utilidad (`Income and Distributions + Change in Investment Value`);
+  - ending value.
+- Caso validado en preview:
+  - `Ecoterra Internacional` `2025-04`
+  - cuenta `1531100` quedó con:
+    - movimientos `-17.260.955,84`
+    - utilidad `-89.788,21`
+  - cuenta `1530900` quedó con:
+    - movimientos `-7.442.970,96`
+    - utilidad `-152.178,00`
+- Con eso desapareció el fallback que producía la utilidad agregada errónea de `-17.396.235,4`.
+
+### Controles YTD en loader
+- Se eliminó el comportamiento que reescribía `monthly_closings.change_in_value` e `income` para hacer cuadrar YTD.
+- Los chequeos YTD siguen existiendo, pero ahora quedan solo como `warning`/control.
+- Esto afecta especialmente la interpretación histórica de tests antiguos que asumían “alineación” automática; esos tests se actualizaron para reflejar la nueva regla.
+
+### JPMorgan mandato
+- Se revisó por separado.
+- No se tocó el parser/loader de `JPMorgan mandato` en este bloque.
+- Hallazgo:
+  - los faltantes actuales están concentrados en históricos viejos (principalmente 2020-2021);
+  - los documentos recientes (`2025+`) sí traen `account_monthly_activity` y no muestran el mismo problema estructural que `bonds`.
+- Cualquier corrección futura debe hacerse aparte, sin mezclar lógica con `JPMorgan bonds`.
 
 ---
 
@@ -86,6 +135,9 @@ data/              → Archivos: raw/, cache/, snapshots/, db/
 7. **`safe_parse()` en vez de `parse()`**: el wrapper automático valida el contrato.
 8. **La cartola bancaria (PDF) es la VERDAD** para conciliación mensual. Los Excel son datos operativos diarios.
 9. **Auto-detección determinista**: en empate de parsers, gana el orden alfabético por nombre.
+10. **Identidad mensual obligatoria**: `valor_final_mes_actual - movimientos_mes - utilidad_mes = valor_final_mes_anterior`.
+11. **YTD es solo control**: YTD se usa para auditar la consistencia de los datos mensuales, nunca para sobrescribir ni completar movimientos/utilidad mensuales.
+12. **No forzar identidad**: si la identidad mensual o el control YTD fallan, el sistema debe alertar; no debe mutar datos silenciosamente para hacerlos cuadrar.
 
 ### 3.3 Reglas de trabajo con el agente (no negociables)
 
@@ -460,6 +512,100 @@ UI (PDFs tab) → POST /documents/upload-and-process
 - La interpretacion financiera mensual de cartolas debe vivir en la capa normalizada (backend), no en UI.
 - Las tablas/pestañas de reporte deben leer la capa normalizada como fuente primaria.
 - `monthly_closings` queda como respaldo/fallback y fuente historica base.
+
+---
+
+## 9.3 Cierre bloque Eliminar seleccionados (2026-03-10)
+
+**Problema:** En la pestaña Documentos, al marcar una o más filas y pulsar "Eliminar seleccionados" no ocurría nada ni se mostraba mensaje en verde.
+
+**Causa:** Los IDs a eliminar se obtenían por alineación de índices entre `edited_df` y `df_docs` (`df_docs.iloc[selected_indices]["id"]`). Con filtros, orden o estado del data_editor, los índices podían no coincidir con las filas mostradas, dando `selected_ids` vacío o incorrecto. Además las excepciones del DELETE se tragaban con `except: pass`.
+
+**Solución (frontend/pages/upload.py):**
+- Obtener los IDs desde la columna **"ID"** del mismo dataframe que devuelve el data_editor (`edited_df.loc[selected_mask, "ID"].tolist()`), garantizando que se eliminan exactamente las filas que el usuario ve seleccionadas.
+- Mostrar `st.success("✅ Su selección ha sido eliminada.")` cuando se elimina al menos un documento; luego `st.rerun()`.
+- Mostrar `st.error` por cada fallo del DELETE (ya no `pass`).
+- Mostrar `st.warning` si había filas seleccionadas pero no se eliminó ninguna y no hubo errores.
+
+No se modificó ninguna regla de arquitectura; solo UX y robustez del flujo de borrado.
+
+---
+
+## 9.4 JPMorgan Brokerage - caja / YTD / accruals (2026-03-11)
+
+### Problema detectado
+
+En varias cartolas `JPMorgan brokerage` con perfil de caja o actividad muy simple se observaron dos layouts/problematicas:
+
+1. **Fila mensual en blanco con YTD visible**:
+   - la cartola muestra dos columnas (`Current Period Value`, `Year-to-Date Value`);
+   - en algunas filas el valor mensual viene visualmente en blanco, pero el YTD sí viene poblado;
+   - el parser anterior capturaba ese único número como si fuera mensual.
+
+2. **`Change In Investment Value` duplicando caja**:
+   - en ciertos meses la fila `Change In Investment Value` trae exactamente el mismo monto que `Net Contributions/Withdrawals` (misma magnitud, signo opuesto o mismo número visual);
+   - si se suma a utilidad, se duplica conceptualmente un movimiento de caja y se infla `profit`.
+
+### Regla funcional adoptada
+
+Para `parsers.jpmorgan.brokerage`:
+
+1. **Si una fila de Portfolio Activity trae un solo monto, se interpreta como YTD**.
+   - El valor mensual en blanco se trata como `0`.
+   - El YTD se conserva solo como dato de control/trazabilidad.
+
+2. **`account_ytd` no se usa para rellenar mensual en brokerage**.
+   - Puede servir para control/auditoría.
+   - No debe completar `income` ni `change_investment` mensuales.
+
+3. **`Change In Investment Value` se excluye de utilidad cuando duplica caja**.
+   - Heurística: si `abs(Change In Investment Value) == abs(Net Contributions/Withdrawals)` y no es cero, se considera duplicación operativa de caja.
+   - En ese caso, se deja fuera del cálculo de utilidad mensual.
+
+4. **Fórmula mensual para utilidad en estos casos**:
+   - base: `Income & Distributions mensual`
+   - más: `delta_accrual = accrual_ending - accrual_beginning`
+   - más: `Change In Investment Value` **solo si no duplica caja**
+
+5. **Trazabilidad**:
+   - cuando se aplica alguna heurística, se guarda una nota en `qualitative_data.account_monthly_activity[].interpretation_notes`;
+   - el loader registra la nota en `validation_logs`.
+
+### Casos observados
+
+- **Armel Canada (`5000`)**
+  - `2025-05`: `Change In Investment Value = 5,894.95` duplica en magnitud a `Net Contributions/Withdrawals = (5,894.95)`.
+  - La utilidad correcta pasa a ser `12.11 + (12.40 - 12.06) = 12.45`.
+  - `2025-02`: no aparece la línea `Change In Investment Value`; la utilidad se interpreta con `Income & Distributions + delta accruals`.
+
+- **La Guardia (`1008`)**
+  - `2025-11` y `2025-12`: `Income & Distributions` mensual viene en blanco y solo aparece el YTD (`5.91`).
+  - Regla: mensual = `0`, no `5.91`.
+
+- **Mi Investments (`1000`)**
+  - mismo patrón de YTD tomado erróneamente como mensual en varios meses recientes;
+  - además hay meses donde `Change In Investment Value` replica caja y debe excluirse de utilidad.
+
+- **Ecoterra RE (`2008`)**
+  - comparte el patrón `brokerage` con actividad simple/caja dominante;
+  - aplicar la misma interpretación: mensual real + delta accruals; no llenar mensual desde YTD.
+
+### Ecoterra Internacional JPMorgan Bonds - histórico pendiente
+
+Revisión de `parsed_statements.parsed_data_json` para `1530900` y `1531100` mostró:
+
+- En varios meses históricos (`2024-12` a `2025-03`, y análogos anteriores) sí existe `portfolio_activity` con:
+  - `net_cash_contributions.current_period`
+  - `income_distributions.current_period`
+  - `change_investment.current_period`
+  - `ending_market_value.current_period`
+- Sin embargo, en `monthly_closings` muchos de esos meses siguen con `change_in_value = None` e `income = None`.
+
+Conclusión:
+
+- el problema histórico pendiente de `Ecoterra Internacional` para JPM `bonds` no es que falte la materia prima en el parseo;
+- el dato existe en `parsed_data_json` y la corrección requiere **reproceso dirigido** con la lógica nueva del loader;
+- en la BD consultada no apareció una cuenta `Ecoterra Internacional / jpmorgan / mandato`, ni documentos `Ect Intl ... Mandato` en `raw_documents`, por lo que el bloque pendiente identificado en esta revisión queda acotado principalmente a `bonds` (`0900`, `1100`) salvo que existan documentos fuera de esta BD.
 
 ---
 

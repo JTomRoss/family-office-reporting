@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend import api_client
+from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
@@ -203,6 +204,16 @@ def render():
     detail_rows = data.get("rows", [])
     consolidated_rows = data.get("consolidated_rows", [])
     chart_data = data.get("chart_data", [])
+
+    render_health_warning(
+        {
+            "years": [selected_year] if selected_year else [],
+            "bank_codes": selected_banks,
+            "entity_names": selected_entities_effective,
+            "account_types": selected_types,
+        },
+        label="Resumen",
+    )
 
     st.subheader("Evolucion 12 meses")
 
