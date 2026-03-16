@@ -1,6 +1,6 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-03-10 (identity/YTD controls + health audit)
+Last updated: 2026-03-16 (normalized SSOT + UBS Switzerland identity policy + JPM cash normalization)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -36,16 +36,28 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - `parsers/` are isolated plugins (one parser file per bank/account type).
 - Monetary values in DB must be `Numeric(20,4)` (no float persistence).
 - Use timezone-aware UTC datetimes.
+- Reporting endpoints must be read-only consumers of normalized data; they must not "complete" missing data by reinterpreting raw payloads.
 
 ## 5) Data / Reporting Rules
 - Bank statements (PDF cartolas) are truth for monthly closings.
 - Parser output loads via `DataLoadingService` into reporting tables.
-- `monthly_metrics_normalized` is primary reporting layer.
-- `monthly_closings` is historical source + fallback.
+- `monthly_metrics_normalized` is the canonical monthly reporting layer.
+- Tables and charts in reporting (`Summary`, `Mandates`, `ETF`, `Personal`) must read monthly values from `monthly_metrics_normalized`.
+- `monthly_closings` is historical source + fallback; if normalized data exists, it wins.
 - Identity control is mandatory: `ending_current - movements - profit = ending_previous`.
 - YTD is control-only. Never use YTD to auto-fill, overwrite, or "force" monthly movements/profit.
 - If identity or YTD controls fail, reporting must alert; it must not silently mutate values to make them match.
-- JPMorgan `brokerage` can expose blank monthly current-period cells or duplicate `Change In Investment Value`; interpret monthly from current-period data plus accrual delta, and never fill monthly from YTD.
+- `Salud BD` is an audit/read-only surface: it should alert from normalized/historical persisted values, not create a third interpreter of monthly data.
+- Raw PDFs are still operationally important for reprocesos, parser fixes, and audit traceability; do not assume processed PDFs can be deleted safely.
+
+## 5.1) Stable Parser / Bank Rules Already In Code
+- JPMorgan `brokerage` / `etf`: blank current-period fields stay `0`/`None` as monthly values; YTD remains control-only.
+- JPMorgan `brokerage` / `etf`: if old statements omit `asset_allocation` but holdings include cash-like sweep / money-market rows, `DataLoadingService` may derive `cash_value` into `monthly_metrics_normalized` during normalization/backfill. Reporting must not read `ParsedStatement` to infer cash.
+- JPMorgan `custody`: `Net Security Contributions` must count as part of monthly movements when present.
+- Goldman Sachs: automatic OCR fallback exists for garbled PDFs; OCR is a parser-level backup, not a UI concern.
+- UBS Suiza: for multi-portfolio statements, the account suffix (`-01`, `-02`) selects the portfolio-specific `net_assets`; never use the combined total when a specific portfolio is identifiable.
+- UBS Suiza: negative positions are valid; in UBS-only reporting views, monthly return shown to the user is forced to `0%` when current or previous position is negative.
+- UBS Suiza only: the previous audited month-end `ending value` prevails over the next statement's `beginning value` when they differ. Quarterly performance tables may refine prior-month `movements`, but must not overwrite auditable month-end balances. `profit` is the adjustment variable and must be recomputed from identity against the previous audited ending.
 
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`
@@ -57,7 +69,7 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - Main pages: `frontend/pages/summary.py`, `mandates.py`, `etf.py`, `personal.py`, `upload.py`
 
 ## 7) Current Baseline
-- Tests baseline from project context: 135 passed, 1 skipped.
+- Tests baseline after latest hardening: `169 passed, 1 skipped`.
 - Worktree can be dirty; do not assume clean state.
 
 ## 8) Context File Policy

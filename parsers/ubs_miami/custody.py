@@ -82,7 +82,7 @@ def _parse_date_mdy(text: str) -> Optional[date]:
 class UBSMiamiCustodyParser(BaseParser):
     BANK_CODE = "ubs_miami"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.1.1"
+    VERSION = "2.1.2"
     DESCRIPTION = "Parser para cartolas UBS Miami PMP (Portfolio Management Program)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -239,7 +239,10 @@ class UBSMiamiCustodyParser(BaseParser):
                     r"Withdrawals and fees[\s\S]*?investments transferred[\s\S]*?out\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
                 ),
                 ("dividend_interest", r"Dividend and interest income\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
-                ("change_accrued", r"Change in value of accrued\s*\n?\s*interest\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
+                (
+                    "change_accrued",
+                    r"Change in value of accrued[\s\S]*?interest\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})",
+                ),
                 ("change_market", r"Change in market value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("closing_value", r"Closing account value\s+\$?([\d,]+\.\d{2})\s+\$?([\d,]+\.\d{2})"),
             ]

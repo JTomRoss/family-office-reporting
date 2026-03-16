@@ -42,11 +42,11 @@ def render():
     st.subheader("Acceso rápido")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("📁 **Carga** → Subir documentos")
-        st.markdown("📋 **Resumen** → Vista consolidada")
-    with col2:
+        st.markdown("👤 **Detalle** → Vista por banco, tipo y sociedad")
         st.markdown("📑 **Mandatos** → Asset allocation")
+    with col2:
         st.markdown("📈 **ETF** → Composición y rendimiento")
+        st.markdown("📋 **Resumen** → Vista consolidada")
     with col3:
-        st.markdown("👤 **Personal** → Vista por persona")
-        st.markdown("⚙️ **Operacional** → Conciliación y logs")
+        st.markdown("📁 **Carga** → Subir documentos")
+        st.markdown("⚙️ **Operacional** → Salud BD")

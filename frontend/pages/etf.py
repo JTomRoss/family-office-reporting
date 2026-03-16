@@ -1,35 +1,36 @@
 """
-Página ETF.
+Pagina ETF.
 
 Estructura:
-- Filtros: Fecha (YYYY-MM), Banco, Sociedad, Con/Sin Caja
-- Tabla 1: Instrumentos × Sociedades (montos) — solo Fecha
-- Tabla 2: Instrumentos × Sociedades (pesos %) — solo Fecha, afectado por Sin Caja
-- Gráficos torta + Tabla rango personalizado (tercios)
-- Tabla sociedades × meses (montos) — todos los filtros
-- Tabla sociedades × meses (rent %) con toggle Mensual/YTD
+- Filtros: Banco, Sociedad, Con/Sin Caja, Fecha (YYYY-MM)
+- Tabla 1: Instrumentos x Sociedades (montos) - solo Fecha
+- Tabla 2: Instrumentos x Sociedades (pesos %) - solo Fecha, afectado por Sin Caja
+- Graficos torta + Tabla rango personalizado
+- Tabla sociedades x meses (montos) - todos los filtros
+- Tabla sociedades x meses (rent %) con toggle Mensual/YTD
 """
 
-import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 from frontend import api_client
 from frontend.components.data_health import render_health_warning
-from frontend.components.table_utils import render_table
+from frontend.components.filters import BANK_DISPLAY_NAMES, render_fecha_filter
 from frontend.components.number_format import fmt_number, fmt_percent
-from frontend.components.filters import (
-    render_fecha_filter,
-    BANK_DISPLAY_NAMES,
-)
+from frontend.components.table_utils import render_table
 
 
-MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
-          "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 SOCIETY_COLUMNS = [
-    "Boatview JPM", "Boatview GS", "Telmar",
-    "Armel Holdings", "Ecoterra Internacional", "Total",
+    "Boatview JPM",
+    "Boatview GS",
+    "Telmar",
+    "Armel Holdings",
+    "Ecoterra Internacional",
+    "Raices LP",
+    "Total",
 ]
 
 INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
@@ -84,17 +85,16 @@ def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float
         if ret is None:
             ytd_values.append(round((compound - 1) * 100, 4) if has_data else None)
             continue
-        compound *= (1 + (ret / 100))
+        compound *= 1 + (ret / 100)
         has_data = True
         ytd_values.append(round((compound - 1) * 100, 4))
     return ytd_values
 
 
 def render():
-    st.title("📈 ETF")
+    st.title("ETF")
     st.markdown("---")
 
-    # ── Obtener opciones de filtro ───────────────────────────────
     try:
         filter_opts = api_client.get("/accounts/filter-options")
     except Exception:
@@ -107,15 +107,11 @@ def render():
 
     available_dates = etf_dates.get("dates", [])
 
-    # ── Renderizar filtros ───────────────────────────────────────
-    st.markdown("### 🔍 Filtros")
+    st.markdown("### Filtros")
 
     fcol1, fcol2, fcol3, fcol4 = st.columns(4)
 
     with fcol1:
-        fecha = render_fecha_filter(available_dates, key_prefix="etf")
-
-    with fcol2:
         bank_options = filter_opts.get("bank_codes", [])
         selected_banks = st.multiselect(
             "Banco",
@@ -124,7 +120,7 @@ def render():
             key="etf_banco_filter",
         )
 
-    with fcol3:
+    with fcol2:
         entity_options = filter_opts.get("entity_names", [])
         selected_entities = st.multiselect(
             "Sociedad",
@@ -132,24 +128,39 @@ def render():
             key="etf_sociedad_filter",
         )
 
-    with fcol4:
+    with fcol3:
         caja_option = st.selectbox(
-            "💰 Caja",
+            "Caja",
             options=["Con Caja", "Sin Caja"],
             key="etf_caja_filter",
         )
         sin_caja = caja_option == "Sin Caja"
 
+    with fcol4:
+        fecha = render_fecha_filter(available_dates, key_prefix="etf")
+
+    fcol5, _, _, _ = st.columns(4)
+    with fcol5:
+        personal_option = st.selectbox(
+            "Personal",
+            options=["Sin Personal", "Con Personal"],
+            key="etf_personal_filter",
+        )
+        sin_personal = personal_option == "Sin Personal"
+
     st.markdown("---")
 
-    # ── Obtener datos del backend ────────────────────────────────
     try:
-        data = api_client.post("/data/etf", json={
-            "fecha": fecha,
-            "bank_codes": selected_banks,
-            "entity_names": selected_entities,
-            "sin_caja": sin_caja,
-        })
+        data = api_client.post(
+            "/data/etf",
+            json={
+                "fecha": fecha,
+                "bank_codes": selected_banks,
+                "entity_names": selected_entities,
+                "sin_caja": sin_caja,
+                "sin_personal": sin_personal,
+            },
+        )
     except Exception as e:
         data = {}
         st.error(f"Error obteniendo datos: {e}")
@@ -165,28 +176,36 @@ def render():
     society_returns_ytd = data.get("society_returns_ytd", [])
     selected_year = data.get("selected_year")
 
+    backend_cols = data.get("society_cols", [])
+    active_society_cols = backend_cols + ["Total"] if backend_cols else SOCIETY_COLUMNS
+
     render_health_warning(
         {
             "years": [selected_year] if selected_year else [],
             "bank_codes": selected_banks,
             "entity_names": selected_entities,
             "account_types": ["etf"],
+            "sin_personal": sin_personal,
         },
         label="ETF",
     )
 
     try:
-        etf_summary = api_client.post("/data/summary", json={
-            "years": [selected_year] if selected_year else [],
-            "bank_codes": selected_banks,
-            "entity_names": selected_entities,
-            "account_types": ["etf"],
-        })
+        etf_summary = api_client.post(
+            "/data/summary",
+            json={
+                "years": [selected_year] if selected_year else [],
+                "bank_codes": selected_banks,
+                "entity_names": selected_entities,
+                "account_types": ["etf"],
+                "sin_personal": sin_personal,
+            },
+        )
     except Exception:
         etf_summary = {"consolidated_rows": []}
     etf_consolidated = etf_summary.get("consolidated_rows", [])
 
-    st.subheader("Evolucion Mensual de Rentabilidad YTD")
+    st.subheader("Rentabilidad")
     chart_year = selected_year
     if chart_year is None and fecha and len(str(fecha)) >= 4 and str(fecha)[:4].isdigit():
         chart_year = int(str(fecha)[:4])
@@ -194,7 +213,8 @@ def render():
     if chart_year:
         month_keys = [f"{chart_year}-{m:02d}" for m in range(1, 13)]
         chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
-        monthly_returns = [_to_float(chart_map.get(key, {}).get("rent_mensual_pct")) for key in month_keys]
+        rent_key = "rent_mensual_sin_caja_pct" if sin_caja else "rent_mensual_pct"
+        monthly_returns = [_to_float(chart_map.get(key, {}).get(rent_key)) for key in month_keys]
         ytd_returns = _compute_ytd_from_monthly(monthly_returns)
         monthly_vals = [v for v in monthly_returns if v is not None]
         if monthly_vals:
@@ -215,22 +235,22 @@ def render():
 
             fig_ret = go.Figure()
             fig_ret.add_trace(
-                go.Scatter(
-                    x=MONTHS,
-                    y=ytd_returns,
-                    mode="lines+markers",
-                    name="Rentabilidad YTD",
-                    line=dict(color="#E67E22", width=2),
-                    yaxis="y",
-                )
-            )
-            fig_ret.add_trace(
                 go.Bar(
                     x=MONTHS,
                     y=monthly_returns,
                     name="Rentabilidad Mensual",
                     marker_color="#AFC8E2",
                     opacity=0.95,
+                    yaxis="y",
+                )
+            )
+            fig_ret.add_trace(
+                go.Scatter(
+                    x=MONTHS,
+                    y=ytd_returns,
+                    mode="lines+markers",
+                    name="Rentabilidad YTD",
+                    line=dict(color="#E67E22", width=2),
                     yaxis="y2",
                 )
             )
@@ -239,22 +259,22 @@ def render():
                 margin=dict(l=20, r=20, t=20, b=20),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
                 yaxis=dict(
-                    title="%YTD",
-                    tickformat=",.2f",
-                    range=[ytd_min, ytd_max],
-                    showgrid=False,
-                    zeroline=False,
-                ),
-                yaxis2=dict(
                     title="% Mensual",
                     tickformat=",.2f",
                     range=[mensual_min, mensual_max],
-                    overlaying="y",
-                    side="right",
                     showgrid=True,
                     gridcolor="#D6DCE5",
                     zeroline=True,
                     zerolinecolor="#9EA7B3",
+                ),
+                yaxis2=dict(
+                    title="% YTD",
+                    tickformat=",.2f",
+                    range=[ytd_min, ytd_max],
+                    overlaying="y",
+                    side="right",
+                    showgrid=False,
+                    zeroline=False,
                 ),
             )
             fig_ret.update_xaxes(showgrid=False)
@@ -266,46 +286,40 @@ def render():
 
     st.markdown("---")
 
-    # ── Tabla 1: Instrumentos × Sociedades (MONTOS) ─────────────
-    st.subheader("Instrumentos × Sociedades (Montos)")
-    st.caption("Solo afectado por el filtro Fecha. Muestra la foto de instrumentos en la cartola.")
+    st.subheader("Instrumentos por sociedad (USD)")
+    st.caption("Afectado por Fecha, Con/Sin Caja y Sin Personal.")
 
     if instruments_table:
         instr_rows = []
-        totals_raw = {col: 0.0 for col in SOCIETY_COLUMNS}
+        totals_raw = {col: 0.0 for col in active_society_cols}
 
         for instr in INSTRUMENT_ORDER:
             vals = instruments_table.get(instr, {})
             row = {"Instrumento": instr}
-            for col in SOCIETY_COLUMNS:
+            for col in active_society_cols:
                 v = float(vals.get(col, 0) or 0)
                 row[col] = _fmt_num(v)
                 totals_raw[col] += v
             instr_rows.append(row)
 
         total_row = {"Instrumento": "Total"}
-        for col in SOCIETY_COLUMNS:
+        for col in active_society_cols:
             total_row[col] = _fmt_num(totals_raw[col])
         instr_rows.append(total_row)
 
-        # Control: Total tabla vs ending value sin accruals por sociedad y total.
         control_row = {"Instrumento": "control"}
-        for col in SOCIETY_COLUMNS:
+        for col in active_society_cols:
             expected = float(control_expected.get(col, 0) or 0)
             diff = abs(totals_raw[col] - expected)
             if col == "Total":
                 signed_diff = totals_raw[col] - expected
-                control_row[col] = (
-                    "OK"
-                    if diff <= 1
-                    else f"DIFERENCIA ({fmt_number(signed_diff, decimals=1)})"
-                )
+                control_row[col] = "OK" if diff <= 1 else f"DIFERENCIA ({fmt_number(signed_diff, decimals=1)})"
             else:
                 control_row[col] = "OK" if diff <= 1 else "DIFERENCIA"
         instr_rows.append(control_row)
 
-        df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + SOCIETY_COLUMNS)
-        df_instr = df_instr.rename(columns={c: _society_label(c) for c in SOCIETY_COLUMNS})
+        df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + active_society_cols)
+        df_instr = df_instr.rename(columns={c: _society_label(c) for c in active_society_cols})
         render_table(
             df_instr,
             bold_row_labels={"Total"},
@@ -319,25 +333,23 @@ def render():
 
     st.markdown("---")
 
-    # ── Tabla 2: Instrumentos × Sociedades (PESOS %) ────────────
-    st.subheader("Instrumentos × Sociedades (%)")
+    st.subheader("Instrumentos x Sociedades (%)")
     st.caption("Peso porcentual de cada instrumento. Total = suma real (no forzada a 100%).")
 
     if instruments_pct_table:
         pct_rows = []
         totals_pct = {"Instrumento": "Total", "Benchmark": ""}
-        for col in SOCIETY_COLUMNS:
+        for col in active_society_cols:
             totals_pct[col] = 0.0
         benchmark_total = 0.0
 
         for instr in INSTRUMENT_ORDER:
             if instr in instruments_pct_table:
-                # Skip cash if sin_caja
                 if sin_caja and instr == "Money Market":
                     continue
                 vals = instruments_pct_table[instr]
                 row = {"Instrumento": instr}
-                for col in SOCIETY_COLUMNS:
+                for col in active_society_cols:
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)
                     totals_pct[col] += float(v or 0)
@@ -351,20 +363,20 @@ def render():
                 if sin_caja and instr == "Money Market":
                     continue
                 row = {"Instrumento": instr}
-                for col in SOCIETY_COLUMNS:
+                for col in active_society_cols:
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)
                     totals_pct[col] += float(v or 0)
                 row["Benchmark"] = ""
                 pct_rows.append(row)
 
-        for col in SOCIETY_COLUMNS:
+        for col in active_society_cols:
             totals_pct[col] = _fmt_pct(totals_pct[col])
         totals_pct["Benchmark"] = _fmt_pct(benchmark_total)
         pct_rows.append(totals_pct)
 
-        df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + SOCIETY_COLUMNS + ["Benchmark"])
-        df_pct = df_pct.rename(columns={c: _society_label(c) for c in SOCIETY_COLUMNS})
+        df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + active_society_cols + ["Benchmark"])
+        df_pct = df_pct.rename(columns={c: _society_label(c) for c in active_society_cols})
         render_table(
             df_pct,
             bold_row_labels={"Total"},
@@ -377,8 +389,7 @@ def render():
 
     st.markdown("---")
 
-    # ── Gráficos + Rango Personalizado (tercios) ────────────────
-    st.subheader("Distribución")
+    st.subheader("Distribucion")
     st.caption("Afectado por filtro Con/Sin Caja.")
 
     gcol1, gcol2, gcol3 = st.columns(3)
@@ -406,11 +417,8 @@ def render():
             st.info("Sin datos.")
 
     with gcol3:
-        st.markdown("**📅 Rango Personalizado**")
-        ym_available = sorted({
-            cr["fecha"] for cr in etf_consolidated
-            if not cr.get("is_prev_year", False)
-        })
+        st.markdown("**Rango Personalizado**")
+        ym_available = sorted({cr["fecha"] for cr in etf_consolidated if not cr.get("is_prev_year", False)})
         if ym_available:
             rc1, rc2 = st.columns(2)
             with rc1:
@@ -429,12 +437,12 @@ def render():
                 )
 
             if ym_start > ym_end:
-                st.warning("Rango inválido: 'Desde' debe ser menor o igual que 'Hasta'.")
+                st.warning("Rango invalido: 'Desde' debe ser menor o igual que 'Hasta'.")
             else:
                 range_rows = [
-                    cr for cr in etf_consolidated
-                    if ym_start <= cr["fecha"] <= ym_end
-                    and not cr.get("is_prev_year", False)
+                    cr
+                    for cr in etf_consolidated
+                    if ym_start <= cr["fecha"] <= ym_end and not cr.get("is_prev_year", False)
                 ]
                 prev_month_row = None
                 for cr in etf_consolidated:
@@ -454,10 +462,10 @@ def render():
                         ret_val = _to_float(r.get("rent_mensual_pct"))
                         ret_sc_val = _to_float(r.get("rent_mensual_sin_caja_pct"))
                         if ret_val is not None:
-                            compound_ret *= (1 + round(ret_val, 2) / 100)
+                            compound_ret *= 1 + round(ret_val, 2) / 100
                             has_ret = True
                         if ret_sc_val is not None:
-                            compound_ret_sc *= (1 + round(ret_sc_val, 2) / 100)
+                            compound_ret_sc *= 1 + round(ret_sc_val, 2) / 100
                             has_ret_sc = True
                     rent_pct = (compound_ret - 1) * 100 if has_ret else None
                     rent_sc_pct = (compound_ret_sc - 1) * 100 if has_ret_sc else None
@@ -480,15 +488,13 @@ def render():
 
     st.markdown("---")
 
-    # ── ETF Montos por Sociedad × Meses ──────────────────────────
     year_label = str(selected_year) if selected_year else ""
-    st.subheader(f"ETF Montos por Sociedad {year_label}")
-    st.caption("Sociedades × Meses. Afectado por filtros Fecha, Banco y Sociedad.")
+    st.subheader(f"Evolucion del Portafolio ETF por sociedad {year_label}")
+    st.caption("Sociedades x Meses. Afectado por filtros Fecha, Banco, Sociedad, Con/Sin Caja y Sin Personal.")
 
     if society_montos_table:
         df_montos = pd.DataFrame(society_montos_table)
 
-        # Renombrar columnas de meses
         col_rename = {"sociedad": "Sociedad"}
         month_cols = []
         for m in range(1, 13):
@@ -502,12 +508,9 @@ def render():
         if "Sociedad" in df_montos.columns:
             df_montos["Sociedad"] = df_montos["Sociedad"].apply(_society_label)
 
-        # Format numbers
         for col in month_cols:
             if col in df_montos.columns:
-                df_montos[col] = df_montos[col].apply(
-                    lambda x: _fmt_num(x)
-                )
+                df_montos[col] = df_montos[col].apply(lambda x: _fmt_num(x))
 
         render_table(
             df_montos,
@@ -519,9 +522,8 @@ def render():
 
     st.markdown("---")
 
-    # ── ETF Movimientos por Sociedad × Meses ─────────────────────
-    st.subheader(f"ETF Movimientos por Sociedad {year_label}")
-    st.caption("Sociedades × Meses. Afectado por filtros Fecha, Banco y Sociedad.")
+    st.subheader(f"Movimientos portafolio ETF por sociedad {year_label}")
+    st.caption("Sociedades x Meses. Afectado por filtros Fecha, Banco, Sociedad, Con/Sin Caja y Sin Personal.")
 
     if society_movements_table:
         df_movs = pd.DataFrame(society_movements_table)
@@ -553,8 +555,7 @@ def render():
 
     st.markdown("---")
 
-    # ── Rentabilidad por Sociedad × Meses ────────────────────────
-    st.subheader(f"Rentabilidad por Sociedad {year_label}")
+    st.subheader(f"Rentabilidad del portafolio ETF por Sociedad {year_label}")
 
     ret_mode = st.radio(
         "Tipo de rentabilidad",
@@ -564,29 +565,9 @@ def render():
     )
 
     returns_data = society_returns_monthly if ret_mode == "Mensual" else society_returns_ytd
-    total_monthly = {
-        cr["fecha"]: _to_float(cr.get("rent_mensual_pct"))
-        for cr in etf_consolidated
-        if not cr.get("is_prev_year", False)
-    }
-    total_row = {"sociedad": "Total"}
-    if selected_year:
-        cumulative = 0.0
-        for m in range(1, 13):
-            mk = f"{selected_year}-{m:02d}"
-            month_ret = total_monthly.get(mk)
-            key = f"{m:02d}"
-            if ret_mode == "Mensual":
-                total_row[key] = month_ret
-            else:
-                if month_ret is not None:
-                    cumulative = (1 + cumulative / 100) * (1 + month_ret / 100) * 100 - 100
-                    total_row[key] = round(cumulative, 4)
-                else:
-                    total_row[key] = round(cumulative, 4) if cumulative != 0 else None
 
     if returns_data:
-        df_ret = pd.DataFrame(returns_data + [total_row])
+        df_ret = pd.DataFrame(returns_data)
 
         col_rename = {"sociedad": "Sociedad"}
         ret_cols = []
@@ -612,5 +593,3 @@ def render():
         )
     else:
         st.info("Sin datos de rentabilidad.")
-
-

@@ -443,24 +443,27 @@ class JPMorganEtfParser(BaseParser):
         if net_contrib_m:
             net_contributions = _parse_usd(net_contrib_m.group(1))
 
-        # Income & Distributions — current period (first number after label)
-        income_m = re.search(
-            r"Income & Distributions\s+([\d,]+\.\d{2})",
-            text[activity_pos:] if activity_pos > 0 else text,
+        # Income & Distributions — require TWO numbers on the same line
+        # (current_period + ytd) to avoid taking YTD when current is blank.
+        search_text = text[activity_pos:] if activity_pos > 0 else text
+        income_two = re.search(
+            r"Income & Distributions[ \t]+([\d,]+\.\d{2})[ \t]+([\d,]+\.\d{2})",
+            search_text,
         )
         income_distributions: Optional[Decimal] = None
-        if income_m:
-            income_distributions = _parse_usd(income_m.group(1))
+        if income_two:
+            income_distributions = _parse_usd(income_two.group(1))
 
-        # Change In Investment Value — current period (first number)
-        change_m = re.search(
-            r"Change [Ii]n Investment Value\s+"
-            r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})",
-            text[activity_pos:] if activity_pos > 0 else text,
+        # Change In Investment Value — require TWO numbers to distinguish
+        # current_period from YTD when the current column is blank.
+        _num = r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})"
+        change_two = re.search(
+            rf"Change [Ii]n Investment Value[ \t]+{_num}[ \t]+{_num}",
+            search_text,
         )
         change_investment: Optional[Decimal] = None
-        if change_m:
-            change_investment = _parse_usd(change_m.group(1))
+        if change_two:
+            change_investment = _parse_usd(change_two.group(1))
 
         # Sanity check: need at least net_contributions to be useful
         if net_contributions is None and income_distributions is None:

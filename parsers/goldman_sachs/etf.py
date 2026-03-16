@@ -28,6 +28,7 @@ from parsers.goldman_sachs._gs_common import (
     parse_usd,
     extract_all_text_fitz,
     extract_page_texts_fitz,
+    extract_detection_text,
     extract_period,
     extract_portfolio_number,
     extract_overview,
@@ -60,16 +61,9 @@ class GoldmanSachsEtfParser(BaseParser):
         if filepath.suffix.lower() != ".pdf":
             return 0.0
         try:
-            import fitz
-            doc = fitz.open(str(filepath))
-            if len(doc) == 0:
-                doc.close()
+            text, n_pages = extract_detection_text(str(filepath))
+            if n_pages == 0:
                 return 0.0
-
-            text = ""
-            for i in range(min(3, len(doc))):
-                text += doc[i].get_text() + "\n"
-            doc.close()
 
             text_lower = text.lower()
             score = 0.0

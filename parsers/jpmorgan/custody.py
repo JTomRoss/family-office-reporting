@@ -200,6 +200,10 @@ class JPMorganCustodyParser(BaseParser):
                     "net_cash_contributions",
                     r"Net Cash Contributions\s*/?\s*Withdrawals\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)",
                 ),
+                (
+                    "net_security_contributions",
+                    r"Net Security Contributions\s*/?\s*Withdrawals\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?\$?[\d,]+\.\d{2}\)?)",
+                ),
                 ("income_distributions", r"Income and Distributions\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
                 ("change_investment", r"Change in Investment Value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("ending_market_value", r"Ending Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
@@ -264,6 +268,14 @@ class JPMorganCustodyParser(BaseParser):
                 text,
                 r"Net Cash Contributions\s*/?\s*Withdrawals\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
             )
+            net_security_contributions = self._extract_current_period_value(
+                text,
+                r"Net Security Contributions\s*/?\s*Withdrawals\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
+            )
+            net_security_contributions_ytd = self._extract_ytd_value(
+                text,
+                r"Net Security Contributions\s*/?\s*Withdrawals\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)\s+(\$?\(?-?\$?[\d,]+\.\d{2}\)?)",
+            )
             income = self._extract_current_period_value(
                 text, r"Income and Distributions\s+([\d,]+\.\d{2})"
             )
@@ -283,6 +295,19 @@ class JPMorganCustodyParser(BaseParser):
             if beginning is None and ending is None:
                 continue
 
+            total_net_contributions = None
+            if net_contributions is not None or net_security_contributions is not None:
+                total_net_contributions = (
+                    (net_contributions or Decimal("0"))
+                    + (net_security_contributions or Decimal("0"))
+                )
+            total_net_contributions_ytd = None
+            if net_contributions_ytd is not None or net_security_contributions_ytd is not None:
+                total_net_contributions_ytd = (
+                    (net_contributions_ytd or Decimal("0"))
+                    + (net_security_contributions_ytd or Decimal("0"))
+                )
+
             seen.add(current_account)
             accounts.append({
                 "account_number": current_account,
@@ -299,8 +324,16 @@ class JPMorganCustodyParser(BaseParser):
 
             row = {
                 "account_number": current_account,
-                "net_contributions": str(net_contributions) if net_contributions is not None else None,
-                "net_contributions_ytd": str(net_contributions_ytd) if net_contributions_ytd is not None else None,
+                "net_contributions": (
+                    str(total_net_contributions)
+                    if total_net_contributions is not None
+                    else None
+                ),
+                "net_contributions_ytd": (
+                    str(total_net_contributions_ytd)
+                    if total_net_contributions_ytd is not None
+                    else None
+                ),
                 "income_distributions": str(income) if income is not None else None,
                 "change_investment": str(change) if change is not None else None,
                 "ending_value_with_accrual": str(ending) if ending is not None else None,

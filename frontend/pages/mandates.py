@@ -109,27 +109,41 @@ def _fmt_pct_cell(value) -> str:
     return fmt_percent(numeric, decimals=2)
 
 
-def _calc_ytd_like_summary(returns_row: dict, effective_fecha: str | None) -> float | None:
-    if not effective_fecha:
-        return None
-    try:
-        year = int(effective_fecha[:4])
-        month = int(effective_fecha[5:7])
-    except (TypeError, ValueError):
-        return None
+def _prev_month_key(fecha: str) -> str:
+    year = int(fecha[:4])
+    month = int(fecha[5:7])
+    if month == 1:
+        return f"{year - 1}-12"
+    return f"{year}-{month - 1:02d}"
 
-    compound = 1.0
-    has_ret = False
-    for m in range(1, month + 1):
-        key = f"{year}-{m:02d}_monthly"
-        raw = returns_row.get(key)
-        try:
-            ret = float(raw)
-        except (TypeError, ValueError):
-            continue
-        compound *= (1 + (ret / 100))
-        has_ret = True
-    return ((compound - 1) * 100) if has_ret else None
+
+def _aggregate_bank_month_data(banks_rows: list[dict]) -> dict[str, dict[str, dict[str, float]]]:
+    bank_month_data: dict[str, dict[str, dict[str, float]]] = {}
+    for row in banks_rows:
+        key = f"{int(row.get('year', 0)):04d}-{int(row.get('month', 0)):02d}"
+        bank = str(row.get("bank_code") or "")
+        agg = bank_month_data.setdefault(bank, {}).setdefault(
+            key,
+            {"net_value": 0.0, "cash_value": 0.0, "movements": 0.0},
+        )
+        agg["net_value"] += float(row.get("net_value") or 0.0)
+        agg["cash_value"] += float(row.get("cash_value") or 0.0)
+        agg["movements"] += float(row.get("movements") or 0.0)
+    return bank_month_data
+
+
+def _effective_movements(
+    raw_movements: float | None,
+    curr_cash: float,
+    prev_cash: float | None,
+    *,
+    sin_caja: bool,
+) -> float | None:
+    if raw_movements is None:
+        return None
+    if not sin_caja or prev_cash is None:
+        return raw_movements
+    return raw_movements - (curr_cash - prev_cash)
 
 
 def _build_bank_kpi_table(
@@ -137,102 +151,130 @@ def _build_bank_kpi_table(
     returns_table: list[dict],
     etf_totals_by_month: dict,
     etf_total_returns: dict,
-    mov_ytd_by_bank: dict[str, float],
-    etf_mov_ytd: float | None,
     effective_fecha: str | None,
+    sin_caja: bool,
 ) -> pd.DataFrame:
     if not effective_fecha:
-        return pd.DataFrame(columns=["Banco", "Monto", "Rent. Mes", "Rent. YTD", "Movimientos", "Mov. YTD"])
+        return pd.DataFrame(
+            columns=["Banco", "Monto", "Caja", "Monto total", "Rent. Mes", "Rent. YTD", "Movimientos", "Mov. YTD"]
+        )
 
-    month_rows = {}
-    month_net_totals = {}
-    month_mov_totals = {}
-    bank_mov_by_key: dict[str, dict[str, float]] = {}
-    for row in banks_rows:
-        key = f"{int(row.get('year', 0)):04d}-{int(row.get('month', 0)):02d}"
-        month_net_totals[key] = month_net_totals.get(key, 0.0) + float(row.get("net_value") or 0.0)
-        month_mov_totals[key] = month_mov_totals.get(key, 0.0) + float(row.get("movements") or 0.0)
-        bank = str(row.get("bank_code") or "")
-        bank_mov_by_key.setdefault(bank, {})
-        bank_mov_by_key[bank][key] = bank_mov_by_key[bank].get(key, 0.0) + float(row.get("movements") or 0.0)
-        if key != effective_fecha:
-            continue
-        agg = month_rows.setdefault(bank, {"net_value": 0.0, "movements": 0.0})
-        agg["net_value"] += float(row.get("net_value") or 0.0)
-        agg["movements"] += float(row.get("movements") or 0.0)
+    bank_month_data = _aggregate_bank_month_data(banks_rows)
 
     returns_by_bank = {str(r.get("bank_code") or ""): r for r in returns_table}
     monthly_key = f"{effective_fecha}_monthly"
+    ytd_key = f"{effective_fecha}_ytd"
 
     table_rows = []
     total_monto = 0.0
+    total_caja = 0.0
+    total_monto_total = 0.0
     total_mov = 0.0
     total_mov_ytd = 0.0
-    sel_year = int(effective_fecha[:4])
-    sel_month = int(effective_fecha[5:7])
+    total_series_by_key: dict[str, dict[str, float]] = {}
+    prev_key = _prev_month_key(effective_fecha)
 
     for bank_code, bank_label in FIXED_BANKS:
-        month_vals = month_rows.get(bank_code, {})
+        month_series = bank_month_data.get(bank_code, {})
+        month_vals = month_series.get(effective_fecha, {})
         ret_row = returns_by_bank.get(bank_code, {})
-        monto = float(month_vals.get("net_value", 0.0) or 0.0)
-        movs = float(month_vals.get("movements", 0.0) or 0.0)
-        mov_ytd = float(mov_ytd_by_bank.get(bank_code, 0.0) or 0.0)
+        monto_total = float(month_vals.get("net_value", 0.0) or 0.0)
+        caja = float(month_vals.get("cash_value", 0.0) or 0.0)
+        monto = monto_total - caja
+        prev_cash = _to_float(month_series.get(prev_key, {}).get("cash_value"))
+        movs_raw = float(month_vals.get("movements", 0.0) or 0.0)
+        movs = _effective_movements(movs_raw, caja, prev_cash, sin_caja=sin_caja) or 0.0
+        mov_ytd = 0.0
+        for month_no in range(1, int(effective_fecha[5:7]) + 1):
+            key = f"{int(effective_fecha[:4])}-{month_no:02d}"
+            row_vals = month_series.get(key, {})
+            raw_mov = _to_float(row_vals.get("movements"))
+            curr_cash = float(row_vals.get("cash_value", 0.0) or 0.0)
+            prev_cash_month = _to_float(month_series.get(_prev_month_key(key), {}).get("cash_value"))
+            mov_effective = _effective_movements(raw_mov, curr_cash, prev_cash_month, sin_caja=sin_caja)
+            mov_ytd += mov_effective or 0.0
         ret_month = ret_row.get(monthly_key)
-        ret_ytd = _calc_ytd_like_summary(ret_row, effective_fecha)
+        ret_ytd = ret_row.get(ytd_key)
 
         total_monto += monto
+        total_caja += caja
+        total_monto_total += monto_total
         total_mov += movs
         total_mov_ytd += mov_ytd
 
         table_rows.append({
             "Banco": bank_label,
             "Monto": round(monto, 2),
+            "Caja": round(caja, 2),
+            "Monto total": round(monto_total, 2),
             "Rent. Mes": round(float(ret_month), 4) if ret_month is not None else None,
             "Rent. YTD": round(float(ret_ytd), 4) if ret_ytd is not None else None,
             "Movimientos": round(movs, 2),
             "Mov. YTD": round(mov_ytd, 2),
         })
+        for key, row_vals in month_series.items():
+            agg = total_series_by_key.setdefault(key, {"net_value": 0.0, "cash_value": 0.0, "movements": 0.0})
+            agg["net_value"] += float(row_vals.get("net_value", 0.0) or 0.0)
+            agg["cash_value"] += float(row_vals.get("cash_value", 0.0) or 0.0)
+            agg["movements"] += float(row_vals.get("movements", 0.0) or 0.0)
 
     # Fila adicional: total cuenta ETF.
     etf_month = etf_totals_by_month.get(effective_fecha, {}) if isinstance(etf_totals_by_month, dict) else {}
-    etf_monto = float(etf_month.get("net_value", 0.0) or 0.0)
-    etf_mov = float(etf_month.get("movements", 0.0) or 0.0)
-    etf_mov_ytd = float(etf_mov_ytd or 0.0)
+    etf_monto_total = float(etf_month.get("net_value", 0.0) or 0.0)
+    etf_caja = float(etf_month.get("cash_value", 0.0) or 0.0)
+    etf_monto = etf_monto_total - etf_caja
+    etf_prev_cash = _to_float((etf_totals_by_month.get(prev_key, {}) if isinstance(etf_totals_by_month, dict) else {}).get("cash_value"))
+    etf_mov_raw = float(etf_month.get("movements", 0.0) or 0.0)
+    etf_mov = _effective_movements(etf_mov_raw, etf_caja, etf_prev_cash, sin_caja=sin_caja) or 0.0
+    etf_mov_ytd = 0.0
+    for month_no in range(1, int(effective_fecha[5:7]) + 1):
+        key = f"{int(effective_fecha[:4])}-{month_no:02d}"
+        month_vals = etf_totals_by_month.get(key, {}) if isinstance(etf_totals_by_month, dict) else {}
+        raw_mov = _to_float(month_vals.get("movements"))
+        curr_cash = float(month_vals.get("cash_value", 0.0) or 0.0)
+        prev_cash_month = _to_float((etf_totals_by_month.get(_prev_month_key(key), {}) if isinstance(etf_totals_by_month, dict) else {}).get("cash_value"))
+        mov_effective = _effective_movements(raw_mov, curr_cash, prev_cash_month, sin_caja=sin_caja)
+        etf_mov_ytd += mov_effective or 0.0
     etf_ret_month = etf_total_returns.get(monthly_key) if isinstance(etf_total_returns, dict) else None
-    etf_ret_ytd = _calc_ytd_like_summary(etf_total_returns if isinstance(etf_total_returns, dict) else {}, effective_fecha)
+    etf_ret_ytd = etf_total_returns.get(ytd_key) if isinstance(etf_total_returns, dict) else None
     table_rows.append({
         "Banco": "Mandato ETF",
         "Monto": round(etf_monto, 2),
+        "Caja": round(etf_caja, 2),
+        "Monto total": round(etf_monto_total, 2),
         "Rent. Mes": round(float(etf_ret_month), 4) if etf_ret_month is not None else None,
         "Rent. YTD": round(float(etf_ret_ytd), 4) if etf_ret_ytd is not None else None,
         "Movimientos": round(etf_mov, 2),
         "Mov. YTD": round(etf_mov_ytd, 2),
     })
     total_monto += etf_monto
+    total_caja += etf_caja
+    total_monto_total += etf_monto_total
     total_mov += etf_mov
     total_mov_ytd += etf_mov_ytd
-    month_net_totals[effective_fecha] = month_net_totals.get(effective_fecha, 0.0) + etf_monto
-    month_mov_totals[effective_fecha] = month_mov_totals.get(effective_fecha, 0.0) + etf_mov
     for mk, vals in (etf_totals_by_month.items() if isinstance(etf_totals_by_month, dict) else []):
-        if mk == effective_fecha:
-            continue
-        month_net_totals[mk] = month_net_totals.get(mk, 0.0) + float(vals.get("net_value", 0.0) or 0.0)
-        month_mov_totals[mk] = month_mov_totals.get(mk, 0.0) + float(vals.get("movements", 0.0) or 0.0)
-
-    def _prev_month_key(fecha: str) -> str:
-        year = int(fecha[:4])
-        month = int(fecha[5:7])
-        if month == 1:
-            return f"{year - 1}-12"
-        return f"{year}-{month - 1:02d}"
+        agg = total_series_by_key.setdefault(mk, {"net_value": 0.0, "cash_value": 0.0, "movements": 0.0})
+        agg["net_value"] += float(vals.get("net_value", 0.0) or 0.0)
+        agg["cash_value"] += float(vals.get("cash_value", 0.0) or 0.0)
+        agg["movements"] += float(vals.get("movements", 0.0) or 0.0)
 
     total_ret_month = None
-    prev_key = _prev_month_key(effective_fecha)
-    prev_total = month_net_totals.get(prev_key)
-    curr_total = month_net_totals.get(effective_fecha)
-    mov_curr = month_mov_totals.get(effective_fecha)
-    if prev_total not in (None, 0) and curr_total is not None and mov_curr is not None:
-        total_ret_month = (((curr_total - mov_curr) / prev_total) - 1) * 100
+    prev_total_row = total_series_by_key.get(prev_key, {})
+    curr_total_row = total_series_by_key.get(effective_fecha, {})
+    prev_total = float(prev_total_row.get("net_value", 0.0) or 0.0)
+    prev_total_cash = float(prev_total_row.get("cash_value", 0.0) or 0.0)
+    curr_total = float(curr_total_row.get("net_value", 0.0) or 0.0)
+    curr_total_cash = float(curr_total_row.get("cash_value", 0.0) or 0.0)
+    curr_total_effective = curr_total - curr_total_cash if sin_caja else curr_total
+    prev_total_effective = prev_total - prev_total_cash if sin_caja else prev_total
+    mov_curr = _effective_movements(
+        _to_float(curr_total_row.get("movements")),
+        curr_total_cash,
+        _to_float(prev_total_row.get("cash_value")),
+        sin_caja=sin_caja,
+    )
+    if prev_total_effective not in (None, 0) and prev_total_effective > 0 and mov_curr is not None:
+        total_ret_month = (((curr_total_effective - mov_curr) / prev_total_effective) - 1) * 100
 
     total_ret_ytd = None
     try:
@@ -248,12 +290,23 @@ def _build_bank_kpi_table(
         for m in range(1, month + 1):
             mk = f"{year}-{m:02d}"
             pk = _prev_month_key(mk)
-            prev_val = month_net_totals.get(pk)
-            cur_val = month_net_totals.get(mk)
-            mov_val = month_mov_totals.get(mk)
-            if prev_val in (None, 0) or cur_val is None or mov_val is None:
+            prev_row = total_series_by_key.get(pk, {})
+            curr_row = total_series_by_key.get(mk, {})
+            prev_val = float(prev_row.get("net_value", 0.0) or 0.0)
+            curr_val = float(curr_row.get("net_value", 0.0) or 0.0)
+            prev_cash = float(prev_row.get("cash_value", 0.0) or 0.0)
+            curr_cash = float(curr_row.get("cash_value", 0.0) or 0.0)
+            prev_effective = prev_val - prev_cash if sin_caja else prev_val
+            curr_effective = curr_val - curr_cash if sin_caja else curr_val
+            mov_val = _effective_movements(
+                _to_float(curr_row.get("movements")),
+                curr_cash,
+                _to_float(prev_row.get("cash_value")),
+                sin_caja=sin_caja,
+            )
+            if prev_effective in (None, 0) or prev_effective <= 0 or mov_val is None:
                 continue
-            r = (((cur_val - mov_val) / prev_val) - 1) * 100
+            r = (((curr_effective - mov_val) / prev_effective) - 1) * 100
             compound *= (1 + (r / 100))
             has_ret = True
         if has_ret:
@@ -262,6 +315,8 @@ def _build_bank_kpi_table(
     table_rows.append({
         "Banco": "Total",
         "Monto": round(total_monto, 2),
+        "Caja": round(total_caja, 2),
+        "Monto total": round(total_monto_total, 2),
         "Rent. Mes": round(float(total_ret_month), 4) if total_ret_month is not None else None,
         "Rent. YTD": round(float(total_ret_ytd), 4) if total_ret_ytd is not None else None,
         "Movimientos": round(total_mov, 2),
@@ -274,36 +329,51 @@ def _build_bank_kpi_table(
 def _build_bank_month_tables(
     banks_rows: list[dict],
     returns_table: list[dict],
-    etf_totals_by_month: dict,
-    etf_total_returns: dict,
     selected_year: int,
+    sin_caja: bool,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     month_keys = [f"{m:02d}" for m in range(1, 13)]
     fixed_codes = [code for code, _ in FIXED_BANKS]
+    bank_month_data = _aggregate_bank_month_data(banks_rows)
 
     montos_by_bank = {code: {mk: 0.0 for mk in month_keys} for code in fixed_codes}
     movs_by_bank = {code: {mk: 0.0 for mk in month_keys} for code in fixed_codes}
-    totals_by_key_net: dict[str, float] = {}
-    totals_by_key_mov: dict[str, float] = {}
+    total_series_by_key: dict[str, dict[str, float]] = {}
 
-    for row in banks_rows:
-        year = int(row.get("year", 0))
-        month = int(row.get("month", 0))
-        if month < 1 or month > 12:
-            continue
-        mk = f"{month:02d}"
-        key = f"{year:04d}-{mk}"
-        bank = str(row.get("bank_code") or "")
-        net = float(row.get("net_value") or 0.0)
-        mov = float(row.get("movements") or 0.0)
+    for bank in fixed_codes:
+        month_series = bank_month_data.get(bank, {})
+        for key, row_vals in month_series.items():
+            try:
+                year = int(key[:4])
+                month = int(key[5:7])
+            except (TypeError, ValueError):
+                continue
+            if month < 1 or month > 12:
+                continue
+            mk = f"{month:02d}"
+            net = float(row_vals.get("net_value", 0.0) or 0.0)
+            cash = float(row_vals.get("cash_value", 0.0) or 0.0)
+            prev_cash = _to_float(month_series.get(_prev_month_key(key), {}).get("cash_value"))
+            mov = _effective_movements(
+                _to_float(row_vals.get("movements")),
+                cash,
+                prev_cash,
+                sin_caja=sin_caja,
+            ) or 0.0
+            monto = net - cash if sin_caja else net
 
-        if bank in montos_by_bank and year == selected_year:
-            montos_by_bank[bank][mk] += net
-            movs_by_bank[bank][mk] += mov
+            if year == selected_year:
+                montos_by_bank[bank][mk] += monto
+                movs_by_bank[bank][mk] += mov
 
-        if bank in montos_by_bank and year in {selected_year - 1, selected_year}:
-            totals_by_key_net[key] = totals_by_key_net.get(key, 0.0) + net
-            totals_by_key_mov[key] = totals_by_key_mov.get(key, 0.0) + mov
+            if year in {selected_year - 1, selected_year}:
+                agg = total_series_by_key.setdefault(
+                    key,
+                    {"net_value": 0.0, "cash_value": 0.0, "movements": 0.0},
+                )
+                agg["net_value"] += net
+                agg["cash_value"] += cash
+                agg["movements"] += float(row_vals.get("movements", 0.0) or 0.0)
 
     monto_rows: list[dict] = []
     mov_rows: list[dict] = []
@@ -338,33 +408,37 @@ def _build_bank_month_tables(
         ret_m_rows.append(row_m)
         ret_y_rows.append(row_y)
 
-    def _prev_month_key(fecha: str) -> str:
-        y = int(fecha[:4])
-        m = int(fecha[5:7])
-        if m == 1:
-            return f"{y - 1}-12"
-        return f"{y}-{m - 1:02d}"
-
     total_m = {"Banco": "Total"}
     total_y = {"Banco": "Total"}
-    cumulative = 1.0
-    has_cum = False
+    compound = 1.0
+    has_total = False
     for mk in month_keys:
         key = f"{selected_year}-{mk}"
         prev_key = _prev_month_key(key)
-        prev_val = totals_by_key_net.get(prev_key)
-        cur_val = totals_by_key_net.get(key)
-        mov_val = totals_by_key_mov.get(key)
+        prev_row = total_series_by_key.get(prev_key, {})
+        curr_row = total_series_by_key.get(key, {})
+        prev_val = float(prev_row.get("net_value", 0.0) or 0.0)
+        curr_val = float(curr_row.get("net_value", 0.0) or 0.0)
+        prev_cash = float(prev_row.get("cash_value", 0.0) or 0.0)
+        curr_cash = float(curr_row.get("cash_value", 0.0) or 0.0)
+        prev_effective = prev_val - prev_cash if sin_caja else prev_val
+        curr_effective = curr_val - curr_cash if sin_caja else curr_val
+        mov_val = _effective_movements(
+            _to_float(curr_row.get("movements")),
+            curr_cash,
+            _to_float(prev_row.get("cash_value")),
+            sin_caja=sin_caja,
+        )
         rm = None
-        if prev_val not in (None, 0) and cur_val is not None and mov_val is not None:
-            rm = (((cur_val - mov_val) / prev_val) - 1) * 100
+        if prev_effective not in (None, 0) and prev_effective > 0 and mov_val is not None:
+            rm = (((curr_effective - mov_val) / prev_effective) - 1) * 100
         total_m[mk] = rm
         if rm is not None:
-            cumulative *= (1 + rm / 100)
-            has_cum = True
-            total_y[mk] = (cumulative - 1) * 100
+            compound *= 1 + (rm / 100)
+            has_total = True
+            total_y[mk] = (compound - 1) * 100
         else:
-            total_y[mk] = (cumulative - 1) * 100 if has_cum else None
+            total_y[mk] = (compound - 1) * 100 if has_total else None
     ret_m_rows.append(total_m)
     ret_y_rows.append(total_y)
 
@@ -389,21 +463,6 @@ def _rename_month_columns(df: pd.DataFrame, selected_year: int) -> tuple[pd.Data
     return df.rename(columns=col_rename), month_cols
 
 
-def _summary_mov_ytd_by_bank(summary_rows: list[dict], selected_year: int, selected_month: int) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for row in summary_rows:
-        fecha = str(row.get("fecha") or "")
-        if len(fecha) < 7:
-            continue
-        year = int(fecha[:4])
-        month = int(fecha[5:7])
-        if year != selected_year or month < 1 or month > selected_month:
-            continue
-        bank = str(row.get("banco") or "")
-        out[bank] = out.get(bank, 0.0) + float(row.get("movimientos") or 0.0)
-    return out
-
-
 def render():
     st.title("Mandatos")
     st.markdown("---")
@@ -416,7 +475,7 @@ def render():
     bank_options = filter_opts.get("bank_codes", [])
 
     st.markdown("### Filtros")
-    col_bank, col_entity, col_fecha = st.columns(3)
+    col_bank, col_entity, col_caja, col_fecha = st.columns(4)
 
     with col_bank:
         selected_banks = st.multiselect(
@@ -445,6 +504,14 @@ def render():
             key="mandates_entity_names",
         )
 
+    with col_caja:
+        caja_option = st.selectbox(
+            "Caja",
+            options=["Con Caja", "Sin Caja"],
+            key="mandates_caja_filter",
+        )
+        sin_caja = caja_option == "Sin Caja"
+
     with col_fecha:
         if available_fechas:
             if "mandates_fecha" not in st.session_state or st.session_state["mandates_fecha"] not in available_fechas:
@@ -464,17 +531,21 @@ def render():
         "bank_codes": selected_banks,
         "entity_names": selected_entities,
         "fecha": selected_fecha,
+        "sin_caja": sin_caja,
     }
     data = api_client.post("/data/mandates", json=payload)
     table_years = _calc_table_years(selected_fecha)
     table_data = api_client.post("/data/mandates", json={
+        "bank_codes": selected_banks,
         "entity_names": selected_entities,
         "years": table_years,
+        "sin_caja": sin_caja,
     })
     series_data = api_client.post("/data/mandates", json={
         "bank_codes": selected_banks,
         "entity_names": selected_entities,
         "years": table_years,
+        "sin_caja": sin_caja,
     })
 
     effective_fecha = data.get("selected_fecha") or selected_fecha
@@ -488,27 +559,9 @@ def render():
             "bank_codes": selected_banks,
             "entity_names": selected_entities,
             "account_types": ["mandato", "etf"],
+            "sin_personal": True,
         },
         label="Mandatos",
-    )
-
-    # Mov YTD alineado a Resumen para Mandato y ETF.
-    summary_mand = api_client.post("/data/summary", json={
-        "years": [chart_year],
-        "entity_names": selected_entities,
-        "account_types": ["mandato"],
-    })
-    mov_ytd_by_bank = _summary_mov_ytd_by_bank(summary_mand.get("rows", []), chart_year, chart_month)
-    summary_etf = api_client.post("/data/summary", json={
-        "years": [chart_year],
-        "entity_names": selected_entities,
-        "account_types": ["etf"],
-    })
-    etf_mov_ytd = sum(
-        float(r.get("movimientos") or 0.0)
-        for r in summary_etf.get("rows", [])
-        if str(r.get("fecha", "")).startswith(f"{chart_year}-")
-        and int(str(r.get("fecha"))[5:7]) <= chart_month
     )
 
     st.subheader("Mandato por Banco")
@@ -523,16 +576,15 @@ def render():
         returns_table=table_data.get("returns_table", []),
         etf_totals_by_month=table_data.get("etf_totals_by_month", {}),
         etf_total_returns=table_data.get("etf_total_returns", {}),
-        mov_ytd_by_bank=mov_ytd_by_bank,
-        etf_mov_ytd=etf_mov_ytd,
         effective_fecha=effective_fecha,
+        sin_caja=sin_caja,
     )
     if not kpi_df.empty:
         sort_col_left, sort_col_right = st.columns([2, 1])
         with sort_col_left:
             sort_col = st.selectbox(
                 "Ordenar por",
-                options=["Banco", "Monto", "Rent. Mes", "Rent. YTD", "Movimientos", "Mov. YTD"],
+                options=["Banco", "Monto", "Caja", "Monto total", "Rent. Mes", "Rent. YTD", "Movimientos", "Mov. YTD"],
                 key="mandates_kpi_sort_col",
             )
         with sort_col_right:
@@ -558,9 +610,10 @@ def render():
                 na_position="last",
                 kind="mergesort",
             )
-
         kpi_display = sorted_kpi.copy()
         kpi_display["Monto"] = kpi_display["Monto"].apply(_fmt_num_cell)
+        kpi_display["Caja"] = kpi_display["Caja"].apply(_fmt_num_cell)
+        kpi_display["Monto total"] = kpi_display["Monto total"].apply(_fmt_num_cell)
         kpi_display["Rent. Mes"] = kpi_display["Rent. Mes"].apply(_fmt_pct_cell)
         kpi_display["Rent. YTD"] = kpi_display["Rent. YTD"].apply(_fmt_pct_cell)
         kpi_display["Movimientos"] = kpi_display["Movimientos"].apply(_fmt_num_cell)
@@ -570,6 +623,7 @@ def render():
             bold_row_labels={"Total"},
             label_col="Banco",
             fixed_equal_cols=True,
+            pinned_row_labels={"Total"},
         )
     else:
         st.info("Sin datos para Mandato por Banco.")
@@ -658,11 +712,12 @@ def render():
     with col2:
         month_caption = effective_fecha or "Mes seleccionado"
         st.subheader(f"% por Tipo de Activo en cada Banco ({month_caption})")
-        bank_x = [label for _, label in FIXED_BANKS]
+        asset_bank_labels = FIXED_BANKS + [("etf_portfolio", "Portafolio ETF")]
+        bank_x = [label for _, label in asset_bank_labels]
         fig = go.Figure()
         for asset_key, label, color in ASSET_SERIES:
             y_vals = []
-            for bank_code, _ in FIXED_BANKS:
+            for bank_code, _ in asset_bank_labels:
                 row = bank_data.get(bank_code, {}) if isinstance(bank_data.get(bank_code), dict) else {}
                 y_vals.append(_pick_asset_value(row, asset_key))
             fig.add_trace(
@@ -673,6 +728,7 @@ def render():
                     marker_color=color,
                 )
             )
+        fig.add_hline(y=60, line_dash="dash", line_color="#2F3B4A", opacity=0.9)
         fig.update_layout(
             barmode="stack",
             height=432,
@@ -688,25 +744,24 @@ def render():
     montos_df, movs_df, ret_m_df, ret_y_df = _build_bank_month_tables(
         banks_rows=series_data.get("banks_by_month", []),
         returns_table=series_data.get("returns_table", []),
-        etf_totals_by_month=series_data.get("etf_totals_by_month", {}),
-        etf_total_returns=series_data.get("etf_total_returns", {}),
         selected_year=chart_year,
+        sin_caja=sin_caja,
     )
 
     st.subheader(f"Mandato por Banco {chart_year}")
-    st.caption("Bancos x Meses. Afectado por filtros Fecha, Banco y Sociedad.")
+    st.caption("Bancos x Meses. Afectado por filtros Fecha, Banco, Sociedad y Con/Sin Caja.")
     if not montos_df.empty:
         montos_df, monto_cols = _rename_month_columns(montos_df, chart_year)
         for col in monto_cols:
             montos_df[col] = montos_df[col].apply(lambda x: fmt_number(x, decimals=1) if x not in (None, 0) else "")
-        render_table(montos_df, bold_row_labels={"Total"}, label_col="Banco")
+        render_table(montos_df, bold_row_labels={"Total"}, label_col="Banco", pinned_row_labels={"Total"})
     else:
         st.info("Sin datos de montos por banco.")
 
     st.markdown("---")
 
     st.subheader(f"Movimientos por Banco {chart_year}")
-    st.caption("Bancos x Meses. Afectado por filtros Fecha, Banco y Sociedad.")
+    st.caption("Bancos x Meses. Afectado por filtros Fecha, Banco, Sociedad y Con/Sin Caja.")
     if not movs_df.empty:
         month_keys = [f"{m:02d}" for m in range(1, 13) if f"{m:02d}" in movs_df.columns]
         movs_df["Total"] = movs_df[month_keys].sum(axis=1) if month_keys else 0.0
@@ -714,7 +769,13 @@ def render():
         mov_cols = mov_cols + (["Total"] if "Total" in movs_df.columns else [])
         for col in mov_cols:
             movs_df[col] = movs_df[col].apply(lambda x: fmt_number(x, decimals=1) if x not in (None, 0) else "")
-        render_table(movs_df, bold_row_labels={"Total"}, bold_cols=["Total"], label_col="Banco")
+        render_table(
+            movs_df,
+            bold_row_labels={"Total"},
+            bold_cols=["Total"],
+            label_col="Banco",
+            pinned_row_labels={"Total"},
+        )
     else:
         st.info("Sin datos de movimientos por banco.")
 
@@ -732,6 +793,6 @@ def render():
         ret_df, ret_cols = _rename_month_columns(ret_df, chart_year)
         for col in ret_cols:
             ret_df[col] = ret_df[col].apply(lambda x: fmt_percent(x, decimals=2))
-        render_table(ret_df, bold_row_labels={"Total"}, label_col="Banco")
+        render_table(ret_df, bold_row_labels={"Total"}, label_col="Banco", pinned_row_labels={"Total"})
     else:
         st.info("Sin datos de rentabilidad por banco.")

@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 import logging
 from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -75,27 +76,128 @@ def parse_pct(raw: str | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Text extraction via PyMuPDF
+# OCR fallback for garbled font encoding
+# ---------------------------------------------------------------------------
+# Some GS PDFs use custom font encoding that PyMuPDF cannot decode,
+# producing garbled text.  When detected, we render pages as images
+# and run EasyOCR (optional dependency).
+
+_GARBLED_KEYWORDS = ("goldman", "portfolio", "period", "statement", "market value", "overview")
+_MAX_OCR_PAGES = 10
+_OCR_DPI = 200
+
+_ocr_reader = None
+_ocr_available: bool | None = None
+
+
+def _is_garbled_text(text: str, min_chars: int = 100) -> bool:
+    """Return True if text has enough characters but none of the expected GS keywords."""
+    if len(text.strip()) < min_chars:
+        return False
+    text_lower = text.lower()
+    return not any(kw in text_lower for kw in _GARBLED_KEYWORDS)
+
+
+def _get_ocr_reader():
+    """Lazy-initialize and cache the EasyOCR reader singleton."""
+    global _ocr_reader, _ocr_available
+    if _ocr_available is False:
+        return None
+    if _ocr_reader is not None:
+        return _ocr_reader
+    try:
+        import easyocr
+        logger.info("Initializing EasyOCR reader for OCR fallback...")
+        _ocr_reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+        _ocr_available = True
+        return _ocr_reader
+    except ImportError:
+        logger.warning("easyocr not installed — OCR fallback disabled")
+        _ocr_available = False
+        return None
+    except Exception as exc:
+        logger.warning("Failed to initialize OCR: %s", exc)
+        _ocr_available = False
+        return None
+
+
+def _ocr_page_text(page, dpi: int = _OCR_DPI) -> str:
+    """Extract text from a PyMuPDF page via EasyOCR (render → OCR)."""
+    reader = _get_ocr_reader()
+    if reader is None:
+        return ""
+    try:
+        import numpy as np
+        from PIL import Image
+        import io as _io
+
+        pix = page.get_pixmap(dpi=dpi)
+        img = Image.open(_io.BytesIO(pix.tobytes("png")))
+        results = reader.readtext(np.array(img), detail=0, paragraph=False)
+        return "\n".join(results)
+    except Exception as exc:
+        logger.warning("OCR page extraction failed: %s", exc)
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Text extraction via PyMuPDF (with automatic OCR fallback)
 # ---------------------------------------------------------------------------
 
 def extract_all_text_fitz(filepath) -> str:
-    """Extract full text from a PDF using PyMuPDF (fitz)."""
-    import fitz
-    doc = fitz.open(str(filepath))
-    parts = []
-    for page in doc:
-        parts.append(page.get_text())
-    doc.close()
-    return "\n".join(parts)
+    """Extract full text from a PDF using PyMuPDF, with OCR fallback."""
+    return "\n".join(extract_page_texts_fitz(filepath))
 
 
 def extract_page_texts_fitz(filepath) -> list[str]:
-    """Return a list of per-page text strings using PyMuPDF."""
+    """Return per-page text using PyMuPDF, with OCR fallback for garbled fonts."""
     import fitz
     doc = fitz.open(str(filepath))
     texts = [page.get_text() for page in doc]
+
+    sample = "\n".join(texts[:min(3, len(texts))])
+    if _is_garbled_text(sample):
+        n_ocr = min(_MAX_OCR_PAGES, len(doc))
+        logger.info("Garbled font encoding in %s — OCR fallback on first %d/%d pages",
+                     filepath, n_ocr, len(doc))
+        for i in range(n_ocr):
+            ocr_text = _ocr_page_text(doc[i])
+            if ocr_text:
+                texts[i] = ocr_text
+
     doc.close()
     return texts
+
+
+@lru_cache(maxsize=32)
+def extract_detection_text(filepath_str: str) -> tuple[str, int]:
+    """Extract text from first 3 pages for parser detection, with OCR fallback.
+
+    Returns (combined_text, total_page_count).  Cached per filepath.
+    """
+    import fitz
+    doc = fitz.open(filepath_str)
+    n_pages = len(doc)
+    if n_pages == 0:
+        doc.close()
+        return ("", 0)
+
+    texts = []
+    for i in range(min(3, n_pages)):
+        texts.append(doc[i].get_text())
+
+    combined = "\n".join(texts)
+    if _is_garbled_text(combined):
+        logger.info("Garbled text in detection for %s — applying OCR on first 3 pages",
+                     filepath_str)
+        for i in range(len(texts)):
+            ocr_text = _ocr_page_text(doc[i])
+            if ocr_text:
+                texts[i] = ocr_text
+        combined = "\n".join(texts)
+
+    doc.close()
+    return (combined, n_pages)
 
 
 # ---------------------------------------------------------------------------
@@ -105,13 +207,13 @@ def extract_page_texts_fitz(filepath) -> list[str]:
 def extract_period(text: str) -> dict[str, str] | None:
     """Extract 'Period Covering December 01, 2025 to December 31, 2025'."""
     m = re.search(
-        r"Period\s+Covering\s+(\w+\s+\d{1,2},?\s+\d{4})\s+to\s+(\w+\s+\d{1,2},?\s+\d{4})",
+        r"Period\s+Covering\s+(\w+\s+\d{1,2},?\s*\d{4})\s+to\s+(\w+\s+\d{1,2},?\s*\d{4})",
         text,
     )
     if m:
         return {"start": m.group(1).strip(), "end": m.group(2).strip()}
-    # Fallback: "Period Ended December 31, 2025"
-    m = re.search(r"Period\s+Ended\s+(\w+\s+\d{1,2},?\s+\d{4})", text)
+    # Fallback: "Period Ended December 31, 2025" (OCR may omit space after comma)
+    m = re.search(r"Period\s+Ended\s+(\w+\s+\d{1,2},?\s*\d{4})", text)
     if m:
         return {"end": m.group(1).strip()}
     return None
@@ -262,7 +364,47 @@ def extract_overview(text: str) -> dict[str, Any]:
                     "investment_results": nums[2],
                     "ending_market_value": nums[3],
                 }
+            else:
+                # Fallback for OCR: numbers appear AFTER "CURRENT MONTH"
+                for j in range(i + 1, min(i + 25, len(lines))):
+                    if "CURRENT MONTH" in lines[j]:
+                        after_nums = []
+                        for k in range(j + 1, min(j + 8, len(lines))):
+                            v = parse_usd(lines[k])
+                            if v is not None:
+                                after_nums.append(v)
+                            elif lines[k] in ("CURRENT YEAR",):
+                                break
+                        if len(after_nums) >= 4:
+                            result["investment_results"] = {
+                                "beginning_market_value": after_nums[0],
+                                "net_deposits_withdrawals": after_nums[1],
+                                "investment_results": after_nums[2],
+                                "ending_market_value": after_nums[3],
+                            }
+                        break
             break
+
+    # ── Fallback: scan for activity patterns globally (OCR interleaved columns) ──
+    if "portfolio_activity" not in result:
+        activity_fb: dict[str, Decimal | None] = {}
+        for i, line in enumerate(lines):
+            if "MARKET VALUE AS OF" in line and i + 1 < len(lines):
+                val = parse_usd(lines[i + 1])
+                if val is not None and val > 10_000:
+                    m_date = re.search(r"AS OF\s+(\w+)\s+(\d{1,2})", line)
+                    if m_date:
+                        day = int(m_date.group(2))
+                        if day <= 2 and "opening_value" not in activity_fb:
+                            activity_fb["opening_value"] = val
+                        elif day >= 27 and "closing_value" not in activity_fb:
+                            activity_fb["closing_value"] = val
+            elif "CHANGE IN MARKET VALUE" in line and i + 1 < len(lines):
+                val = parse_usd(lines[i + 1])
+                if val is not None:
+                    activity_fb["change_in_value"] = val
+        if activity_fb:
+            result["portfolio_activity"] = activity_fb
 
     return result
 

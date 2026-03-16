@@ -114,11 +114,11 @@ page = st.sidebar.radio(
     "Navegacion",
     [
         "🏠 Inicio",
-        "📁 Carga",
-        "📋 Resumen",
+        "👤 Detalle",
         "📑 Mandatos",
         "📈 ETF",
-        "👤 Detalle",
+        "📋 Resumen",
+        "📁 Carga",
         "⚙️ Operacional",
     ],
     index=0,
@@ -130,11 +130,8 @@ st.sidebar.caption("v0.1.0 | Uso interno")
 if page == "🏠 Inicio":
     from frontend.pages.home import render
     render()
-elif page == "📁 Carga":
-    from frontend.pages.upload import render
-    render()
-elif page == "📋 Resumen":
-    from frontend.pages.summary import render
+elif page == "👤 Detalle":
+    from frontend.pages.personal import render
     render()
 elif page == "📑 Mandatos":
     from frontend.pages.mandates import render
@@ -142,8 +139,11 @@ elif page == "📑 Mandatos":
 elif page == "📈 ETF":
     from frontend.pages.etf import render
     render()
-elif page == "👤 Detalle":
-    from frontend.pages.personal import render
+elif page == "📋 Resumen":
+    from frontend.pages.summary import render
+    render()
+elif page == "📁 Carga":
+    from frontend.pages.upload import render
     render()
 elif page == "⚙️ Operacional":
     from frontend.pages.operational import render

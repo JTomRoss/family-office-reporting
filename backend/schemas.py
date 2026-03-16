@@ -135,6 +135,7 @@ class FilterParams(BaseModel):
     currencies: list[str] = []
     fecha: Optional[str] = None  # "YYYY-MM" para filtro ETF
     sin_caja: bool = False  # True = excluir caja/money market de cálculos %
+    sin_personal: bool = False  # True = excluir cuentas personales (Raíces LP)
 
 
 class HealthAuditParams(FilterParams):

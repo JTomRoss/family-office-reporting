@@ -28,12 +28,22 @@ Write-Host "[1/5] Deteniendo instancias previas..." -ForegroundColor Yellow
 # ── 2. Verificar venv ────────────────────────────────────────
 Write-Host "[2/5] Verificando entorno virtual..." -ForegroundColor Yellow
 $pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$backendStdOut = Join-Path $projectRoot "backend_runtime.log"
+$backendStdErr = Join-Path $projectRoot "backend_runtime.err"
+$frontendStdOut = Join-Path $projectRoot "frontend_runtime.log"
+$frontendStdErr = Join-Path $projectRoot "frontend_runtime.err"
 if (-not (Test-Path $pythonExe)) {
     Write-Host "  ERROR: No se encontro .venv\Scripts\python.exe" -ForegroundColor Red
     Write-Host "  Ejecuta: python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -e '.[dev]'" -ForegroundColor Red
     exit 1
 }
 Write-Host "  Python: $pythonExe" -ForegroundColor Gray
+
+foreach ($logFile in @($backendStdOut, $backendStdErr, $frontendStdOut, $frontendStdErr)) {
+    if (Test-Path $logFile) {
+        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
+    }
+}
 
 # ── 3. Levantar backend ─────────────────────────────────────
 Write-Host "[3/5] Iniciando backend (puerto 8000)..." -ForegroundColor Yellow
@@ -42,6 +52,8 @@ $backendJob = Start-Process -FilePath $pythonExe `
     -ArgumentList "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000" `
     -WorkingDirectory $projectRoot `
     -WindowStyle Hidden `
+    -RedirectStandardOutput $backendStdOut `
+    -RedirectStandardError $backendStdErr `
     -PassThru
 
 Write-Host "  Backend PID: $($backendJob.Id)"
@@ -52,23 +64,32 @@ $ready = $false
 for ($i = 0; $i -lt 45; $i++) {
     Start-Sleep -Seconds 1
     Write-Host "." -NoNewline
-    $listening = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
-    if ($listening) {
-        # Puerto abierto, ahora verificar que responde HTTP
-        Start-Sleep -Seconds 2
-        try {
-            $check = & $pythonExe -c "import httpx; r = httpx.get('http://localhost:8000/api/v1/health', timeout=5); print(r.status_code)" 2>$null
-            if ($check -match "200") {
-                $ready = $true
-                break
-            }
-        } catch { }
+    if ($backendJob.HasExited) {
+        break
     }
+    try {
+        $check = & $pythonExe -c "import httpx; r = httpx.get('http://127.0.0.1:8000/api/v1/health', timeout=5); print(r.status_code)" 2>$null
+        if ($check -match "200") {
+            $ready = $true
+            break
+        }
+    } catch { }
 }
 Write-Host ""
 
 if (-not $ready) {
     Write-Host "  ERROR: Backend no responde en puerto 8000" -ForegroundColor Red
+    if ($backendJob.HasExited) {
+        Write-Host "  El proceso backend termino antes de responder." -ForegroundColor Red
+    }
+    if (Test-Path $backendStdErr) {
+        Write-Host "  --- backend stderr (ultimas 40 lineas) ---" -ForegroundColor DarkYellow
+        Get-Content $backendStdErr -Tail 40
+    }
+    if (Test-Path $backendStdOut) {
+        Write-Host "  --- backend stdout (ultimas 40 lineas) ---" -ForegroundColor DarkYellow
+        Get-Content $backendStdOut -Tail 40
+    }
     exit 1
 }
 Write-Host "  Backend OK" -ForegroundColor Green
@@ -79,6 +100,8 @@ $frontendJob = Start-Process -FilePath $pythonExe `
     -ArgumentList "-m", "streamlit", "run", "frontend/app.py", "--server.port", "8501", "--server.headless", "true" `
     -WorkingDirectory $projectRoot `
     -WindowStyle Hidden `
+    -RedirectStandardOutput $frontendStdOut `
+    -RedirectStandardError $frontendStdErr `
     -PassThru
 
 Write-Host "  Frontend PID: $($frontendJob.Id)"
@@ -89,16 +112,28 @@ $ready2 = $false
 for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
     Write-Host "." -NoNewline
-    $listening2 = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue
-    if ($listening2) {
-        $ready2 = $true
+    if ($frontendJob.HasExited) {
         break
     }
+    try {
+        $check2 = & $pythonExe -c "import httpx; r = httpx.get('http://127.0.0.1:8501', timeout=5); print(r.status_code)" 2>$null
+        if ($check2 -match "200") {
+            $ready2 = $true
+            break
+        }
+    } catch { }
 }
 Write-Host ""
 
 if (-not $ready2) {
-    Write-Host "  ADVERTENCIA: Frontend no responde aun, puede tardar unos segundos mas" -ForegroundColor Yellow
+    Write-Host "  ADVERTENCIA: Frontend no responde aun." -ForegroundColor Yellow
+    if ($frontendJob.HasExited) {
+        Write-Host "  El proceso frontend termino antes de responder." -ForegroundColor Yellow
+    }
+    if (Test-Path $frontendStdErr) {
+        Write-Host "  --- frontend stderr (ultimas 40 lineas) ---" -ForegroundColor DarkYellow
+        Get-Content $frontendStdErr -Tail 40
+    }
 } else {
     Write-Host "  Frontend OK" -ForegroundColor Green
 }

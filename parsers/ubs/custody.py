@@ -94,7 +94,7 @@ def _extract_page_text(pdf: pdfplumber.PDF, page_idx: int) -> str:
 class UBSSwitzerlandCustodyParser(BaseParser):
     BANK_CODE = "ubs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.3.0"
+    VERSION = "2.3.2"
     DESCRIPTION = "Parser para Statement of Assets UBS Suiza (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -201,8 +201,10 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                 # Structural rule: pick the portfolio block that matches account suffix (...-01 / ...-02).
                 selected_suffix = self._portfolio_suffix_from_account(acct)
                 selected_portfolio = self._extract_selected_portfolio_block(p3_text, selected_suffix)
+                selected_net_assets = None
                 if selected_portfolio:
                     balances["selected_portfolio"] = selected_portfolio
+                    selected_net_assets = _parse_usd(selected_portfolio.get("net_assets"))
                     selected_alloc = self._selected_portfolio_to_asset_allocation(selected_portfolio)
                     if selected_alloc:
                         qualitative["asset_allocation"] = selected_alloc
@@ -295,9 +297,19 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                     performance or {},
                     statement_date=statement_date,
                 )
-                # If Performance monthly table is present, its final value is the most
-                # reliable month-end for the selected portfolio.
-                if current_val is not None:
+                detail_current, detail_prev = self._extract_current_previous_from_detail(
+                    p3_text,
+                    statement_date=statement_date,
+                )
+                if current_val is None:
+                    current_val = detail_current
+                if prev_val is None:
+                    prev_val = detail_prev
+                # For multi-portfolio UBS Suiza statements, the selected portfolio
+                # block on the "Total assets" page is the source of truth.
+                if selected_net_assets is not None:
+                    ending_with = selected_net_assets
+                elif current_val is not None:
                     ending_with = current_val
                 elif ending_with is None:
                     ending_with = current_val
@@ -320,13 +332,15 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                 if acct and ending_with is not None:
                     current_hist = None
                     if statement_date and history_activity:
+                        matching_hist_rows: list[dict[str, Any]] = []
                         for row in history_activity:
                             if (
                                 row.get("period_year") == statement_date.year
                                 and row.get("period_month") == statement_date.month
                             ):
-                                current_hist = row
-                                break
+                                matching_hist_rows.append(row)
+                        if matching_hist_rows:
+                            current_hist = matching_hist_rows[-1]
 
                     qualitative["accounts"] = [{
                         "account_number": acct,
@@ -340,7 +354,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                     )
                     net_contributions = (
                         _parse_usd(current_hist.get("net_contributions"))
-                        if current_hist else None
+                        if current_hist else Decimal("0")
                     )
                     utilidad = (
                         _parse_usd(current_hist.get("utilidad"))
@@ -553,7 +567,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
     @staticmethod
     def _extract_ending_values(text: str) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
-        number = r"[\d,\s]+(?:\.\d+)?"
+        number = r"-?[\d,\s]+(?:\.\d+)?"
         # Netassets <without_accrual> <accrual> <with_accrual> 100.00
         m = re.search(
             rf"Netassets\s+({number})\s+({number})\s+({number})\s+100\.00",
@@ -590,8 +604,8 @@ class UBSSwitzerlandCustodyParser(BaseParser):
             return with_accrual, with_accrual, (Decimal("0") if with_accrual is not None else None)
 
         # Fallback from detailed totals
-        mv = re.search(r"Totalmarketvalue\s+([\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
-        ai = re.search(r"Totalaccruedinterest\s+([\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
+        mv = re.search(r"Totalmarketvalue\s+(-?[\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
+        ai = re.search(r"Totalaccruedinterest\s+(-?[\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
         if mv:
             without_accrual = _parse_usd(mv.group(1))
             accrual = _parse_usd(ai.group(1)) if ai else None
@@ -632,11 +646,20 @@ class UBSSwitzerlandCustodyParser(BaseParser):
         parsed_rows.sort(key=lambda x: x[0])
 
         if statement_date is not None:
-            current_idx = None
+            exact_idx = None
+            month_match_indices: list[int] = []
             for idx, (dt, _) in enumerate(parsed_rows):
-                if dt.year == statement_date.year and dt.month == statement_date.month:
-                    current_idx = idx
+                if dt == statement_date:
+                    exact_idx = idx
                     break
+                if dt.year == statement_date.year and dt.month == statement_date.month:
+                    month_match_indices.append(idx)
+            current_idx = exact_idx
+            if current_idx is None and month_match_indices:
+                # Some UBS monthly tables list more than one business-day row inside the
+                # same calendar month. If the exact closing date is missing, use the latest
+                # row in that statement month instead of the first one encountered.
+                current_idx = month_match_indices[-1]
             if current_idx is None:
                 current_idx = len(parsed_rows) - 1
         else:
@@ -644,6 +667,49 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         current = parsed_rows[current_idx][1]
         previous = parsed_rows[current_idx - 1][1] if current_idx > 0 else None
+        return current, previous
+
+    @staticmethod
+    def _extract_current_previous_from_detail(
+        text: str,
+        statement_date: date | None = None,
+    ) -> tuple[Decimal | None, Decimal | None]:
+        if not text:
+            return None, None
+
+        matches: list[tuple[str, Decimal]] = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            m = re.match(
+                r"^((?:\d{2}\.\d{2}\.\d{4})(?:-\d{2}\.\d{2}\.\d{4})?)\s+(.+)$",
+                line,
+            )
+            if not m:
+                continue
+            tokens = m.group(2).split()
+            amount_tokens: list[str] = []
+            for token in tokens:
+                if "%" in token or re.search(r"[A-Za-z]", token):
+                    break
+                amount_tokens.append(token)
+            value = _parse_usd(" ".join(amount_tokens))
+            if value is not None:
+                matches.append((m.group(1), value))
+
+        if not matches:
+            return None, None
+
+        target_date = statement_date.strftime("%d.%m.%Y") if statement_date else None
+        if target_date:
+            for idx, (line_date, value) in enumerate(matches):
+                if line_date == target_date or line_date.endswith(target_date):
+                    prev = matches[idx + 1][1] if idx + 1 < len(matches) else None
+                    return value, prev
+
+        current = matches[0][1]
+        previous = matches[1][1] if len(matches) > 1 else None
         return current, previous
 
     def validate(self, result: ParseResult) -> list[str]:
@@ -709,12 +775,12 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         # Total net assets
         m = re.search(
-            r"Totalnetassets(?:asof[\d.]+)?USD([\d]+)",
+            r"Totalnetassets(?:asof[\d.]+)?USD(-?[\d]+)",
             page3_text.replace(" ", "")
         )
         if not m:
             # Try with spaces
-            m = re.search(r"Total\s*net\s*assets.*?USD\s*([\d,\s]+(?:\.\d+)?)", page3_text)
+            m = re.search(r"Total\s*net\s*assets.*?USD\s*(-?[\d,\s]+(?:\.\d+)?)", page3_text)
         if m:
             result["total_net_assets"] = _parse_usd(m.group(1))
 
@@ -840,7 +906,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         first_numeric_idx = None
         for idx, token in enumerate(parts):
-            if re.fullmatch(r"\d+(?:\.\d+)?%?", token):
+            if re.fullmatch(r"-?\d+(?:\.\d+)?%?", token):
                 first_numeric_idx = idx
                 break
         if first_numeric_idx is None:
@@ -852,13 +918,27 @@ class UBSSwitzerlandCustodyParser(BaseParser):
 
         # Remove trailing percentage token if present.
         last = number_tokens[-1]
-        if re.fullmatch(r"\d+\.\d+%?", last):
+        if re.fullmatch(r"-?\d+\.\d+%?", last):
             number_tokens = number_tokens[:-1]
         if not number_tokens:
             return None
 
         key = (row_key or "").lower()
         take_n = 1
+        if key in {"liquidity", "equities"} and len(number_tokens) == 3:
+            first = number_tokens[0].lstrip("-")
+            middle = number_tokens[1].lstrip("-")
+            last = number_tokens[2].lstrip("-")
+            if (
+                re.fullmatch(r"\d+(?:\.\d+)?", first)
+                and re.fullmatch(r"\d+(?:\.\d+)?", middle)
+                and re.fullmatch(r"\d+(?:\.\d+)?", last)
+                and len(middle.split(".", 1)[0]) <= 3
+                and len(last.split(".", 1)[0]) >= max(len(first.split(".", 1)[0]) - 1, 1)
+            ):
+                val = _parse_usd(number_tokens[-1])
+                if val is not None:
+                    return val
         if key in {"liquidity", "equities"}:
             if len(number_tokens) >= 2 and len(number_tokens) % 2 == 0:
                 take_n = min(max(len(number_tokens) // 2, 1), 3)
@@ -1076,11 +1156,12 @@ class UBSSwitzerlandCustodyParser(BaseParser):
     def _parse_monthly_row_line(line: str) -> dict[str, Any] | None:
         # Preferred path: explicit row parsing for "31 March 2025 81 278 864 7 -1 435 ..."
         # 1) Date parsing: both "31December2025 ..." and "31 December 2025 ...".
-        m = re.match(r"^(\d{1,2})([A-Za-z]+)(\d{4})\s+(.*)$", line)
+        # UBS occasionally appends a footnote digit to the year token, e.g. "29October20211".
+        m = re.match(r"^(\d{1,2})([A-Za-z]+)(\d{4})(?:\d)?\s+(.*)$", line)
         if m:
             day_s, month_s, year_s, tail = m.group(1), m.group(2), m.group(3), m.group(4)
         else:
-            m = re.match(r"^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s+(.*)$", line)
+            m = re.match(r"^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\d)?\s+(.*)$", line)
             if not m:
                 return None
             day_s, month_s, year_s, tail = m.group(1), m.group(2), m.group(3), m.group(4)
@@ -1175,7 +1256,7 @@ class UBSSwitzerlandCustodyParser(BaseParser):
             return None
 
         best: tuple[list[str], list[str], list[str], list[str]] | None = None
-        best_key: tuple[int, int, int, int] | None = None
+        best_key: tuple[int, int, int, int, int] | None = None
 
         for i in range(1, n - 2):
             for j in range(i + 1, n - 1):
@@ -1183,17 +1264,65 @@ class UBSSwitzerlandCustodyParser(BaseParser):
                     groups = (tokens[:i], tokens[i:j], tokens[j:k], tokens[k:])
                     if not all(cls._is_valid_group(g) for g in groups):
                         continue
-                    expected_value_tokens = 2 if n >= 6 else 1
-                    key = (
-                        -abs(len(groups[3]) - expected_value_tokens),
-                        -abs(len(groups[1]) - 1),  # inflow usually compact
-                        -abs(len(groups[2]) - 1),  # outflow usually compact
-                        len(groups[0]),            # then maximize final-value width
-                    )
+                    key = cls._score_four_numeric_groups(groups)
                     if best_key is None or key > best_key:
                         best_key = key
                         best = groups
         return best
+
+    @classmethod
+    def _score_four_numeric_groups(
+        cls,
+        groups: tuple[list[str], list[str], list[str], list[str]],
+    ) -> tuple[int, int, int, int, int]:
+        """
+        Rank candidate splits for spaced UBS monthly rows.
+
+        The brute-force split must prefer natural thousand-group boundaries like:
+        - 95 914 | 300 000 | -300 000 | 218
+        - 260 092 798 | 282 688 492 | -296 052 078 | -55 142
+
+        and avoid pathological alternatives such as:
+        - 95 914 300 | 000 | -300 | 000 218
+        """
+        lengths = [len(group) for group in groups]
+        first_three = lengths[:3]
+        perf_len = lengths[3]
+
+        penalty = 0
+        penalty += sum(max(0, length - 3) * 100 for length in first_three)
+        penalty += max(0, perf_len - 2) * 80
+        penalty += (max(first_three) - min(first_three)) * 10
+
+        avg_len = sum(first_three) / 3
+        penalty += int(sum(abs(length - avg_len) for length in first_three))
+
+        for group in groups[1:]:
+            if len(group) == 1 and group[0].lstrip("-") in {"00", "000"}:
+                penalty += 60
+            if len(group) > 1 and group[0].lstrip("-") in {"0", "00", "000"}:
+                penalty += 40
+
+        final_digits = cls._group_digit_count(groups[0])
+        perf_digits = cls._group_digit_count(groups[3])
+        if final_digits < perf_digits:
+            penalty += (perf_digits - final_digits) * 40
+
+        return (
+            -penalty,
+            -perf_len,
+            final_digits,
+            -abs(first_three[1] - first_three[2]),
+            -max(first_three),
+        )
+
+    @staticmethod
+    def _group_digit_count(tokens: list[str]) -> int:
+        if not tokens:
+            return 0
+        raw = "".join(token[1:] if token.startswith("-") else token for token in tokens)
+        raw = raw.split(".", 1)[0].lstrip("0")
+        return len(raw) if raw else 1
 
     @staticmethod
     def _build_historical_activity_from_performance(

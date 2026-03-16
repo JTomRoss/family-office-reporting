@@ -113,6 +113,67 @@ def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float
     return ytd_values
 
 
+def _summarize_visible_scope(detail_rows: list[dict], *, max_groups: int = 3) -> str | None:
+    grouped: dict[tuple[str, str], set[str]] = {}
+    for row in detail_rows:
+        sociedad = str(row.get("sociedad") or "").strip()
+        banco = str(row.get("banco") or "").strip()
+        account_id = str(row.get("id") or "").strip()
+        account_type = _fmt_account_type(str(row.get("account_type") or ""))
+        if not sociedad or not banco or not account_id:
+            continue
+        label = f"{account_id} ({account_type})" if account_type else account_id
+        grouped.setdefault((sociedad, banco), set()).add(label)
+
+    overlapping = [
+        f"{sociedad} + {_fmt_bank(banco)}: {', '.join(sorted(labels))}"
+        for (sociedad, banco), labels in grouped.items()
+        if len(labels) > 1
+    ]
+    if not overlapping:
+        return None
+    if len(overlapping) > max_groups:
+        shown = overlapping[:max_groups]
+        shown.append(f"+{len(overlapping) - max_groups} grupo(s) mas")
+        return "; ".join(shown)
+    return "; ".join(overlapping)
+
+
+def _summary_seed_rows(
+    *,
+    selected_year: int | None,
+    bank_codes: list[str] | None = None,
+    entity_names: list[str] | None = None,
+    account_types: list[str] | None = None,
+) -> list[dict]:
+    payload = {
+        "years": [selected_year] if selected_year else [],
+        "bank_codes": bank_codes or [],
+        "entity_names": entity_names or [],
+        "account_types": account_types or [],
+    }
+    try:
+        return api_client.post("/data/summary", json=payload).get("rows", [])
+    except Exception:
+        return []
+
+
+def _distinct_values(rows: list[dict], field: str) -> list[str]:
+    return sorted(
+        {
+            str(row.get(field) or "").strip()
+            for row in rows
+            if str(row.get(field) or "").strip()
+        }
+    )
+
+
+def _sanitize_multiselect_state(key: str, valid_options: list[str]) -> list[str]:
+    selected = [value for value in st.session_state.get(key, []) if value in valid_options]
+    st.session_state[key] = selected
+    return selected
+
+
 def render():
     st.title("Resumen")
     st.markdown("---")
@@ -127,13 +188,49 @@ def render():
             "years": [],
         }
 
-    bank_options = sorted(opts.get("bank_codes", []))
-    entity_options = sorted(opts.get("entity_names", []))
-    account_type_options = sorted(opts.get("account_types", []))
+    bank_options_all = sorted(opts.get("bank_codes", []))
+    entity_options_all = sorted(opts.get("entity_names", []))
+    account_type_options_all = sorted(opts.get("account_types", []))
     year_options = [int(y) for y in opts.get("years", []) if y is not None]
     fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
     if not fecha_options:
         fecha_options = _build_fecha_options(year_options)
+
+    raw_selected_consolidated = st.session_state.get("summary_consolidated", "")
+    raw_selected_entities = list(st.session_state.get("summary_entity_names", []))
+    raw_selected_banks = list(st.session_state.get("summary_bank_codes", []))
+    raw_selected_types = list(st.session_state.get("summary_account_types", []))
+    current_fecha = st.session_state.get("summary_fecha")
+    if current_fecha not in fecha_options and fecha_options:
+        current_fecha = fecha_options[0]
+        st.session_state["summary_fecha"] = current_fecha
+    selected_year_seed = int(current_fecha[:4]) if current_fecha else None
+    preset_entities_seed = list(CONSOLIDATED_PRESETS.get(raw_selected_consolidated, []))
+    effective_entities_seed = sorted(set(raw_selected_entities) | set(preset_entities_seed))
+
+    bank_seed_rows = _summary_seed_rows(
+        selected_year=selected_year_seed,
+        entity_names=effective_entities_seed,
+        account_types=raw_selected_types,
+    )
+    entity_seed_rows = _summary_seed_rows(
+        selected_year=selected_year_seed,
+        bank_codes=raw_selected_banks,
+        account_types=raw_selected_types,
+    )
+    type_seed_rows = _summary_seed_rows(
+        selected_year=selected_year_seed,
+        bank_codes=raw_selected_banks,
+        entity_names=effective_entities_seed,
+    )
+
+    bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
+    entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
+    account_type_options = _distinct_values(type_seed_rows, "account_type") or account_type_options_all
+
+    selected_banks_default = _sanitize_multiselect_state("summary_bank_codes", bank_options)
+    selected_entities_default = _sanitize_multiselect_state("summary_entity_names", entity_options)
+    selected_types_default = _sanitize_multiselect_state("summary_account_types", account_type_options)
 
     st.markdown("### Filtros")
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -142,6 +239,7 @@ def render():
         selected_banks = st.multiselect(
             "Banco",
             options=bank_options,
+            default=selected_banks_default,
             format_func=_fmt_bank,
             key="summary_bank_codes",
         )
@@ -149,6 +247,7 @@ def render():
         selected_entities = st.multiselect(
             "Sociedad",
             options=entity_options,
+            default=selected_entities_default,
             key="summary_entity_names",
         )
     with c3:
@@ -162,6 +261,7 @@ def render():
         selected_types = st.multiselect(
             "Tipo de cuenta",
             options=account_type_options,
+            default=selected_types_default,
             format_func=_fmt_account_type,
             key="summary_account_types",
         )
@@ -204,6 +304,7 @@ def render():
     detail_rows = data.get("rows", [])
     consolidated_rows = data.get("consolidated_rows", [])
     chart_data = data.get("chart_data", [])
+    visible_scope_summary = _summarize_visible_scope(detail_rows)
 
     render_health_warning(
         {
@@ -214,6 +315,12 @@ def render():
         },
         label="Resumen",
     )
+
+    if visible_scope_summary:
+        st.info(
+            "Las cifras consolidadas combinan multiples cuentas visibles del mismo banco/sociedad: "
+            f"{visible_scope_summary}. Revisa 'Detalle Cartolas' para el valor por ID."
+        )
 
     st.subheader("Evolucion 12 meses")
 

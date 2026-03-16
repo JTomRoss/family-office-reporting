@@ -537,6 +537,9 @@ class MonthlyMetricNormalized(Base):
     cash_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
     movements_net: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
     profit_period: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    movements_ytd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    profit_ytd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    asset_allocation_json: Mapped[Optional[str]] = mapped_column(Text)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
 
     # Trazabilidad

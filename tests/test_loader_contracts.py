@@ -13,6 +13,7 @@ from backend.db.models import (
     EtfComposition,
     MonthlyClosing,
     MonthlyMetricNormalized,
+    ParsedStatement,
     ParserVersion,
     RawDocument,
     ValidationLog,
@@ -593,6 +594,171 @@ def test_loader_jpm_brokerage_does_not_fill_monthly_from_account_ytd(db_session)
     assert any("mensual en blanco interpretado como 0" in (log.message or "") for log in logs)
 
 
+def test_loader_jpm_brokerage_normalizes_cash_from_holdings_when_allocation_missing(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="E99087000",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20260131-jpm-brokerage-cash-only.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-brokerage-cash-holdings"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2026, 1, 31),
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        opening_balance=Decimal("450.00"),
+        closing_balance=Decimal("459.62"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "450.00",
+                    "ending_value": "459.62",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "459.62",
+                    "ending_value_without_accrual": "459.62",
+                    "net_contributions": "0",
+                    "utilidad": "9.62",
+                }
+            ],
+        },
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "US DOLLAR JPM DEPOSIT SWEEP",
+                    "market_value": "459.62",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=1,
+                confidence=0.9,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "VAND USDCP1-3 USDA",
+                    "market_value": "999.99",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=2,
+                confidence=0.9,
+            ),
+        ],
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    assert normalized.asset_allocation_json is None
+    assert normalized.cash_value == Decimal("459.62")
+
+
+def test_loader_refresh_backfills_jpm_cash_from_persisted_holdings(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="B99719001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20260131-jpm-brokerage-refresh.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    db_session.add(
+        MonthlyClosing(
+            account_id=acct.id,
+            closing_date=date(2026, 1, 31),
+            year=2026,
+            month=1,
+            total_assets=Decimal("15920368.36"),
+            net_value=Decimal("15920368.36"),
+            currency="USD",
+            income=Decimal("0"),
+            change_in_value=Decimal("0"),
+            source_document_id=doc.id,
+        )
+    )
+    db_session.add(
+        ParsedStatement(
+            raw_document_id=doc.id,
+            account_id=acct.id,
+            statement_date=date(2026, 1, 31),
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 1, 31),
+            closing_balance=Decimal("15920368.36"),
+            currency="USD",
+            parser_version_id=pv.id,
+            parsed_data_json=json.dumps(
+                {
+                    "rows": [
+                        {
+                            "instrument": "JPM USD LIQUIDITY SWEEP C SHARE",
+                            "market_value": "60622.45",
+                            "account_number": acct.account_number,
+                            "section": "cash_fixed_income",
+                        },
+                        {
+                            "instrument": "JPM LI-LIQ LVNAV FD - USD - W -",
+                            "market_value": "15859745.91",
+                            "account_number": acct.account_number,
+                            "section": "cash_fixed_income",
+                        },
+                    ]
+                }
+            ),
+        )
+    )
+    db_session.commit()
+
+    loader = DataLoadingService(db_session)
+    loader._refresh_normalized_activity_from_monthly_closings(account=acct, year=2026)
+    db_session.commit()
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    assert normalized.cash_value == Decimal("15920368.36")
+
+
 def test_loader_ubs_history_backfills_prior_months(db_session):
     parser = UBSSwitzerlandCustodyParser()
     # Reproduce producción: Session autoflush deshabilitado en backend.db.session
@@ -600,7 +766,7 @@ def test_loader_ubs_history_backfills_prior_months(db_session):
 
     acct = _create_account(
         db_session,
-        account_number="206-560552-02",
+        account_number="206-560552-88",
         bank_code="ubs",
         account_type="mandato",
     )
@@ -756,13 +922,645 @@ def test_loader_ubs_history_backfills_prior_months(db_session):
     # Regla UBS: backfill trimestral no pisa net_value de meses ya cerrados.
     assert jan.net_value == Decimal("100")
     assert jan.change_in_value == Decimal("10")
-    assert jan.income == Decimal("1751949")
+    assert jan.income == Decimal("0")
     assert feb.net_value == Decimal("120")
     assert feb.change_in_value == Decimal("5")
-    assert feb.income == Decimal("255937")
+    assert feb.income == Decimal("15")
     assert march.net_value == Decimal("130")
     assert march.change_in_value == Decimal("-2")
-    assert march.income == Decimal("-831817")
+    assert march.income == Decimal("12")
+
+
+def test_loader_ubs_quarterly_history_refines_non_quarter_movement_from_direct_month(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    acct = _create_account(
+        db_session,
+        account_number="206-560552-02",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    jan_doc = _create_raw_document(
+        db_session,
+        filename="202501 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    mar_doc = _create_raw_document(
+        db_session,
+        filename="202503 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    db_session.add(
+        MonthlyClosing(
+            account_id=acct.id,
+            closing_date=date(2024, 12, 31),
+            year=2024,
+            month=12,
+            net_value=Decimal("90"),
+            total_assets=Decimal("90"),
+            currency="USD",
+            income=Decimal("0"),
+            change_in_value=Decimal("0"),
+        )
+    )
+    db_session.flush()
+
+    jan_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-202501-direct"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2025, 1, 31),
+        period_start=date(2025, 1, 1),
+        period_end=date(2025, 1, 31),
+        opening_balance=Decimal("90"),
+        closing_balance=Decimal("100"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "90",
+                    "ending_value": "100",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "100",
+                    "ending_value_without_accrual": "100",
+                    "net_contributions": "0",
+                    "utilidad": "10",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=jan_result, raw_document=jan_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    march_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-202503-quarter"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2025, 3, 31),
+        period_start=date(2025, 3, 1),
+        period_end=date(2025, 3, 31),
+        opening_balance=Decimal("100"),
+        closing_balance=Decimal("130"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "120",
+                    "ending_value": "130",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "130",
+                    "ending_value_without_accrual": "130",
+                    "net_contributions": "0",
+                    "utilidad": "10",
+                }
+            ],
+            "account_monthly_activity_history": [
+                {
+                    "account_number": acct.account_number,
+                    "period_year": 2025,
+                    "period_month": 1,
+                    "period_end": "2025-01-31",
+                    "ending_value_with_accrual": "100",
+                    "net_contributions": "10",
+                    "utilidad": "999999",
+                },
+                {
+                    "account_number": acct.account_number,
+                    "period_year": 2025,
+                    "period_month": 2,
+                    "period_end": "2025-02-28",
+                    "ending_value_with_accrual": "120",
+                    "net_contributions": "5",
+                    "utilidad": "15",
+                },
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=march_result, raw_document=mar_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    jan = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 1)
+        .one()
+    )
+    assert jan.source_document_id == jan_doc.id
+    assert jan.net_value == Decimal("100")
+    assert jan.change_in_value == Decimal("10")
+    assert jan.income == Decimal("0")
+
+    jan_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    assert jan_norm.ending_value_with_accrual == Decimal("100")
+    assert jan_norm.movements_net == Decimal("10")
+    assert jan_norm.profit_period == Decimal("0")
+
+
+def test_loader_ubs_profit_absorbs_beginning_vs_previous_ending_gap(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    acct = _create_account(
+        db_session,
+        account_number="206-560552-02",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    feb_doc = _create_raw_document(
+        db_session,
+        filename="202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    mar_doc = _create_raw_document(
+        db_session,
+        filename="202503 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    feb_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-gap-202502"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2025, 2, 28),
+        period_start=date(2025, 2, 1),
+        period_end=date(2025, 2, 28),
+        opening_balance=Decimal("0"),
+        closing_balance=Decimal("82100670"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "0",
+                    "ending_value": "82100670",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "82100670",
+                    "ending_value_without_accrual": "82100670",
+                    "net_contributions": "82089481",
+                    "utilidad": "11189",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=feb_result, raw_document=feb_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    march_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-gap-202503"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2025, 3, 31),
+        period_start=date(2025, 3, 1),
+        period_end=date(2025, 3, 31),
+        opening_balance=Decimal("82115663"),
+        closing_balance=Decimal("81278864"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "82115663",
+                    "ending_value": "81278864",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "81278864",
+                    "ending_value_without_accrual": "81278864",
+                    "net_contributions": "-1435",
+                    "utilidad": "-834611",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=march_result, raw_document=mar_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    march = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 3)
+        .one()
+    )
+    assert march.net_value == Decimal("81278864")
+    assert march.change_in_value == Decimal("-1435")
+    assert march.income == Decimal("-820371")
+
+    march_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 3,
+        )
+        .one()
+    )
+    assert march_norm.ending_value_with_accrual == Decimal("81278864")
+    assert march_norm.movements_net == Decimal("-1435")
+    assert march_norm.profit_period == Decimal("-820371")
+
+
+def test_loader_ubs_history_does_not_override_direct_monthly_statement(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    acct = _create_account(
+        db_session,
+        account_number="206-579943-01",
+        bank_code="ubs",
+        account_type="brokerage",
+    )
+    jan_doc = _create_raw_document(
+        db_session,
+        filename="202601 MI - UBS Sw (9943).pdf",
+        bank_code="ubs",
+    )
+    feb_doc = _create_raw_document(
+        db_session,
+        filename="202602 MI - UBS Sw (9943).pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    jan_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-mi-202601"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2026, 1, 31),
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        opening_balance=Decimal("96028"),
+        closing_balance=Decimal("96418"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "96028",
+                    "ending_value": "96418",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "96418",
+                    "ending_value_without_accrual": "96202",
+                    "accrual_ending": "216",
+                    "net_contributions": "0",
+                    "utilidad": "390",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=jan_result, raw_document=jan_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    feb_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-mi-202602"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2026, 2, 28),
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        opening_balance=Decimal("96418"),
+        closing_balance=Decimal("96554"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "96418",
+                    "ending_value": "96554",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "96554",
+                    "ending_value_without_accrual": "96359",
+                    "accrual_ending": "195",
+                    "net_contributions": "0",
+                    "utilidad": "352",
+                }
+            ],
+            "account_monthly_activity_history": [
+                {
+                    "account_number": acct.account_number,
+                    "period_year": 2026,
+                    "period_month": 1,
+                    "period_end": "2026-01-31",
+                    "ending_value_with_accrual": "96202",
+                    "net_contributions": "0",
+                    "utilidad": "174",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=feb_result, raw_document=feb_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    jan = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2026, MonthlyClosing.month == 1)
+        .one()
+    )
+    assert jan.net_value == Decimal("96418")
+    assert jan.change_in_value == Decimal("0")
+    assert jan.income == Decimal("390")
+
+    jan_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 1,
+        )
+        .one()
+    )
+    assert jan_norm.ending_value_with_accrual == Decimal("96418")
+    assert jan_norm.ending_value_without_accrual == Decimal("96202")
+    assert jan_norm.movements_net == Decimal("0")
+    assert jan_norm.profit_period == Decimal("390")
+
+
+def test_loader_applies_documented_ubs_feb_2025_manual_override_pair(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    boatview = _create_account(
+        db_session,
+        account_number="206-560552-02",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    telmar = _create_account(
+        db_session,
+        account_number="206-560402-01",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    boatview_doc = _create_raw_document(
+        db_session,
+        filename="202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    telmar_doc = _create_raw_document(
+        db_session,
+        filename="202502 Telmar UBS SW Mandato (0402 60P y 61K).pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-boatview-202502"),
+        bank_code="ubs",
+        account_number=boatview.account_number,
+        statement_date=date(2025, 2, 28),
+        period_start=date(2025, 2, 1),
+        period_end=date(2025, 2, 28),
+        opening_balance=None,
+        closing_balance=Decimal("82100670"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": boatview.account_number,
+                    "beginning_value": None,
+                    "ending_value": "82100670",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": boatview.account_number,
+                    "ending_value_with_accrual": "82100670",
+                    "ending_value_without_accrual": "82100670",
+                    "accrual_ending": "0",
+                    "net_contributions": "0",
+                }
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=boatview_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    boatview_feb = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == boatview.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
+        .one()
+    )
+    assert boatview_feb.net_value == Decimal("82100670")
+    assert boatview_feb.change_in_value == Decimal("82089481")
+    assert boatview_feb.income == Decimal("11189")
+    assert boatview_feb.source_document_id == boatview_doc.id
+
+    telmar_feb = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == telmar.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
+        .one()
+    )
+    assert telmar_feb.net_value == Decimal("0")
+    assert telmar_feb.change_in_value == Decimal("-82089481")
+    assert telmar_feb.income == Decimal("231316")
+    assert telmar_feb.source_document_id == telmar_doc.id
+
+    telmar_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == telmar.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 2,
+        )
+        .one()
+    )
+    assert telmar_norm.ending_value_with_accrual == Decimal("0")
+    assert telmar_norm.ending_value_without_accrual == Decimal("0")
+    assert telmar_norm.movements_net == Decimal("-82089481")
+    assert telmar_norm.profit_period == Decimal("231316")
+
+
+def test_loader_ubs_manual_override_survives_later_quarterly_backfill(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    boatview = _create_account(
+        db_session,
+        account_number="206-560552-02",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    telmar = _create_account(
+        db_session,
+        account_number="206-560402-01",
+        bank_code="ubs",
+        account_type="mandato",
+    )
+    boatview_feb_doc = _create_raw_document(
+        db_session,
+        filename="202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    telmar_feb_doc = _create_raw_document(
+        db_session,
+        filename="202502 Telmar UBS SW Mandato (0402 60P y 61K).pdf",
+        bank_code="ubs",
+    )
+    march_doc = _create_raw_document(
+        db_session,
+        filename="202503 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    feb_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-manual-202502"),
+        bank_code="ubs",
+        account_number=boatview.account_number,
+        statement_date=date(2025, 2, 28),
+        period_start=date(2025, 2, 1),
+        period_end=date(2025, 2, 28),
+        closing_balance=Decimal("82100670"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": boatview.account_number,
+                    "beginning_value": None,
+                    "ending_value": "82100670",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": boatview.account_number,
+                    "ending_value_with_accrual": "82100670",
+                    "ending_value_without_accrual": "82100670",
+                    "net_contributions": "0",
+                    "utilidad": "0",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=feb_result, raw_document=boatview_feb_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    quarter_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-quarter-202503"),
+        bank_code="ubs",
+        account_number=boatview.account_number,
+        statement_date=date(2025, 3, 31),
+        period_start=date(2025, 3, 1),
+        period_end=date(2025, 3, 31),
+        opening_balance=Decimal("82115663"),
+        closing_balance=Decimal("81278864"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": boatview.account_number,
+                    "beginning_value": "82115663",
+                    "ending_value": "81278864",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": boatview.account_number,
+                    "ending_value_with_accrual": "81278864",
+                    "ending_value_without_accrual": "81278864",
+                    "net_contributions": "-1435",
+                    "utilidad": "-834611",
+                }
+            ],
+            "account_monthly_activity_history": [
+                {
+                    "account_number": boatview.account_number,
+                    "period_year": 2025,
+                    "period_month": 2,
+                    "period_end": "2025-02-28",
+                    "ending_value_with_accrual": "82100670",
+                    "net_contributions": "-21257",
+                    "utilidad": "99999999",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=quarter_result, raw_document=march_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    boatview_feb = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == boatview.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
+        .one()
+    )
+    assert boatview_feb.source_document_id == boatview_feb_doc.id
+    assert boatview_feb.net_value == Decimal("82100670")
+    assert boatview_feb.change_in_value == Decimal("82089481")
+    assert boatview_feb.income == Decimal("11189")
+
+    telmar_feb = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == telmar.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
+        .one()
+    )
+    assert telmar_feb.source_document_id == telmar_feb_doc.id
+    assert telmar_feb.net_value == Decimal("0")
+    assert telmar_feb.change_in_value == Decimal("-82089481")
+    assert telmar_feb.income == Decimal("231316")
 
 
 def test_loader_bbh_prior_adjustment_is_control_only(db_session):

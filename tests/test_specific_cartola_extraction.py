@@ -18,6 +18,10 @@ def _cartola_path(filename: str) -> Path:
     return Path(__file__).resolve().parents[1] / "Documentos" / "Cartolas" / filename
 
 
+def _raw_cartola_path(filename: str) -> Path:
+    return Path(__file__).resolve().parents[1] / "data" / "raw" / "ubs" / "pdf_cartola" / filename
+
+
 def _require(path: Path) -> None:
     if not path.exists():
         pytest.skip(f"Fixture PDF not found: {path}")
@@ -89,6 +93,182 @@ def test_ubs_suiza_statement_date_fallback_from_filename():
         "202501 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf"
     )
     assert stmt == date(2025, 1, 31)
+
+
+def test_ubs_suiza_jan_2025_boatview_portfolio_02_keeps_zero_closing_balance():
+    path = _raw_cartola_path("202501 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf")
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-560552-02"
+    assert result.closing_balance == Decimal("0")
+
+    selected = result.balances.get("selected_portfolio", {})
+    assert selected.get("portfolio") == "Portfolio02"
+    assert _as_decimal(selected.get("net_assets")) == Decimal("0")
+
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert _as_decimal(monthly[0].get("ending_value_with_accrual")) == Decimal("0")
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_liquidity"),
+    [
+        ("202505 Boatview UBS SW (206-560552-01) 511UBS SW BR (60F)_P1.pdf", Decimal("54236")),
+        ("202508 Boatview UBS SW (206-560552-01) 511UBS SW BR (60F) P1.pdf", Decimal("53977")),
+        ("202511 Boatview UBS SW (206-560552-01) 511UBS SW BR (60F) P1.pdf", Decimal("53646")),
+    ],
+)
+def test_ubs_suiza_portfolio_01_liquidity_row_keeps_total_column(filename, expected_liquidity):
+    path = _raw_cartola_path(filename)
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-560552-01"
+    assert result.closing_balance == expected_liquidity
+
+    selected = result.balances.get("selected_portfolio", {})
+    assert selected.get("portfolio") == "Portfolio01"
+    assert _as_decimal(selected.get("asset_classes", {}).get("liquidity")) == expected_liquidity
+
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("Liquidity", {}).get("total")) == expected_liquidity
+
+
+def test_ubs_suiza_extracts_negative_current_and_previous_net_assets_from_detail():
+    parser = UBSSwitzerlandCustodyParser()
+    current, previous = parser._extract_current_previous_from_detail(
+        "\n".join(
+            [
+                "Net assets of your portfolio valued in USD Details of your portfolio",
+                "Period Net assets",
+                "31.10.2024 -2 359",
+                "29.12.2023 -424",
+            ]
+        ),
+        statement_date=date(2024, 10, 31),
+    )
+    assert current == Decimal("-2359")
+    assert previous == Decimal("-424")
+
+
+def test_ubs_suiza_extracts_current_net_assets_from_date_range_detail():
+    parser = UBSSwitzerlandCustodyParser()
+    current, previous = parser._extract_current_previous_from_detail(
+        "\n".join(
+            [
+                "Net assets Performance Reference currency USD",
+                "Period (per end of period) TWR value",
+                "31.12.2024-31.01.2025 2 039 -0.49% -10 yourclientadvisorwillbehappytohelp.",
+                "08.11.2024-31.12.2024 2 049 -0.87% -20",
+            ]
+        ),
+        statement_date=date(2025, 1, 31),
+    )
+    assert current == Decimal("2039")
+    assert previous == Decimal("2049")
+
+
+def test_ubs_suiza_monthly_row_parsing_handles_footnote_year_suffix():
+    parsed = UBSSwitzerlandCustodyParser._parse_monthly_row_line(
+        "29October20211 239504248 44912083 0 -30 0.00% -30 0.00%"
+    )
+    assert parsed is not None
+    assert parsed["period_iso"] == "2021-10-29"
+    assert parsed["final_value"] == Decimal("239504248")
+    assert parsed["inflows"] == Decimal("44912083")
+    assert parsed["outflows"] == Decimal("0")
+    assert parsed["performance_value"] == Decimal("-30")
+
+
+def test_ubs_suiza_monthly_row_parsing_keeps_thousands_groups_separate():
+    parsed = UBSSwitzerlandCustodyParser._parse_monthly_row_line(
+        "31 October 2024 95 914 300 000 -300 000 218 0.22% 2 756 2.92%"
+    )
+    assert parsed is not None
+    assert parsed["final_value"] == Decimal("95914")
+    assert parsed["inflows"] == Decimal("300000")
+    assert parsed["outflows"] == Decimal("-300000")
+    assert parsed["performance_value"] == Decimal("218")
+    assert parsed["cumulative_value"] == Decimal("2756")
+
+
+def test_ubs_suiza_monthly_row_parsing_handles_large_spaced_values():
+    parsed = UBSSwitzerlandCustodyParser._parse_monthly_row_line(
+        "31 December 2021 260 092 798 282 688 492 -296 052 078 -55 142 -0.02% -47 887 -0.02%"
+    )
+    assert parsed is not None
+    assert parsed["final_value"] == Decimal("260092798")
+    assert parsed["inflows"] == Decimal("282688492")
+    assert parsed["outflows"] == Decimal("-296052078")
+    assert parsed["performance_value"] == Decimal("-55142")
+    assert parsed["cumulative_value"] == Decimal("-47887")
+
+
+def test_ubs_suiza_nov_2021_uses_previous_month_closing_not_inception_start():
+    path = _raw_cartola_path("202111 MI - UBS Sw (9943).pdf")
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-579943-01"
+    assert result.opening_balance == Decimal("239504248")
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert _as_decimal(monthly[0].get("net_contributions")) == Decimal("33999993")
+    assert _as_decimal(monthly[0].get("utilidad")) == Decimal("7286")
+
+
+def test_ubs_suiza_oct_2021_prefers_exact_statement_date_row_within_month():
+    path = _raw_cartola_path("202110 MI - UBS Sw (9943).pdf")
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-579943-01"
+    assert result.statement_date == date(2021, 10, 29)
+    assert result.opening_balance == Decimal("194592195")
+    assert result.closing_balance == Decimal("239504248")
+
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert _as_decimal(monthly[0].get("net_contributions")) == Decimal("44912083")
+    assert _as_decimal(monthly[0].get("utilidad")) == Decimal("-30")
+
+
+def test_ubs_suiza_dec_2021_keeps_current_month_closing_balance_bounded():
+    path = _raw_cartola_path("202112 MI - UBS Sw (9943).pdf")
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-579943-01"
+    assert result.opening_balance == Decimal("273511527")
+    assert result.closing_balance == Decimal("260092798")
+
+
+def test_ubs_suiza_dec_2024_does_not_overstate_october_or_net_contributions():
+    path = _raw_cartola_path("202412 MI - UBS Sw (9943).pdf")
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert _as_decimal(monthly[0].get("ending_value_with_accrual")) == Decimal("345799")
+    assert _as_decimal(monthly[0].get("net_contributions")) == Decimal("249433")
+    assert _as_decimal(monthly[0].get("utilidad")) == Decimal("207")
+
+    history = result.qualitative_data.get("account_monthly_activity_history", [])
+    oct_row = next(
+        row for row in history
+        if row.get("period_year") == 2024 and row.get("period_month") == 10
+    )
+    assert _as_decimal(oct_row.get("ending_value_with_accrual")) == Decimal("95914")
+    assert _as_decimal(oct_row.get("net_contributions")) == Decimal("0")
 
 
 def test_jpm_etf_extracts_two_real_subaccounts():

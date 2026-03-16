@@ -1,56 +1,67 @@
-# AGENT_CONTEXT — Family Office Reporting System
+# DEEP_CONTEXT — Family Office Reporting System
 
 > **Propósito**: Este archivo es el SSOT de contexto para cualquier agente AI que trabaje en este proyecto. Léelo COMPLETO antes de hacer cualquier cambio.
-> **Última actualización**: 2026-03-10 (cierre bloque Eliminar seleccionados: IDs desde edited_df, mensaje éxito/error)
+> **Última actualización**: 2026-03-13 (normalized SSOT + Salud BD + OCR GS + hardening UBS)
 
 ---
 
-## 0. CIERRE TÉCNICO RECIENTE (2026-03-10)
+## 0. CIERRE TÉCNICO RECIENTE (2026-03-12 / 2026-03-13)
 
-### Auditoría read-only de salud BD
-- Se agregó un endpoint read-only de auditoría (`/data/health-report`) para revisar:
+### Arquitectura de reporting consolidada
+- `monthly_metrics_normalized` quedó como la **capa canónica mensual** para reporting.
+- La regla vigente es:
+  - parsers interpretan la cartola;
+  - `DataLoadingService` persiste la interpretación mensual en tablas;
+  - `backend/routers/data.py` y la UI **consumen** datos persistidos, pero no deben reinterpretar mensualidades desde identidad o YTD.
+- En otras palabras: no deben existir más "interpretadores paralelos" de datos mensuales en UI/endpoints.
+
+### Estado funcional ya implementado
+- `Summary`, `Mandates`, `ETF` y `Personal` consumen datos reales desde backend con prioridad de lectura en capa normalizada.
+- `Salud BD` está activa como superficie read-only de auditoría:
   - incumplimientos de identidad mensual;
-  - filas con movimientos/utilidad faltantes;
-  - diferencias entre suma mensual acumulada y YTD.
-- Se agregó una pestaña nueva en UI: `Operacional > Salud BD`.
-- Se agregaron alertas visibles en `Resumen`, `Mandatos`, `ETF` y `Detalle` cuando los filtros activos muestran inconsistencias.
-- Esta auditoría **no corrige ni muta datos**; solo informa.
+  - componentes faltantes;
+  - diferencias YTD;
+  - nota/filtro para casos donde el `beginning value` de la cartola actual no coincide con `prev_ending_value` y prevalece el ending value auditado.
 
-### Regla estable nueva
-- La identidad mensual quedó fijada como regla no negociable:
+### Reglas estables vigentes
+- Identidad mensual:
   `valor_final_mes_actual - movimientos_mes - utilidad_mes = valor_final_mes_anterior`
-- YTD queda como **control solamente**.
-- El sistema **no debe** usar YTD para completar, alinear o sobrescribir movimientos/utilidad mensuales.
-- Si hay diferencias, debe haber alerta/log, no mutación silenciosa.
+- YTD es **solo control**.
+- Si identidad o YTD fallan, el sistema debe alertar; no debe mutar datos silenciosamente para hacerlos cuadrar.
+- Las tablas y gráficos del reporting deben leer de la capa normalizada / BD, no del PDF.
 
-### JPMorgan bonds
-- Se corrigió el loader para `parsers.jpmorgan.bonds`:
-  cuando falta `account_monthly_activity`, ahora usa `portfolio_activity` como fuente de:
-  - movimientos (`Net Cash Contributions / Withdrawals`);
-  - utilidad (`Income and Distributions + Change in Investment Value`);
-  - ending value.
-- Caso validado en preview:
-  - `Ecoterra Internacional` `2025-04`
-  - cuenta `1531100` quedó con:
-    - movimientos `-17.260.955,84`
-    - utilidad `-89.788,21`
-  - cuenta `1530900` quedó con:
-    - movimientos `-7.442.970,96`
-    - utilidad `-152.178,00`
-- Con eso desapareció el fallback que producía la utilidad agregada errónea de `-17.396.235,4`.
+### Hardening específico ya incorporado en código
+- **Goldman Sachs**:
+  - fallback OCR automático para PDFs con texto ilegible/garbled;
+  - tolerancia a spacing OCR en extracción de período y overview.
+- **JPMorgan ETF / brokerage**:
+  - los valores mensuales en blanco ya no toman YTD como si fueran mensual;
+  - YTD queda solo como control;
+  - en `brokerage`, la utilidad no debe duplicar caja cuando `Change In Investment Value` replica `Net Contributions/Withdrawals`.
+- **JPMorgan custody**:
+  - `Net Security Contributions` cuenta como parte de movimientos cuando corresponde.
+- **UBS Miami**:
+  - lectura robusta de `Change in value of accrued interest` aunque el label venga partido en varias líneas.
+- **UBS Suiza**:
+  - cuando una cartola trae múltiples portafolios, la cuenta `...-01` / `...-02` debe usar el portafolio específico referenciado por ese sufijo;
+  - no debe usarse el total combinado si el portafolio puntual es identificable;
+  - los `ending value` negativos son válidos y deben persistirse;
+  - en vistas UBS puras, si la posición actual o previa es negativa, la rentabilidad mensual mostrada se fuerza a `0%`.
 
-### Controles YTD en loader
-- Se eliminó el comportamiento que reescribía `monthly_closings.change_in_value` e `income` para hacer cuadrar YTD.
-- Los chequeos YTD siguen existiendo, pero ahora quedan solo como `warning`/control.
-- Esto afecta especialmente la interpretación histórica de tests antiguos que asumían “alineación” automática; esos tests se actualizaron para reflejar la nueva regla.
+### Reproceso / auditoría relevante ya cerrada
+- Se ejecutó un barrido enfocado sobre `UBS Suiza`:
+  - auditó `238` filas/documentos candidatos;
+  - encontró `33` discrepancias reales entre BD y `selected_portfolio.net_assets`;
+  - reprocesó esas `33`;
+  - verificación final: `remaining = 0`.
 
-### JPMorgan mandato
-- Se revisó por separado.
-- No se tocó el parser/loader de `JPMorgan mandato` en este bloque.
-- Hallazgo:
-  - los faltantes actuales están concentrados en históricos viejos (principalmente 2020-2021);
-  - los documentos recientes (`2025+`) sí traen `account_monthly_activity` y no muestran el mismo problema estructural que `bonds`.
-- Cualquier corrección futura debe hacerse aparte, sin mezclar lógica con `JPMorgan bonds`.
+### Estado de raw PDFs
+- Los PDFs ya no se consultan en tiempo real para poblar tablas/gráficos.
+- Pero **siguen siendo necesarios** para:
+  - reprocesos históricos;
+  - fixes de parsers;
+  - trazabilidad y auditoría.
+- Por eso, hoy no es seguro asumir "ya procesado = ya se puede borrar el PDF".
 
 ---
 
@@ -120,7 +131,7 @@ calculations/      → Cálculos financieros puros (sin I/O).
   profit.py        → Profit/return
   reconciliation.py → Conciliación diaria vs mensual
 
-tests/             → 119 tests (unit + contracts + parsers + cálculos + arquitectura)
+tests/             → 151 tests recolectados (150 passing + 1 skipped en baseline reciente)
 data/              → Archivos: raw/, cache/, snapshots/, db/
 ```
 
@@ -142,13 +153,13 @@ data/              → Archivos: raw/, cache/, snapshots/, db/
 ### 3.3 Reglas de trabajo con el agente (no negociables)
 
 1. **Aislamiento de motores PDF**: Se debe mantener siempre el aislamiento de los motores de lectura de PDF por banco y por tipo de cuenta. Cambios en un parser no pueden afectar a otros.
-2. **Motores de lectura PDF ya optimizados**: Los procesos de lectura de PDF están optimizados y funcionando bien. Los datos están normalizados; las tablas y gráficos de la aplicación deben obtener los datos de la capa normalizada / BD (monthly_closings, monthly_metrics_normalized, etc.) y **no** leer directamente los PDF. **Si el agente va a cambiar algo en un motor de parsing (parser), debe avisar primero y no hacer el cambio sin tu OK.**
+2. **Motores de lectura PDF ya optimizados**: Los procesos de lectura de PDF están optimizados y funcionando bien. Los datos de reporting deben obtenerse de la capa persistida / normalizada (`monthly_metrics_normalized` como fuente primaria, `monthly_closings` como fallback) y **no** leer directamente los PDF. **Si el agente va a cambiar algo en un motor de parsing (parser), debe avisar primero y no hacer el cambio sin tu OK.**
 3. **Instancia de prueba antes de oficial**: Los cambios se hacen en la instancia de prueba (preview); solo después de tu OK pasan a la app oficial.
 4. **Reinicio y aviso tras cada cambio**: Después de cada cambio el agente reinicia la app como corresponde y te avisa, o te indica que solo refresques el navegador si eso es suficiente.
 
 ---
 
-## 4. BASE DE DATOS — 12 MODELOS
+## 4. BASE DE DATOS — 13 MODELOS
 
 | # | Tabla | Propósito |
 |---|---|---|
@@ -160,10 +171,11 @@ data/              → Archivos: raw/, cache/, snapshots/, db/
 | 6 | `daily_movements` | Movimientos/transacciones diarias (desde Excel) |
 | 7 | `daily_prices` | Precios FX + activos (desde Excel) |
 | 8 | `monthly_closings` | Cierre mensual oficial (desde cartola = VERDAD) |
-| 9 | `reconciliations` | Resultado de conciliación diaria vs mensual |
-| 10 | `validation_logs` | Audit trail completo del sistema |
-| 11 | `etf_compositions` | Composición ETFs por instrumento |
-| 12 | `cache_metadata` | Control de cache Parquet pre-calculados |
+| 9 | `monthly_metrics_normalized` | Capa canónica mensual para reporting |
+| 10 | `reconciliations` | Resultado de conciliación diaria vs mensual |
+| 11 | `validation_logs` | Audit trail completo del sistema |
+| 12 | `etf_compositions` | Composición ETFs por instrumento |
+| 13 | `cache_metadata` | Control de cache Parquet pre-calculados |
 
 ### Enums definidos en `backend/db/models.py`:
 - `AccountType`: custody, current, savings, investment, etf
@@ -181,20 +193,20 @@ data/              → Archivos: raw/, cache/, snapshots/, db/
 
 ## 5. PARSERS — INVENTARIO COMPLETO (14 parsers)
 
-### 5.1 PDF parsers (10, todos v2.0.0)
+### 5.1 PDF parsers (10, versiones activas en código al 2026-03-13)
 
 | Banco | Tipo | Clase | Lib PDF | Notas |
 |---|---|---|---|---|
-| jpmorgan | etf | `JPMorganEtfParser` | pdfplumber | Multi-cuenta: si >1 cuenta → `account_number="Varios"` |
-| jpmorgan | brokerage | `JPMorganBrokerageParser` | pdfplumber | Idem ETF (Consolidated Statement) |
-| jpmorgan | custody | `JPMorganCustodyParser` | pdfplumber | Investment Management format |
-| jpmorgan | bonds | `JPMorganBondsParser` | pdfplumber | Fixed income con maturity breakdown |
-| bbh | custody | `BBHCustodyParser` | pdfplumber | — |
-| bice | brokerage | `BICEBrokerageParser` | pdfplumber | — |
-| ubs | custody | `UBSSuizaCustodyParser` | pdfplumber | UBS Suiza |
-| ubs_miami | custody | `UBSMiamiCustodyParser` | pdfplumber | UBS Miami |
-| goldman_sachs | etf | `GoldmanSachsEtfParser` | **PyMuPDF (fitz)** | pdfplumber no puede leer GS |
-| goldman_sachs | custody | `GoldmanSachsCustodyParser` | **PyMuPDF (fitz)** | Comparte `_gs_common.py` |
+| jpmorgan | etf | `JPMorganEtfParser` (`2.2.0`) | pdfplumber | Multi-cuenta: si >1 cuenta → `account_number="Varios"` |
+| jpmorgan | brokerage | `JPMorganBrokerageParser` (`2.1.0`) | pdfplumber | Idem ETF (Consolidated Statement) |
+| jpmorgan | custody | `JPMorganCustodyParser` (`2.1.0`) | pdfplumber | Investment Management format |
+| jpmorgan | bonds | `JPMorganBondsParser` (`2.0.0`) | pdfplumber | Fixed income con maturity breakdown |
+| bbh | custody | `BBHCustodyParser` (`2.1.0`) | pdfplumber | — |
+| bice | brokerage | `BICEBrokerageParser` (`2.0.0`) | pdfplumber | — |
+| ubs | custody | `UBSSwitzerlandCustodyParser` (`2.3.2`) | pdfplumber | UBS Suiza; portafolio específico por sufijo |
+| ubs_miami | custody | `UBSMiamiCustodyParser` (`2.1.2`) | pdfplumber | UBS Miami |
+| goldman_sachs | etf | `GoldmanSachsEtfParser` (`2.1.0`) | **PyMuPDF (fitz)** | pdfplumber no puede leer GS; OCR fallback disponible |
+| goldman_sachs | custody | `GoldmanSachsCustodyParser` (`2.1.0`) | **PyMuPDF (fitz)** | Comparte `_gs_common.py` |
 
 ### 5.2 Excel parsers (4, todos v1.0.0)
 
@@ -298,7 +310,7 @@ UI (PDFs tab) → POST /documents/upload-and-process
 
 ---
 
-## 8. TESTS — 118 PASSING (+1 skipped)
+## 8. TESTS — BASELINE RECIENTE `150 passed, 1 skipped`
 
 | Archivo | Tests | Qué valida |
 |---|---|---|
@@ -315,60 +327,46 @@ UI (PDFs tab) → POST /documents/upload-and-process
 | test_specific_cartola_extraction.py | 10 (+1 skipped) | Casos reales complejos por banco |
 | test_summary_returns.py | 3 | Fórmulas de rentabilidad resumen (con/sin caja) |
 
-**REGLA**: Cualquier cambio debe mantener suite estable (actual: 118 passed, 1 skipped). No borrar tests existentes.
+**REGLA**: Cualquier cambio debe mantener suite estable (baseline reciente: `150 passed, 1 skipped`). No borrar tests existentes.
 
 ---
 
 ## 9. ESTADO ACTUAL Y PENDIENTES
 
 ### ✅ Completado
-- Scaffolding completo (40+ archivos)
-- 12 hardening fixes (audit completo)
-- 14 parsers funcionales (10 PDF v2.0.0 + 4 Excel v1.0.0, master_accounts v3.0.0)
-- Goldman Sachs resuelto con PyMuPDF fallback
-- Página de carga simplificada (3 campos requeridos + auto-fill por dígito verificador)
-- Auto-fill por `identification_number` + banco + sociedad
-- Multi-cuenta ("Varios") con sub-cuentas
-- Upload + proceso automático del maestro Y de PDFs (upload-and-process)
-- Detección de duplicados con interacción de usuario (Reclasificar/Omitir)
-- Tabla maestro visible tras carga de Excel
-- Eliminación de documentos con cascade correcto + multi-select checkbox
-- **Data pipeline completo**: ParseResult → DataLoadingService → parsed_statements + monthly_closings + etf_compositions
-- **Endpoints `/data/summary`, `/data/mandates`, `/data/personal`, `/data/etf` funcionales** con queries reales a BD
-- **Summary redesign**: tabla vertical (meses en filas), columnas fijas (Fecha, Sociedad, Banco, ID, Moneda, Ending Value, Movimientos, Profit, Rent. Mensual %, Rent. Mensual sin Caja %). Gráficos usan `chart_data` consolidado (NO diffs de totals). Rango Personalizado = tabla consolidada con selectores año/mes. Detalle Cartolas = tabla por cartola.
-- **ETF redesign v2**: filtro Fecha (YYYY-MM), Banco, Sociedad, Con/Sin Caja. Tablas con datos alineados a la derecha.
-  - Tabla 1: Instrumentos × Sociedades (montos), solo Fecha
-  - Tabla 2: Instrumentos × Sociedades (pesos %), sin caja excluye Money Market
-  - 2 tortas + Rango Personalizado en tercios
-  - Tabla Sociedades × Meses (montos)
-  - Tabla Rentabilidad × Sociedad con toggle Mensual/YTD
-- **Diccionario de instrumentos ETF** (consolidación de nombres, en `INSTRUMENT_NAME_MAP` de data.py):
-  - IWDA = ISHARES CORE MSCI WORLD
-  - IEMA = ISHARES MSCI EM-ACC
-  - IHYA = ISHARES USD HY CORP USD ACC = ISHARES USD HIGH YIELD CORP BOND
-  - VDCA = VAND USDCP1-3 USDA
-  - VDPA = VANG USDCPBD USDA
-  - Money Market = sweep, liquidity, cash, depósito
-  - Orden fijo: IWDA, IEMA, VDCA, VDPA, IHYA, Money Market
-- Society mapping via `SOCIETY_MAPPING` en data.py.
-- Filtros UI: BANK_DISPLAY_NAMES, filtros reducidos por pestaña, `render_fecha_filter` para ETF
-- 43 cuentas en maestro, campo `identification_number` (dígito verificador, no unique)
-- Botón "Procesar pendientes" en tab documentos
-- 118 tests passing (+1 skipped)
+- Arquitectura de reporting consolidada con `monthly_metrics_normalized` como SSOT mensual.
+- Endpoints de reporting activos y funcionales (`summary`, `mandates`, `personal`, `etf`) con prioridad de lectura en capa normalizada y fallback controlado a `monthly_closings`.
+- `Salud BD` operativo como superficie read-only de auditoría.
+- Upload + procesamiento automático de maestro, PDFs y documentos operativos; duplicados controlados por SHA-256.
+- `Goldman Sachs` con fallback OCR automático.
+- `JPMorgan ETF/brokerage` con YTD solo como control y monthly blanks tratados correctamente.
+- `JPMorgan custody` contando `Net Security Contributions` en movimientos cuando aplica.
+- `UBS Suiza` endurecido para:
+  - portafolio específico por sufijo `-01` / `-02`;
+  - negativos válidos;
+  - retorno `0%` en vistas UBS puras cuando current/previous position es negativa.
+- Reproceso enfocado de `UBS Suiza` completado con `33` discrepancias corregidas y verificación final `remaining = 0`.
+- Baseline reciente de suite completa: `150 passed, 1 skipped`.
 
 ### 🔲 Pendiente
-- **Hardening adicional UBS Suiza**: seguir validando edge-cases de quarterly backfill con cartolas nuevas
-- **Cobertura de controles YTD por banco**: extender validaciones y alertas por parser
-- **Consolidar backlog de QA funcional UI** (resumen/mandatos/personal) con checklists de negocio
-- **Cache Parquet** — la infraestructura existe pero no se usa aún
-- **Alembic** — configurado pero sin migraciones ejecutadas formalmente
-- **Observabilidad**: mejorar métricas/alertas sobre `validation_logs`
+- **QA visual** post-reproceso, especialmente `UBS Suiza` en `Salud BD`.
+- **Respaldo oficial/checkpoint** solo después de aprobación visual de datos.
+- **Cobertura de controles YTD por banco**: extender validaciones y alertas por parser.
+- **Consolidar backlog de QA funcional UI** (resumen/mandatos/personal) con checklists de negocio.
+- **Cache Parquet**: la infraestructura existe pero no se usa aún.
+- **Observabilidad**: mejorar métricas/alertas sobre `validation_logs`.
+- **Política futura de PDFs raw**: evaluar archivado/retención solo cuando los datos auditados queden estables.
 
 ### 🔧 Estado Git
 - Worktree con cambios locales en progreso (no asumir limpio/commiteado).
 - Antes de cualquier release/respaldo: verificar `git status`, correr tests y luego definir commit/tag.
 
 ---
+
+> **Nota de lectura importante**:
+> Las subsecciones `9.1` a `9.4` son **historial técnico útil**.
+> Pueden contener detalles puntuales válidos, pero **no reemplazan** el estado vigente resumido en `§0` y `§9`.
+> Si alguna nota histórica contradice el bloque superior, prevalece `§0` / `§9` / el código actual.
 
 ## 9.1 ACTUALIZACIÓN OPERATIVA ACUMULADA (2026-03-04)
 
@@ -465,12 +463,16 @@ UI (PDFs tab) → POST /documents/upload-and-process
   - `cash_value`
   - `movements_net`
   - `profit_period`
+  - `movements_ytd`
+  - `profit_ytd`
+  - `asset_allocation_json`
   - `currency`
 - Modelo ORM agregado en `backend/db/models.py`:
   - `MonthlyMetricNormalized`
   - relacion `Account.normalized_monthly_metrics`.
 - Migracion Alembic creada:
-  - `alembic/versions/20260305_0002_add_monthly_metrics_normalized.py`
+  - `alembic/versions/20260305_0002_add_monthly_metrics_normalized.py` (creación de tabla)
+  - `alembic/versions/20260312_0003_add_ytd_and_asset_alloc_to_normalized.py` (YTD + asset allocation JSON)
   - unique key por `account_id + year + month`.
 
 ### ✅ Carga y sincronizacion de la capa normalizada
@@ -492,7 +494,7 @@ UI (PDFs tab) → POST /documents/upload-and-process
   - `_resolve_ending_with_accrual(...)`
   - `_resolve_ending_without_accrual(...)`
   - `_resolve_cash_value(...)`
-  - `_resolve_movements_and_profit(...)`
+- La capa API ya no debe depender de helpers que "completen" mensualidades faltantes a partir de identidad o YTD; esa interpretación se fija abajo, en parsing/loading.
 - Regla funcional:
   1. Si existe dato normalizado, ese valor manda para reportes.
   2. Si falta fila/campo normalizado, se usa `monthly_closings` como fallback.
@@ -512,6 +514,7 @@ UI (PDFs tab) → POST /documents/upload-and-process
 - La interpretacion financiera mensual de cartolas debe vivir en la capa normalizada (backend), no en UI.
 - Las tablas/pestañas de reporte deben leer la capa normalizada como fuente primaria.
 - `monthly_closings` queda como respaldo/fallback y fuente historica base.
+- `Salud BD` debe auditar valores persistidos; no debe convertirse en un nuevo interpretador financiero mensual.
 
 ---
 
@@ -636,7 +639,7 @@ Ver también **§3.3 Reglas de trabajo con el agente** (aislamiento parsers, no 
 **ANTES de cualquier cambio:**
 1. Lee este archivo completo.
 2. Lee los archivos que vas a modificar.
-3. Corre los tests: `python -m pytest tests/ -x -q` — deben dar suite verde (referencia actual: 118 passed, 1 skipped).
+3. Corre los tests: `python -m pytest tests/ -x -q` — deben dar suite verde (referencia reciente: `150 passed, 1 skipped`).
 
 **DESPUÉS de cada cambio:**
 1. Corre los tests para verificar que no rompiste nada.
@@ -718,7 +721,7 @@ python -m streamlit run frontend/app.py --server.port 8501 --server.headless tru
 
 | Archivo | Qué contiene | Líneas aprox |
 |---|---|---|
-| `backend/db/models.py` | 12 modelos ORM + 8 enums | ~670 |
+| `backend/db/models.py` | 13 modelos ORM + enums/tablas de soporte | ~700 |
 | `backend/schemas.py` | Pydantic contracts (API) | ~210 |
 | `backend/services/document_service.py` | Upload, process (+DataLoadingService), list, delete, reclassify | ~430 |
 | `backend/services/data_loading_service.py` | ParseResult → parsed_statements, monthly_closings, etf_compositions + carga daily_* + reglas UBS/BBH | ~1080 |

@@ -142,6 +142,37 @@ def _fmt_or_blank(value) -> str:
     return fmt_number(value, decimals=1)
 
 
+def _summarize_account_labels(labels: list[str], *, max_items: int = 3) -> str:
+    if not labels:
+        return ""
+    if len(labels) <= max_items:
+        return ", ".join(labels)
+    return ", ".join(labels[:max_items]) + f", +{len(labels) - max_items} mas"
+
+
+def _build_bank_account_labels(rows: list[dict]) -> dict[str, str]:
+    labels_by_bank: dict[str, set[str]] = {}
+    for row in rows:
+        bank_code = str(row.get("banco") or "").strip()
+        if not bank_code:
+            continue
+        account_id = str(row.get("id") or row.get("account_number") or "").strip()
+        account_type = _fmt_account_type(str(row.get("tipo_cuenta") or ""))
+        if account_id and account_type:
+            label = f"{account_id} ({account_type})"
+        elif account_id:
+            label = account_id
+        elif account_type:
+            label = account_type
+        else:
+            continue
+        labels_by_bank.setdefault(bank_code, set()).add(label)
+    return {
+        bank_code: _summarize_account_labels(sorted(labels))
+        for bank_code, labels in labels_by_bank.items()
+    }
+
+
 def render():
     st.title("Detalle")
     st.markdown("---")
@@ -156,9 +187,9 @@ def render():
             "available_fechas": [],
         }
 
+    bank_options_all = sorted(opts.get("bank_codes", []))
     entity_options = sorted(opts.get("entity_names", []))
     person_options = sorted(opts.get("person_names", []))
-    bank_options_all = sorted(opts.get("bank_codes", []))
     account_type_options_all = sorted(opts.get("account_types", []))
     year_options = [int(y) for y in opts.get("years", []) if y is not None]
     fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
@@ -166,27 +197,34 @@ def render():
         fecha_options = _build_fecha_options(year_options)
 
     st.markdown("### Filtros")
-    f1, f2, f3, f4 = st.columns(4)
+    f1, f2, f3, f4, f5 = st.columns(5)
     with f1:
+        selected_banks = st.multiselect(
+            "Banco",
+            options=bank_options_all,
+            format_func=_fmt_bank,
+            key="detalle_banco",
+        )
+    with f2:
         selected_entities = st.multiselect(
             "Sociedad",
             options=entity_options,
             key="detalle_sociedad",
         )
-    with f2:
+    with f3:
         selected_people = st.multiselect(
             "Nombre",
             options=person_options,
             key="detalle_nombre",
         )
-    with f3:
+    with f4:
         selected_consolidated = st.selectbox(
             "Consolidado",
             options=[""] + list(CONSOLIDATED_PRESETS.keys()),
             format_func=lambda x: x or "Sin consolidado",
             key="detalle_consolidated",
         )
-    with f4:
+    with f5:
         if fecha_options:
             if "detalle_fecha" not in st.session_state or st.session_state["detalle_fecha"] not in fecha_options:
                 st.session_state["detalle_fecha"] = fecha_options[0]
@@ -207,47 +245,64 @@ def render():
     selected_year = int(selected_fecha[:4]) if selected_fecha else None
     selected_month = int(selected_fecha[5:7]) if selected_fecha else None
     effective_people = [] if preset_entities else selected_people
+    has_scope_filter = bool(selected_banks or selected_entities_effective or effective_people)
 
-    payload = {
-        "entity_names": selected_entities_effective,
-        "person_names": effective_people,
-        "years": [selected_year] if selected_year else [],
-        "months": [selected_month] if selected_month else [],
-    }
-    try:
-        data = api_client.post("/data/personal", json=payload)
-    except Exception as exc:
-        st.error(f"Error obteniendo datos de detalle: {exc}")
+    if has_scope_filter:
+        payload = {
+            "bank_codes": selected_banks,
+            "entity_names": selected_entities_effective,
+            "person_names": effective_people,
+            "years": [selected_year] if selected_year else [],
+            "months": [selected_month] if selected_month else [],
+        }
+        try:
+            data = api_client.post("/data/personal", json=payload)
+        except Exception as exc:
+            st.error(f"Error obteniendo datos de detalle: {exc}")
+            data = {
+                "consolidated_usd": 0.0,
+                "consolidated_clp": 0.0,
+                "pie_charts": {"by_bank": [], "by_type": []},
+                "by_bank_detail": [],
+                "entities_table": [],
+            }
+    else:
         data = {
             "consolidated_usd": 0.0,
             "consolidated_clp": 0.0,
             "pie_charts": {"by_bank": [], "by_type": []},
             "by_bank_detail": [],
+            "entities_table": [],
         }
 
     ytd_payload = {
+        "bank_codes": selected_banks,
         "entity_names": selected_entities_effective,
         "person_names": effective_people,
         "years": [selected_year] if selected_year else [],
     }
     try:
-        ytd_data = api_client.post("/data/summary", json=ytd_payload)
+        ytd_data = api_client.post("/data/summary", json=ytd_payload) if has_scope_filter else {"chart_data": []}
     except Exception:
         ytd_data = {"chart_data": []}
     ytd_values = _build_ytd_series(ytd_data.get("chart_data", []), selected_year) if selected_year else [None] * 12
 
-    render_health_warning(
-        {
-            "years": [selected_year] if selected_year else [],
-            "months": [selected_month] if selected_month else [],
-            "entity_names": selected_entities_effective,
-            "person_names": effective_people,
-        },
-        label="Detalle",
-    )
+    if has_scope_filter:
+        render_health_warning(
+            {
+                "years": [selected_year] if selected_year else [],
+                "months": [selected_month] if selected_month else [],
+                "bank_codes": selected_banks,
+                "entity_names": selected_entities_effective,
+                "person_names": effective_people,
+            },
+            label="Detalle",
+        )
 
     st.markdown("---")
     st.subheader("Saldo Consolidado")
+    if not has_scope_filter:
+        st.caption("Activa al menos un filtro de Banco, Sociedad, Nombre o Consolidado para poblar esta vista.")
 
     if "detalle_show_bank_detail" not in st.session_state:
         st.session_state["detalle_show_bank_detail"] = False
@@ -273,7 +328,9 @@ def render():
 
     if st.session_state["detalle_show_bank_detail"]:
         st.markdown("#### Detalle por Banco")
+        st.caption("Los montos por banco agregan todas las cuentas visibles del filtro actual.")
         bank_rows = data.get("by_bank_detail", [])
+        bank_account_labels = _build_bank_account_labels(data.get("entities_table", []))
         bank_map = {
             str(row.get("bank_code", "")): row
             for row in bank_rows
@@ -297,6 +354,7 @@ def render():
                     "Monto USD": _fmt_or_blank(monto),
                     "Movimientos del mes": _fmt_or_blank(mov),
                     "Caja disponible": _fmt_or_blank(caja),
+                    "Cuentas visibles": bank_account_labels.get(bank_code, ""),
                 }
             )
         table_rows.append(
@@ -305,12 +363,19 @@ def render():
                 "Monto USD": _fmt_or_blank(total_monto),
                 "Movimientos del mes": _fmt_or_blank(total_mov),
                 "Caja disponible": _fmt_or_blank(total_caja),
+                "Cuentas visibles": "",
             }
         )
         render_table(
             pd.DataFrame(
                 table_rows,
-                columns=["Banco", "Monto USD", "Movimientos del mes", "Caja disponible"],
+                columns=[
+                    "Banco",
+                    "Monto USD",
+                    "Movimientos del mes",
+                    "Caja disponible",
+                    "Cuentas visibles",
+                ],
             ),
             label_col="Banco",
             bold_row_labels={"Total"},
@@ -361,51 +426,21 @@ def render():
 
     if st.session_state["detalle_show_society_detail"]:
         st.markdown("#### Detalle por Sociedad")
-        linked_societies: list[str] = []
-        if selected_people:
-            try:
-                master_accounts = api_client.get("/accounts/", params={"active_only": "false"})
-            except Exception:
-                master_accounts = []
-
-            linked_societies = sorted(
-                {
-                    str(acc.get("entity_name") or "").strip()
-                    for acc in master_accounts
-                    if str(acc.get("person_name") or "").strip() in selected_people
-                    and str(acc.get("entity_name") or "").strip()
-                }
-            )
-
-        society_scope: list[str] = []
-        if preset_entities:
-            for name in preset_entities:
-                clean = str(name or "").strip()
-                if clean and clean not in society_scope:
-                    society_scope.append(clean)
-        else:
-            for name in linked_societies + selected_entities:
-                clean = str(name or "").strip()
-                if clean and clean not in society_scope:
-                    society_scope.append(clean)
-            if not society_scope and selected_people:
-                society_scope = linked_societies
-
-        entities_rows = []
-        if society_scope or selected_people:
-            try:
-                by_society_payload = {
-                    "entity_names": society_scope,
-                    "person_names": [] if preset_entities else selected_people,
-                    "years": [selected_year] if selected_year else [],
-                    "months": [selected_month] if selected_month else [],
-                }
-                by_society_data = api_client.post("/data/personal", json=by_society_payload)
-                entities_rows = by_society_data.get("entities_table", [])
-            except Exception:
-                entities_rows = []
-
+        entities_rows = data.get("entities_table", []) if has_scope_filter else []
         society_agg = _aggregate_detail_rows(entities_rows, key_field="sociedad")
+        visible_societies = sorted(
+            {
+                str(row.get("sociedad") or "").strip()
+                for row in entities_rows
+                if str(row.get("sociedad") or "").strip()
+            }
+        )
+        society_scope: list[str] = []
+        for name in selected_entities_effective + visible_societies:
+            clean = str(name or "").strip()
+            if clean and clean not in society_scope:
+                society_scope.append(clean)
+
         society_rows = []
         total_monto = 0.0
         total_mov = 0.0
@@ -445,10 +480,12 @@ def render():
             bold_row_labels={"Total"},
         )
 
-        if not selected_people and not preset_entities:
-            st.caption("Activa filtro Nombre o Consolidado para poblar esta tabla.")
+        if not has_scope_filter:
+            st.caption("Activa al menos un filtro para poblar esta tabla.")
+        elif not society_rows:
+            st.caption("Sin sociedades visibles para el filtro actual.")
         else:
-            st.caption("Tabla por sociedad aplicada sobre Nombre y/o Consolidado.")
+            st.caption("Tabla por sociedad aplicada sobre el mismo scope visible en Detalle.")
 
     st.markdown("---")
 
@@ -480,7 +517,7 @@ def render():
 
     with g3:
         label_year = selected_year if selected_year else "Ano"
-        st.subheader(f"Evolucion Mensual YTD ({label_year})")
+        st.subheader(f"Evolucion Rentabilidad YTD ({label_year})")
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(

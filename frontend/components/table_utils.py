@@ -17,6 +17,7 @@ def style_table(
     small_row_labels: set[str] | None = None,
     label_col: str | None = None,
     fixed_equal_cols: bool = False,
+    pinned_row_labels: set[str] | None = None,
 ):
     """
     Retorna un Styler homogéneo para toda la app:
@@ -27,6 +28,13 @@ def style_table(
     cols = list(df.columns)
     label_col = label_col or (cols[0] if cols else None)
     display_df = df.copy()
+    if pinned_row_labels and label_col and label_col in display_df.columns:
+        pinned_mask = display_df[label_col].astype(str).isin(pinned_row_labels)
+        if pinned_mask.any():
+            display_df = pd.concat(
+                [display_df.loc[~pinned_mask], display_df.loc[pinned_mask]],
+                ignore_index=True,
+            )
     for idx, col in enumerate(cols):
         if idx == 0:
             continue
@@ -95,6 +103,7 @@ def render_table(
     label_col: str | None = None,
     fixed_equal_cols: bool = False,
     use_container_width: bool = True,
+    pinned_row_labels: set[str] | None = None,
 ) -> None:
     """Renderiza tabla sin índice (columna izquierda) en toda la app."""
     st.table(
@@ -106,5 +115,6 @@ def render_table(
             small_row_labels=small_row_labels,
             label_col=label_col,
             fixed_equal_cols=fixed_equal_cols,
+            pinned_row_labels=pinned_row_labels,
         )
     )

@@ -36,6 +36,61 @@ from parsers.base import ParseResult
 
 logger = logging.getLogger(__name__)
 
+_UBS_MANUAL_MONTHLY_OVERRIDES: dict[tuple[str, int, int], dict[str, Any]] = {
+    (
+        "206-560552-02",
+        2025,
+        2,
+    ): {
+        "bank_code": "ubs",
+        "closing_date": date(2025, 2, 28),
+        "currency": "USD",
+        "ending_value_with_accrual": Decimal("82100670"),
+        "ending_value_without_accrual": Decimal("82100670"),
+        "accrual_ending": Decimal("0"),
+        "movements_net": Decimal("82089481"),
+        "profit_period": Decimal("11189"),
+        "source_filename": "202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+        "related_accounts": ["206-560402-01"],
+        "trigger_source_filenames": [
+            "202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+            "202502 Telmar UBS SW Mandato (0402 60P y 61K).pdf",
+        ],
+        "reason": (
+            "Override manual UBS Suiza: creación extraordinaria de Boatview 206-560552-02 "
+            "por traspaso interno desde Telmar en 2025-02. Se fuerza el movimiento de inicio "
+            "para que la cuenta parta desde la cartola de Boatview."
+        ),
+    },
+    (
+        "206-560402-01",
+        2025,
+        2,
+    ): {
+        "bank_code": "ubs",
+        "closing_date": date(2025, 2, 28),
+        "currency": "USD",
+        "ending_value_with_accrual": Decimal("0"),
+        "ending_value_without_accrual": Decimal("0"),
+        "accrual_ending": Decimal("0"),
+        "movements_net": Decimal("-82089481"),
+        "profit_period": Decimal("231316"),
+        "cash_value": Decimal("0"),
+        "asset_allocation_json": None,
+        "source_filename": "202502 Telmar UBS SW Mandato (0402 60P y 61K).pdf",
+        "related_accounts": ["206-560552-02"],
+        "trigger_source_filenames": [
+            "202502 Boatview UBS SW (206-560552-02) 511UBS SW_P2.pdf",
+            "202502 Telmar UBS SW Mandato (0402 60P y 61K).pdf",
+        ],
+        "reason": (
+            "Override manual UBS Suiza: salida extraordinaria de Telmar 206-560402-01 en 2025-02 "
+            "contra la apertura de Boatview 206-560552-02. El monto manda por Boatview; la diferencia "
+            "necesaria para dejar Telmar en cero se reconoce como utilidad."
+        ),
+    },
+}
+
 
 def _safe_decimal(value) -> Optional[Decimal]:
     """Convierte un valor a Decimal de forma segura."""
@@ -132,6 +187,56 @@ def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[D
             total += val
             found = True
     return total if found else None
+
+
+def _cash_from_jpmorgan_holdings_rows(rows: Any) -> Optional[Decimal]:
+    """
+    Extrae caja JPM desde holdings parseados cuando no existe
+    asset_allocation estructurado.
+    """
+    if not isinstance(rows, list):
+        return None
+
+    cash_markers = (
+        "depositsweep",
+        "liquiditysweep",
+        "liliq",
+        "primemmfd",
+        "moneymarket",
+        "proceedsfrompendingsales",
+        "creditbalance",
+        "availablebalance",
+        "cashequivalent",
+        "liqheritag",
+    )
+
+    total = Decimal("0")
+    found = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name_norm = re.sub(r"[^a-z0-9]", "", str(row.get("instrument") or "").lower())
+        if not name_norm or not any(marker in name_norm for marker in cash_markers):
+            continue
+        value = _safe_decimal(
+            row.get("market_value") or row.get("value") or row.get("amount")
+        )
+        if value is None:
+            continue
+        total += value
+        found = True
+    return total if found else None
+
+
+def _cash_from_jpmorgan_parsed_payload(parsed_data_json: str | None) -> Optional[Decimal]:
+    if not parsed_data_json:
+        return None
+    try:
+        payload = json.loads(parsed_data_json)
+    except (TypeError, ValueError):
+        return None
+    rows = payload.get("rows") if isinstance(payload, dict) else None
+    return _cash_from_jpmorgan_holdings_rows(rows)
 
 
 def _normalize_asset_label(label: Any) -> str:
@@ -339,6 +444,17 @@ class DataLoadingService:
                 self._log("load", "error", msg, raw_document.id, account.id)
                 logger.exception(msg)
 
+        self.db.flush()
+
+        if result.statement_date:
+            self.apply_manual_monthly_overrides(
+                bank_code=raw_document.bank_code or result.bank_code or "",
+                year=result.statement_date.year,
+                trigger_filename=raw_document.filename,
+                trigger_account_numbers=set(result.account_numbers or []) | {result.account_number},
+                trigger_month=result.statement_date.month,
+            )
+
         self.db.commit()
 
         self._log(
@@ -351,6 +467,61 @@ class DataLoadingService:
         )
 
         return stats
+
+    def apply_manual_monthly_overrides(
+        self,
+        *,
+        bank_code: str,
+        year: int,
+        trigger_filename: str | None = None,
+        trigger_account_numbers: set[str | None] | None = None,
+        trigger_month: int | None = None,
+    ) -> int:
+        if bank_code != "ubs":
+            return 0
+
+        trigger_accounts = {acct for acct in (trigger_account_numbers or set()) if acct}
+        applied = 0
+        for (account_number, ov_year, ov_month), override in _UBS_MANUAL_MONTHLY_OVERRIDES.items():
+            if override.get("bank_code") != bank_code or ov_year != year:
+                continue
+            if trigger_month is not None and ov_month != trigger_month:
+                continue
+
+            related_accounts = {
+                account_number,
+                *(override.get("related_accounts") or []),
+            }
+            source_filenames = {
+                override.get("source_filename"),
+                *(override.get("trigger_source_filenames") or []),
+            }
+            source_filenames.discard(None)
+
+            is_triggered = False
+            if trigger_filename and trigger_filename in source_filenames:
+                is_triggered = True
+            if trigger_accounts and trigger_accounts.intersection(related_accounts):
+                is_triggered = True
+            if not is_triggered:
+                continue
+
+            account = (
+                self.db.query(Account)
+                .filter(Account.account_number == account_number)
+                .first()
+            )
+            if account is None:
+                continue
+
+            applied += self._upsert_manual_monthly_override(
+                account=account,
+                year=ov_year,
+                month=ov_month,
+                override=override,
+            )
+
+        return applied
 
     def load_operational_result(
         self,
@@ -789,7 +960,8 @@ class DataLoadingService:
             return False
 
         # UBS Suiza: quarter-end statements expose prior months in Performance table.
-        # Persist those months as official closings before handling the statement month.
+        # Those rows may refine prior-month movements, but the auditable month-end
+        # balance still comes from the monthly closing already persisted for that month.
         self._upsert_ubs_historical_monthly_activity(result, doc, account)
         # Important with Session(autoflush=False): ensure historical rows are visible
         # to the UNIQUE(account_id, year, month) lookup below.
@@ -809,9 +981,24 @@ class DataLoadingService:
             if len(result.account_numbers or []) <= 1:
                 closing_bal = _safe_decimal(result.closing_balance)
         if closing_bal is None and (result.bank_code or doc.bank_code) == "ubs":
-            # UBS Suiza monthly statements may only expose "Total net assets"
-            # without account_monthly_activity block.
-            closing_bal = _safe_decimal((result.balances or {}).get("total_net_assets"))
+            # UBS Suiza: preferir siempre el portafolio seleccionado antes del
+            # total agregado de la relación bancaria.
+            balances = result.balances or {}
+            selected_portfolio = balances.get("selected_portfolio")
+            if isinstance(selected_portfolio, dict):
+                closing_bal = _safe_decimal(selected_portfolio.get("net_assets"))
+            if closing_bal is None:
+                suffix_match = re.search(r"-(\d{2})$", account.account_number or "")
+                if suffix_match:
+                    portfolios = balances.get("portfolios")
+                    if isinstance(portfolios, dict):
+                        pdata = portfolios.get(f"Portfolio{suffix_match.group(1)}")
+                        if isinstance(pdata, dict):
+                            closing_bal = _safe_decimal(pdata.get("net_assets"))
+            if closing_bal is None:
+                # Fallback legacy: total de la página, solo si no hubo forma de
+                # identificar el portafolio puntual.
+                closing_bal = _safe_decimal(balances.get("total_net_assets"))
 
         opening_bal = account_values.get("beginning_value")
         if opening_bal is None:
@@ -846,6 +1033,8 @@ class DataLoadingService:
             asset_alloc = raw_asset_alloc
         asset_alloc_json = json.dumps(asset_alloc) if asset_alloc else None
 
+        parsed_bank_code = result.bank_code or doc.bank_code
+
         # UNIQUE: account_id, year, month
         existing = (
             self.db.query(MonthlyClosing)
@@ -862,10 +1051,17 @@ class DataLoadingService:
             existing.total_assets = closing_bal
             existing.net_value = closing_bal
             existing.currency = result.currency or account.currency
-            if income is not None:
+            if parsed_bank_code == "ubs":
+                # En UBS Suiza, ending value es auditable por cartola mensual.
+                # Movimientos pueden ser refinados luego por tablas trimestrales UBS,
+                # y la utilidad final siempre se recalcula por identidad.
                 existing.income = income
-            if change_in_value is not None:
                 existing.change_in_value = change_in_value
+            else:
+                if income is not None:
+                    existing.income = income
+                if change_in_value is not None:
+                    existing.change_in_value = change_in_value
             if accrual is not None:
                 existing.accrual = accrual
             existing.asset_allocation_json = asset_alloc_json
@@ -904,6 +1100,7 @@ class DataLoadingService:
             movements=change_in_value,
             profit=income,
             asset_alloc_json=asset_alloc_json,
+            parsed_rows=self._rows_for_account(result, account),
         )
 
         self._recompute_ubs_income_from_identity(
@@ -944,6 +1141,7 @@ class DataLoadingService:
         movements: Optional[Decimal],
         profit: Optional[Decimal],
         asset_alloc_json: Optional[str],
+        parsed_rows: list[dict[str, Any]] | None = None,
     ) -> None:
         """
         Upsert de capa canónica mensual con campos explícitos de accrual.
@@ -970,7 +1168,18 @@ class DataLoadingService:
             else:
                 end_wo = end_w
 
-        cash_value = _cash_from_asset_allocation_json(asset_alloc_json)
+        cash_value = self._resolve_normalized_cash_value(
+            account=account,
+            year=year,
+            month=month,
+            asset_alloc_json=asset_alloc_json,
+            source_document_id=source_document_id,
+            parsed_rows=parsed_rows,
+        )
+
+        movements_ytd = _safe_decimal(account_values.get("change_investment_ytd"))
+        profit_ytd = _safe_decimal(account_values.get("income_ytd"))
+
         existing = (
             self.db.query(MonthlyMetricNormalized)
             .filter(
@@ -989,6 +1198,9 @@ class DataLoadingService:
             "cash_value": cash_value,
             "movements_net": _safe_decimal(movements),
             "profit_period": _safe_decimal(profit),
+            "movements_ytd": movements_ytd,
+            "profit_ytd": profit_ytd,
+            "asset_allocation_json": asset_alloc_json,
             "currency": currency,
             "source_document_id": source_document_id,
         }
@@ -1052,11 +1264,24 @@ class DataLoadingService:
             else:
                 ending_without = ending_with
 
+            existing_alloc = normalized.asset_allocation_json if normalized else None
+            alloc_json = (
+                existing_alloc
+                if existing_alloc is not None
+                else closing.asset_allocation_json
+            )
+
             existing_cash = normalized.cash_value if normalized else None
             cash_value = (
                 existing_cash
                 if existing_cash is not None
-                else _cash_from_asset_allocation_json(closing.asset_allocation_json)
+                else self._resolve_normalized_cash_value(
+                    account=account,
+                    year=closing.year,
+                    month=closing.month,
+                    asset_alloc_json=alloc_json,
+                    source_document_id=closing.source_document_id,
+                )
             )
 
             payload = {
@@ -1067,6 +1292,7 @@ class DataLoadingService:
                 "cash_value": cash_value,
                 "movements_net": closing.change_in_value,
                 "profit_period": closing.income,
+                "asset_allocation_json": alloc_json,
                 "currency": closing.currency or account.currency,
                 "source_document_id": closing.source_document_id,
             }
@@ -1211,6 +1437,15 @@ class DataLoadingService:
                 .first()
             )
 
+            if self._has_ubs_manual_monthly_override(
+                account_number=account.account_number,
+                year=year,
+                month=month,
+            ):
+                # Manual override months are intentionally authoritative and must
+                # not be altered later by quarterly historical backfills.
+                continue
+
             if not existing:
                 existing = MonthlyClosing(
                     account_id=account.id,
@@ -1226,34 +1461,224 @@ class DataLoadingService:
                     source_document_id=doc.id,
                 )
                 self.db.add(existing)
-                if income is None:
-                    self._recompute_ubs_income_from_identity(
-                        account=account,
-                        year=year,
-                        month=month,
-                    )
+                self._recompute_ubs_income_from_identity(
+                    account=account,
+                    year=year,
+                    month=month,
+                )
                 continue
 
-            existing.closing_date = closing_date
+            has_direct_statement = self._is_direct_statement_month(
+                account=account,
+                year=year,
+                month=month,
+                source_document_id=existing.source_document_id,
+            )
+            if has_direct_statement and month in {3, 6, 9, 12}:
+                # Quarter-end statement month keeps its own auditable current-period row.
+                continue
+
+            if not has_direct_statement:
+                existing.closing_date = closing_date
             if ending_value is not None:
                 # Regla UBS: el backfill historico NO debe sobreescribir net_value
-                # de meses previos cuando ya existe cierre mensual.
+                # ya auditado por cartola mensual; ending value manda por cartola.
                 if existing.net_value is None:
                     existing.net_value = ending_value
                 if existing.total_assets is None:
                     existing.total_assets = ending_value
             if change_in_value is not None:
                 existing.change_in_value = change_in_value
-            if income is not None:
+            if not has_direct_statement and income is not None:
                 existing.income = income
             if existing.source_document_id is None:
                 existing.source_document_id = doc.id
-            if income is None:
-                self._recompute_ubs_income_from_identity(
+            self._recompute_ubs_income_from_identity(
+                account=account,
+                year=year,
+                month=month,
+            )
+
+    def _is_direct_statement_month(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        source_document_id: int | None,
+    ) -> bool:
+        if source_document_id is None:
+            return False
+
+        statement = (
+            self.db.query(ParsedStatement.statement_date)
+            .filter(
+                ParsedStatement.raw_document_id == source_document_id,
+                ParsedStatement.account_id == account.id,
+            )
+            .order_by(ParsedStatement.id.desc())
+            .first()
+        )
+        if statement and statement[0]:
+            stmt_date = statement[0]
+            return stmt_date.year == year and stmt_date.month == month
+
+        raw_doc = (
+            self.db.query(RawDocument.period_year, RawDocument.period_month)
+            .filter(RawDocument.id == source_document_id)
+            .first()
+        )
+        if raw_doc is None:
+            return False
+        return raw_doc[0] == year and raw_doc[1] == month
+
+    @staticmethod
+    def _has_ubs_manual_monthly_override(
+        *,
+        account_number: str | None,
+        year: int,
+        month: int,
+    ) -> bool:
+        if not account_number:
+            return False
+        return (account_number, year, month) in _UBS_MANUAL_MONTHLY_OVERRIDES
+
+    def _resolve_override_source_document_id(
+        self,
+        *,
+        source_filename: str | None,
+    ) -> int | None:
+        if not source_filename:
+            return None
+        row = (
+            self.db.query(RawDocument.id)
+            .filter(RawDocument.filename == source_filename)
+            .order_by(RawDocument.id.desc())
+            .first()
+        )
+        return row[0] if row else None
+
+    def _upsert_manual_monthly_override(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        override: dict[str, Any],
+    ) -> int:
+        closing_date = override["closing_date"]
+        end_w = _safe_decimal(override.get("ending_value_with_accrual"))
+        end_wo = _safe_decimal(override.get("ending_value_without_accrual"))
+        accrual = _safe_decimal(override.get("accrual_ending"))
+        movements = _safe_decimal(override.get("movements_net"))
+        profit = _safe_decimal(override.get("profit_period"))
+        source_document_id = self._resolve_override_source_document_id(
+            source_filename=override.get("source_filename"),
+        )
+        currency = override.get("currency") or account.currency
+
+        existing = (
+            self.db.query(MonthlyClosing)
+            .filter(
+                MonthlyClosing.account_id == account.id,
+                MonthlyClosing.year == year,
+                MonthlyClosing.month == month,
+            )
+            .first()
+        )
+
+        asset_alloc_json = (
+            override["asset_allocation_json"]
+            if "asset_allocation_json" in override
+            else (existing.asset_allocation_json if existing else None)
+        )
+
+        closing_payload = {
+            "closing_date": closing_date,
+            "total_assets": end_w,
+            "net_value": end_w,
+            "currency": currency,
+            "income": profit,
+            "change_in_value": movements,
+            "accrual": accrual,
+            "asset_allocation_json": asset_alloc_json,
+            "source_document_id": source_document_id or (existing.source_document_id if existing else None),
+        }
+        if existing:
+            for key, value in closing_payload.items():
+                setattr(existing, key, value)
+        else:
+            self.db.add(
+                MonthlyClosing(
+                    account_id=account.id,
+                    year=year,
+                    month=month,
+                    total_liabilities=None,
+                    **closing_payload,
+                )
+            )
+
+        normalized = (
+            self.db.query(MonthlyMetricNormalized)
+            .filter(
+                MonthlyMetricNormalized.account_id == account.id,
+                MonthlyMetricNormalized.year == year,
+                MonthlyMetricNormalized.month == month,
+            )
+            .first()
+        )
+
+        cash_value = (
+            _safe_decimal(override.get("cash_value"))
+            if "cash_value" in override
+            else (
+                normalized.cash_value
+                if normalized and normalized.cash_value is not None
+                else self._resolve_normalized_cash_value(
                     account=account,
                     year=year,
                     month=month,
+                    asset_alloc_json=asset_alloc_json,
+                    source_document_id=source_document_id or (existing.source_document_id if existing else None),
                 )
+            )
+        )
+        normalized_payload = {
+            "closing_date": closing_date,
+            "ending_value_with_accrual": end_w,
+            "ending_value_without_accrual": end_wo,
+            "accrual_ending": accrual,
+            "cash_value": cash_value,
+            "movements_net": movements,
+            "profit_period": profit,
+            "asset_allocation_json": asset_alloc_json,
+            "currency": currency,
+            "source_document_id": source_document_id or (normalized.source_document_id if normalized else None),
+        }
+        if normalized:
+            for key, value in normalized_payload.items():
+                setattr(normalized, key, value)
+        else:
+            self.db.add(
+                MonthlyMetricNormalized(
+                    account_id=account.id,
+                    year=year,
+                    month=month,
+                    **normalized_payload,
+                )
+            )
+
+        self._log(
+            "load",
+            "info",
+            (
+                f"Override mensual aplicado {account.bank_code}/{account.account_number} "
+                f"{year}-{month:02d}: {override.get('reason')}"
+            ),
+            raw_document_id=source_document_id,
+            account_id=account.id,
+        )
+        return 1
 
     def _get_account_specific_values(
         self, result: ParseResult, account: Account
@@ -1509,8 +1934,6 @@ class DataLoadingService:
     ) -> None:
         if account.bank_code != "ubs":
             return
-        if month in {3, 6, 9, 12}:
-            return
         current = (
             self.db.query(MonthlyClosing)
             .filter(
@@ -1535,6 +1958,10 @@ class DataLoadingService:
         )
         if prev is None or prev.net_value is None:
             return
+        # UBS Suiza policy:
+        # - ending value is the auditable month-end balance (monthly statement wins)
+        # - quarterly tables may refine prior-month movements
+        # - profit absorbs any continuity mismatch against the previous audited ending
         current.income = current.net_value - current.change_in_value - prev.net_value
 
     def _reconcile_account_ytd_series(
@@ -1749,18 +2176,82 @@ class DataLoadingService:
     # UTILIDADES
     # ═══════════════════════════════════════════════════════════════
 
+    def _rows_for_account(self, result: ParseResult, account: Account) -> list[dict[str, Any]]:
+        return [
+            row.data
+            for row in result.rows
+            if not row.data.get("is_total")
+            and (
+                not row.data.get("account_number")
+                or row.data.get("account_number") == account.account_number
+            )
+        ]
+
+    def _resolve_normalized_cash_value(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        asset_alloc_json: str | None,
+        source_document_id: int | None,
+        parsed_rows: list[dict[str, Any]] | None = None,
+    ) -> Optional[Decimal]:
+        cash_value = _cash_from_asset_allocation_json(asset_alloc_json)
+        if cash_value is not None:
+            return cash_value
+
+        if account.bank_code != "jpmorgan" or account.account_type not in {"brokerage", "etf"}:
+            return None
+
+        parsed_cash = _cash_from_jpmorgan_holdings_rows(parsed_rows)
+        if parsed_cash is not None:
+            return parsed_cash
+
+        return self._cash_from_persisted_jpmorgan_holdings(
+            account=account,
+            year=year,
+            month=month,
+            source_document_id=source_document_id,
+        )
+
+    def _cash_from_persisted_jpmorgan_holdings(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        source_document_id: int | None,
+    ) -> Optional[Decimal]:
+        month_start = date(year, month, 1)
+        next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+        base_query = self.db.query(ParsedStatement.parsed_data_json).filter(
+            ParsedStatement.account_id == account.id,
+            ParsedStatement.statement_date >= month_start,
+            ParsedStatement.statement_date < next_month,
+        )
+        if source_document_id is not None:
+            row = (
+                base_query
+                .filter(ParsedStatement.raw_document_id == source_document_id)
+                .order_by(ParsedStatement.id.desc())
+                .first()
+            )
+            if row:
+                cash_value = _cash_from_jpmorgan_parsed_payload(row[0])
+                if cash_value is not None:
+                    return cash_value
+
+        row = base_query.order_by(ParsedStatement.id.desc()).first()
+        if not row:
+            return None
+        return _cash_from_jpmorgan_parsed_payload(row[0])
+
     def _serialize_parse_result(self, result: ParseResult, account: Account) -> str:
         """Serializa ParseResult relevante a JSON para almacenar en parsed_data_json."""
         data = {
-            "rows": [
-                row.data
-                for row in result.rows
-                if not row.data.get("is_total")
-                and (
-                    not row.data.get("account_number")
-                    or row.data.get("account_number") == account.account_number
-                )
-            ],
+            "rows": self._rows_for_account(result, account),
             "qualitative_data": result.qualitative_data,
             "balances": result.balances,
             "opening_balance": str(result.opening_balance) if result.opening_balance else None,
