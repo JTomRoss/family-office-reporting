@@ -24,6 +24,7 @@ from parsers.registry import get_registry
 
 FILE_TYPE_TO_PARSER_KEY = {
     "pdf_report": ("system", "report_asset_allocation"),
+    "excel_alternatives": ("system", "alternatives"),
     "excel_master": ("system", "master_accounts"),
     "excel_positions": ("system", "daily_positions"),
     "excel_movements": ("system", "daily_movements"),
@@ -300,6 +301,26 @@ class DocumentService:
                     self._log_validation(
                         "load", "error",
                         f"Error cargando datos operativos: {load_err}",
+                        raw_document_id=doc.id,
+                    )
+            elif doc.file_type == "excel_alternatives" and result.is_success:
+                try:
+                    from backend.services.data_loading_service import DataLoadingService
+                    loader = DataLoadingService(self.db)
+                    loading_stats = loader.load_alternatives_result(
+                        result=result,
+                        raw_document=doc,
+                    )
+                    self._log_validation(
+                        "load", "info",
+                        f"Alternativos cargados: {loading_stats.get('normalized_rows', 0)} filas normalizadas",
+                        raw_document_id=doc.id,
+                    )
+                except Exception as load_err:
+                    self.db.rollback()
+                    self._log_validation(
+                        "load", "error",
+                        f"Error cargando alternativos: {load_err}",
                         raw_document_id=doc.id,
                     )
             elif doc.file_type == "pdf_report" and result.is_success:

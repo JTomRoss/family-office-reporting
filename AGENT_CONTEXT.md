@@ -1,6 +1,6 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-03-16 (normalized SSOT + UBS Switzerland identity policy + JPM cash normalization)
+Last updated: 2026-03-17 (normalized SSOT + visual reporting layer + centralized asset taxonomy + Alternativos Excel)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -37,6 +37,7 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - Monetary values in DB must be `Numeric(20,4)` (no float persistence).
 - Use timezone-aware UTC datetimes.
 - Reporting endpoints must be read-only consumers of normalized data; they must not "complete" missing data by reinterpreting raw payloads.
+- Reporting views such as `Detalle`, `Mandatos` and `ETF` must consume backend-prepared payloads. Frontend must not aggregate, normalize or infer financial metrics on its own.
 
 ## 5) Data / Reporting Rules
 - Bank statements (PDF cartolas) are truth for monthly closings.
@@ -44,11 +45,14 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - `monthly_metrics_normalized` is the canonical monthly reporting layer.
 - Tables and charts in reporting (`Summary`, `Mandates`, `ETF`, `Personal`) must read monthly values from `monthly_metrics_normalized`.
 - `monthly_closings` is historical source + fallback; if normalized data exists, it wins.
+- `Alternativos.xlsx` is an independent Excel statement source. It loads only into `monthly_metrics_normalized` and is exposed in reporting as synthetic bank `alternativos` / `Alternativos`.
 - Identity control is mandatory: `ending_current - movements - profit = ending_previous`.
 - YTD is control-only. Never use YTD to auto-fill, overwrite, or "force" monthly movements/profit.
 - If identity or YTD controls fail, reporting must alert; it must not silently mutate values to make them match.
 - `Salud BD` is an audit/read-only surface: it should alert from normalized/historical persisted values, not create a third interpreter of monthly data.
 - Raw PDFs are still operationally important for reprocesos, parser fixes, and audit traceability; do not assume processed PDFs can be deleted safely.
+- ETF / active-class taxonomy is centralized in `asset_bucket_dictionary.json` and loaded through `asset_taxonomy.py`. Do not create local copies of that mapping in pages or routers.
+- `Alternativos` must reuse canonical society names already used across the app (`Ecoterra Internacional`, `Ecoterra RE`, `Ecoterra RE II`, `Ecoterra RE III`) so consolidated scopes/presets match across banks.
 
 ## 5.1) Stable Parser / Bank Rules Already In Code
 - JPMorgan `brokerage` / `etf`: blank current-period fields stay `0`/`None` as monthly values; YTD remains control-only.
@@ -65,11 +69,14 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
 - Loader: `backend/services/data_loading_service.py`
 - Document processing: `backend/services/document_service.py`
 - DB models: `backend/db/models.py`
+- Asset taxonomy: `asset_bucket_dictionary.json`, `asset_taxonomy.py`
 - Frontend entrypoint: `frontend/app.py`
 - Main pages: `frontend/pages/summary.py`, `mandates.py`, `etf.py`, `personal.py`, `upload.py`
+- Current backup metadata: `LATEST_VALID_BACKUP.txt`
 
 ## 7) Current Baseline
-- Tests baseline after latest hardening: `169 passed, 1 skipped`.
+- Latest known full-suite checkpoint in this line of work: `186 passed, 1 skipped`.
+- Current worktree may be ahead of that checkpoint with additional UI/reporting changes; run targeted/full tests as needed.
 - Worktree can be dirty; do not assume clean state.
 
 ## 8) Context File Policy

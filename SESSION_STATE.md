@@ -1,8 +1,51 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-03-16
+Last updated: 2026-03-17
 Owner: JTROSS + Codex
 Branch: master
+
+## 0) Handoff (2026-03-17 - Alternativos Excel)
+- **Objetivo del bloque:** Integrar el Excel `Alternativos.xlsx` como motor independiente de carga dentro de `Carga > Excel / CSV`, persistiendo solo en `monthly_metrics_normalized` y exponiendolo solo en `Resumen` y `Detalle`.
+- **Decision estructural:** `Alternativos` se trata como una cartola adicional con parser propio (`parsers/excel/alternatives.py`). Para reporting se materializa como banco sintetico `alternativos` / `Alternativos`, con subcuentas `investment` agregadas por `sociedad + clase de activo + estrategia + moneda`.
+- **Reglas de parseo cerradas:** se excluyen `Ecoterra` y `El Faro`; si existe columna `EUR` seguida por la misma posicion en `USD`, se toma solo `USD`; la hoja `Movimientos` se invierte a signo de contribucion al activo (capital call/subscripcion positivo para reporting, distribucion/retiro negativo).
+- **Persistencia / reporting:** `backend/services/data_loading_service.py` ahora crea/actualiza cuentas sinteticas `alternativos`, limpia y recarga sus filas en `monthly_metrics_normalized`, y no crea `monthly_closings`. `backend/routers/data.py` extiende `Summary` y `Personal` para incluir filas `normalized-only` sin cierre historico, manteniendo `monthly_closings` como fallback permitido.
+- **UI cerrada:** `frontend/pages/upload.py` agrega `excel_alternatives` en `Excel / CSV`, envia `bank_code=alternativos`, muestra mensaje explicativo y confirma filas normalizadas + subcuentas creadas/actualizadas. El filtro de documentos tambien reconoce `excel_alternatives`.
+- **Etiquetas / visual ordenado:** las subcuentas de `Alternativos` preservan `detail_label = sociedad | clase | estrategia | moneda` como metadata, pero `Detalle por Cuenta` agrupa visualmente solo como `Sociedad-ALT-PE` o `Sociedad-ALT-RE`.
+- **Normalizacion adicional cerrada:** el parser canoniza nombres de sociedad para que los consolidadores de la app cierren con el resto de bancos: `Ect Intl -> Ecoterra Internacional`, `Ect RE -> Ecoterra RE`, `Ect RE II -> Ecoterra RE II`, `Ect RE III -> Ecoterra RE III`.
+- **Presentacion cerrada:** `Detalle por Activo` ya muestra `PE` y `RE`; `Resumen` y `Detalle` exponen filtros pseudo `pe` / `re` (`Private Equity (PE)` y `Real Estate (RE)`), y `ALT` / `PE` / `RE` usan tonos verdes en los graficos vinculados a Alternativos.
+- **IDs / cuentas:** el `identification_number` de cada cuenta sintetica de `Alternativos` usa el `NEMO` sin espacios, truncado a 5 caracteres. El banco sintetico sigue siendo `Alternativos`; las subcuentas continúan agregadas por `sociedad + clase + estrategia + moneda`.
+- **Presets de consolidado alineados:** `Mi Investments` incluye `Boatview`, `Telmar`, `White Alaska`, `Ecoterra RE`, `Ecoterra RE II`, `Ecoterra RE III`. `Mi Inv + Ect. Int` y `Mi Inv + Ect. Int+ Armel` ahora heredan tambien esas tres sociedades RE, ademas de `Ecoterra Internacional` y, cuando corresponde, `Armel Holdings`.
+- **Validacion numerica cerrada:** tras reprocesar `Alternativos.xlsx`, `Detalle` / `Resumen` para `2025-12` muestran `Alternativos = 149.612.606,14` bajo el scope `Boatview + Telmar + White Alaska + Ecoterra Internacional + Ecoterra RE + Ecoterra RE II + Ecoterra RE III`. El valor `128.884.707,18` era solo el subconjunto sin las tres sociedades RE.
+- **Tests corridos:** `.\.venv\Scripts\python.exe -m pytest tests/test_excel_alternatives_parser.py tests/test_loader_contracts.py tests/test_normalized_reporting_layer.py tests/test_asset_taxonomy.py -q` -> `49 passed`.
+- **Validacion operativa:** parser corrido contra `Documentos/Excel/Alternativos.xlsx` -> `success`, `2185` filas. Reproceso real del documento `Alternativos.xlsx` ya cargado: `2185` filas normalizadas, sin errores. Reinicio real con `./scripts/stop.ps1` + espera 2s + `./scripts/start.ps1`; backend `200` en `http://localhost:8000/api/v1/health`; frontend `200` en `http://localhost:8501`.
+- **Pendiente inmediato recomendado:** QA visual final de `Resumen` y `Detalle` con presets `Mi Investments` y `Mi Inv + Ect. Int+ Armel`, y luego respaldo formal del estado ya consolidado.
+
+## 0) Handoff (2026-03-17)
+- **Estado general:** La app principal esta operativa y el criterio arquitectonico se mantiene: `monthly_metrics_normalized` es la unica SSOT mensual de reporting; `monthly_closings` queda como historico/fallback permitido; frontend sigue siendo presentacion solamente.
+- **Respaldo formal vigente:** branch `master`, commit `2ffd74b9013e478f1c7fa902a166bcda984f44a9`, tag `20260316_170000_reporting_visual_checkpoint_20260316`, snapshot `data/snapshots/20260316_170000_reporting_visual_checkpoint_20260316`, snapshot hash `87982dfbf14a7479b0ea6085714cdf0ab657ddb2a3f36bfc9748db15f28141bd`. Restore exacto: `python scripts/restore.py --tag 20260316_170000_reporting_visual_checkpoint_20260316`.
+- **Cambios recientes de reporting / UI ya cerrados:**
+  - Navegacion principal: `Detalle`, `Mandatos`, `ETF`, `Resumen`, `Carga`, `Operacional`; en `Operacional` quedo solo `Salud BD`.
+  - `Detalle` consume payload backend-driven (`returns_panel` + `detail_views`) y ya no hace calculos financieros arriba.
+  - `Detalle` ahora tiene filtros dependientes, tabla de movimientos 12M, secciones por `Banco`, `Cuenta`, `Sociedad` y `Activo`, y se elimino el warning amarillo de Streamlit por `Session State`.
+  - `Detalle`: `Mi Investments` ahora incluye `Boatview`, `Telmar`, `White Alaska`, `Ecoterra RE`, `Ecoterra RE II` y `Ecoterra RE III`.
+  - `Detalle por Cuenta` usa abreviacion `sociedad-banco-cuenta-id` y la columna visible es `Mov mes`.
+  - `Detalle por Activo` existe debajo de `Detalle por Sociedad` y por ahora usa solo composicion ETF.
+  - `Mandatos` tiene filtro global `Con Caja / Sin Caja`, ETF queda siempre `Sin Personal`, la tabla principal muestra `Monto` sin caja + `Caja` + `Monto total`, y el grafico `% por tipo de activo` incluye `Portafolio ETF` y linea horizontal al `60%`.
+  - `ETF` ya dejo consistente el primer grafico con la tabla final para `Sin Caja`, invirtio ejes del primer grafico (mensual izquierda / YTD derecha) y usa el desglose de activos centralizado para `% por tipo de activo en cada banco`.
+  - `Salud BD` anota `YTD BBH incluye prior adjustments` cuando el desfase de `movements_ytd` cuadra con `prior_period_adjustments`; esto es solo nota de auditoria, no mutacion de data.
+- **Cambios recientes de parser/loader ya cerrados:**
+  - JPM old `brokerage/etf`: la derivacion de caja desde holdings cash-like quedo aislada en `backend/services/data_loading_service.py` solo para poblar/backfillear `cash_value`.
+  - UBS Suiza `Boatview brokerage 206-560552-01`: se corrigio el parser para meses `2025-05`, `2025-08`, `2025-11` con `Liquidity` mal concatenado y luego se revisaron todas las cartolas cargadas de esa cuenta sin encontrar mas casos del mismo patron.
+  - Goldman Sachs mandatos antiguos: el parser ahora consolida `sub_portfolio_overviews` cuando falta el overview top-level, cerrando faltantes visibles en `Salud BD` para `097-4` y `214-9`.
+- **Taxonomia de activos vigente:**
+  - Archivo canonico: `asset_bucket_dictionary.json`
+  - Helper de carga: `asset_taxonomy.py`
+  - Buckets: `RV DM`, `RV EM`, `RF IG Short`, `RF IG Long`, `HY`, `Alternativos`, `Real Estate`, `Caja`
+  - Mapping explicito: `IWDA -> RV DM`, `IEMA -> RV EM`, `VDCA -> RF IG Short`, `VDPA -> RF IG Long`, `IHYA -> HY`, `ALT -> Alternativos`, `ALT RE -> Real Estate`, aliases de money market / deposits / cash / caja -> `Caja`
+  - Regla: no duplicar este diccionario en paginas ni routers; se reutiliza desde el archivo central.
+- **Tests mas recientes corridos en este bloque:** `.\.venv\Scripts\python.exe -m pytest tests/test_normalized_reporting_layer.py -q` -> `22 passed`.
+- **Estado operativo actual:** backend health OK en `http://localhost:8000/api/v1/health`; frontend principal OK en `http://localhost:8501`.
+- **Pendiente inmediato recomendado:** QA visual puntual de `Detalle` (alineaciones finas tabla/graficos) y decidir si la taxonomia central de activos debe extenderse luego a mandatos/brokerage a nivel de datos persistidos, o mantenerse temporalmente ETF-only.
 
 ## 0) Handoff (2026-03-16)
 - **Objetivo del bloque:** Revisar por quÃ© la app todavÃ­a podÃ­a mostrar `54.185` en `Boatview UBS Suiza 206-560552-02 2025-01` si la tabla canÃ³nica ya estaba en `0`.
@@ -38,10 +81,10 @@ Branch: master
 - Raw PDFs are still stored and remain operationally necessary for reprocesos, parser hardening, and audit traceability.
 
 ## 2) Current Known Priorities
-1. Visual QA of residual `UBS Suiza` / `Salud BD` cases after the focused portfolio-specific reproceso.
-2. Formal backup/checkpoint only after data review is approved.
-3. Decide later whether multi-bank aggregates should also absorb the UBS negative-position `0%` return semantics.
-4. Future-only: define archive/retention strategy for raw PDFs once data is stable and approved.
+1. Visual QA of the current `Detalle`, `Mandatos` and `ETF` layouts after the latest reporting polish.
+2. Decide if the centralized asset taxonomy should next populate normalized monthly data for non-ETF accounts, or remain ETF-only until parser/loader work is ready.
+3. Keep `Salud BD` as audit-only and continue closing real parser/loader gaps instead of adjusting reporting.
+4. Define later the archive/retention strategy for raw PDFs once data is stable and approved.
 
 ## 3) Operational Rules (quick)
 - Restart main app after backend/frontend code changes:
@@ -78,14 +121,22 @@ Do not revert unrelated changes.
   - Reporting endpoints were refactored away from helper-based reinterpretation of movements/profit/YTD and toward persisted monthly values.
 - `Salud BD` / UI:
   - Added the `Nota` field/filter for identity issues where statement beginning value mismatches previous ending value but audited ending value prevails.
+  - `YTD BBH incluye prior adjustments` note exists for BBH movement-YTD mismatches explained by prior-period adjustments in the statement.
   - UI displays `ubs` as `ubs_suiza` in health tables.
   - `Personal` page no longer auto-loads broad data without scope filters.
+  - `Operacional` UI now keeps only the `Salud BD` subtab.
 - ETF / society fixes:
   - Added `Con Personal / Sin Personal` behavior around `Raíces LP`.
   - ETF total return row is computed in backend from aggregated values instead of ad hoc UI recomputation.
+  - ETF asset breakdown now uses the centralized taxonomy file and bank-level percentage payload from backend.
   - `Raíces LP` coverage was relinked/reprocessed so reporting starts from historical documents again.
+- Detail / mandates visual layer:
+  - `Detalle` consumes backend-prepared `returns_panel` and `detail_views`, including `Detalle por Activo` from ETF composition only.
+  - `Detalle por Cuenta` uses abbreviated labels `sociedad-banco-cuenta-id`.
+  - `Mandatos` has a global `Con Caja / Sin Caja` mode and keeps ETF permanently `Sin Personal`.
 - Goldman Sachs:
   - OCR fallback exists for garbled PDFs, including period/overview tolerance for OCR spacing issues.
+  - Legacy mandate statements can consolidate `sub_portfolio_overviews` when a top-level overview is missing.
 - JPMorgan:
   - `ETF`: blank monthly `Income & Distributions` / `Change In Investment Value` fields no longer inherit YTD as monthly.
   - `Custody`: `Net Security Contributions` is included in movements where applicable.
@@ -163,6 +214,9 @@ Use this short format when closing a work block:
 ## 16) Next Action Template (for user prompting Codex)
 "Contextualizate solo con AGENT_CONTEXT.md + SESSION_STATE.md + git status.
 Luego trabaja solo en [ruta/feature concreta]."
+
+## 16.1) Current Prompt Starter
+"Contextualizate solo con `AGENT_CONTEXT.md` + `SESSION_STATE.md` + `git status --short` + archivos relevantes. Mantén intactas las reglas: `monthly_metrics_normalized` como unica SSOT mensual de reporting, `monthly_closings` solo como historico/fallback permitido, frontend solo presentacion, sin interpretadores nuevos de datos arriba. Ademas reutiliza la taxonomia central de activos en `asset_bucket_dictionary.json` / `asset_taxonomy.py` y no la dupliques localmente. Luego trabaja solo en [tarea concreta]."
 
 ## 17) Cierre de bloque (2026-03-15)
 - **Objetivo:** Aislar en `UBS Suiza` la regla de continuidad donde el `ending value` auditado del mes anterior prevalece sobre el `beginning value` de la cartola siguiente, dejando `profit` como variable de ajuste y aprovechando movimientos de tablas trimestrales solo dentro del motor UBS.

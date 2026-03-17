@@ -12,6 +12,7 @@ Este servicio es la pieza que conecta el parsing con el reporting.
 import json
 import logging
 import calendar
+import hashlib
 import re
 from datetime import date, timezone, datetime
 from decimal import Decimal, InvalidOperation
@@ -35,6 +36,11 @@ from backend.db.models import (
 from parsers.base import ParseResult
 
 logger = logging.getLogger(__name__)
+
+_ALTERNATIVES_BANK_CODE = "alternativos"
+_ALTERNATIVES_BANK_NAME = "Alternativos"
+_ALTERNATIVES_ACCOUNT_TYPE = "investment"
+_ALTERNATIVES_SOURCE_TAG = "alternatives_excel"
 
 _UBS_MANUAL_MONTHLY_OVERRIDES: dict[tuple[str, int, int], dict[str, Any]] = {
     (
@@ -377,7 +383,14 @@ class DataLoadingService:
 
     def sync_normalized_for_account_year(self, account: Account, year: int) -> None:
         """Punto pÃºblico para alinear capa normalizada con monthly_closings."""
-        self._refresh_normalized_activity_from_monthly_closings(account=account, year=year)
+        refresh_years = {year}
+        if account.bank_code == "ubs":
+            refresh_years |= self._recompute_ubs_income_series(account=account)
+        for refresh_year in sorted(refresh_years):
+            self._refresh_normalized_activity_from_monthly_closings(
+                account=account,
+                year=refresh_year,
+            )
 
     def load_parse_result(
         self,
@@ -715,6 +728,153 @@ class DataLoadingService:
                 f"{stats['daily_movements']} movimientos, "
                 f"{stats['daily_prices']} precios"
             ),
+            raw_document.id,
+        )
+        return stats
+
+    def load_alternatives_result(
+        self,
+        result: ParseResult,
+        raw_document: RawDocument,
+    ) -> dict:
+        stats = {
+            "normalized_rows": 0,
+            "accounts_created": 0,
+            "accounts_updated": 0,
+            "accounts_deleted": 0,
+            "errors": [],
+        }
+        if not result.is_success:
+            stats["errors"].append("ParseResult no exitoso para alternativos")
+            return stats
+
+        managed_accounts = (
+            self.db.query(Account)
+            .filter(Account.bank_code == _ALTERNATIVES_BANK_CODE)
+            .all()
+        )
+        managed_by_number = {acct.account_number: acct for acct in managed_accounts}
+        managed_ids = [acct.id for acct in managed_accounts]
+        if managed_ids:
+            self.db.query(MonthlyMetricNormalized).filter(
+                MonthlyMetricNormalized.account_id.in_(managed_ids)
+            ).delete(synchronize_session=False)
+
+        seen_account_numbers: set[str] = set()
+        created_account_numbers: set[str] = set()
+        updated_account_numbers: set[str] = set()
+        for row in result.rows:
+            data = row.data or {}
+            entity_name = self._clean_str(data.get("entity_name"))
+            asset_class = self._clean_str(data.get("asset_class"))
+            strategy = self._clean_str(data.get("strategy"))
+            currency = self._clean_str(data.get("currency")) or "USD"
+            nemo_reference = self._clean_str(data.get("nemo_reference"))
+            closing_date = self._safe_date(data.get("closing_date"))
+            year = data.get("year")
+            month = data.get("month")
+            if not entity_name or not asset_class or not strategy or not closing_date or year is None or month is None:
+                stats["errors"].append(f"Fila {row.row_number}: metadata mensual incompleta")
+                continue
+
+            account_number = self._alternatives_account_number(
+                entity_name=entity_name,
+                asset_class=asset_class,
+                strategy=strategy,
+                currency=currency,
+            )
+            account = managed_by_number.get(account_number)
+            metadata_json = json.dumps(
+                {
+                    "source": _ALTERNATIVES_SOURCE_TAG,
+                    "asset_class": asset_class,
+                    "strategy": strategy,
+                    "currency": currency,
+                    "nemo_reference": nemo_reference,
+                    "account_group_label": f"{entity_name}-ALT-{asset_class}",
+                    "detail_label": f"{entity_name} | {asset_class} | {strategy} | {currency}",
+                },
+                ensure_ascii=True,
+            )
+            if account is None:
+                account = Account(
+                    account_number=account_number,
+                    identification_number=self._alternatives_identification_number(
+                        nemo_reference=nemo_reference,
+                        account_number=account_number,
+                    ),
+                    bank_code=_ALTERNATIVES_BANK_CODE,
+                    bank_name=_ALTERNATIVES_BANK_NAME,
+                    account_type=_ALTERNATIVES_ACCOUNT_TYPE,
+                    entity_name=entity_name,
+                    entity_type="sociedad",
+                    currency=currency,
+                    country="",
+                    metadata_json=metadata_json,
+                    source_file_hash=result.source_file_hash or raw_document.sha256_hash,
+                )
+                self.db.add(account)
+                self.db.flush()
+                managed_by_number[account_number] = account
+                created_account_numbers.add(account_number)
+            else:
+                account.identification_number = self._alternatives_identification_number(
+                    nemo_reference=nemo_reference,
+                    account_number=account_number,
+                )
+                account.bank_name = _ALTERNATIVES_BANK_NAME
+                account.account_type = _ALTERNATIVES_ACCOUNT_TYPE
+                account.entity_name = entity_name
+                account.entity_type = "sociedad"
+                account.currency = currency
+                account.metadata_json = metadata_json
+                account.source_file_hash = result.source_file_hash or raw_document.sha256_hash
+                if account_number not in created_account_numbers:
+                    updated_account_numbers.add(account_number)
+
+            seen_account_numbers.add(account_number)
+            self.db.add(
+                MonthlyMetricNormalized(
+                    account_id=account.id,
+                    closing_date=closing_date,
+                    year=int(year),
+                    month=int(month),
+                    ending_value_with_accrual=_safe_decimal(data.get("ending_value")),
+                    ending_value_without_accrual=_safe_decimal(data.get("ending_value")),
+                    accrual_ending=Decimal("0"),
+                    cash_value=Decimal("0"),
+                    movements_net=_safe_decimal(data.get("movements_net")),
+                    profit_period=_safe_decimal(data.get("profit_period")),
+                    movements_ytd=_safe_decimal(data.get("movements_ytd")),
+                    profit_ytd=_safe_decimal(data.get("profit_ytd")),
+                    asset_allocation_json=None,
+                    currency=currency,
+                    source_document_id=raw_document.id,
+                )
+            )
+            stats["normalized_rows"] += 1
+
+        stale_accounts = [
+            acct for acct in managed_by_number.values()
+            if acct.account_number not in seen_account_numbers
+        ]
+        if stale_accounts:
+            stale_ids = [acct.id for acct in stale_accounts if acct.id is not None]
+            if stale_ids:
+                self.db.query(MonthlyMetricNormalized).filter(
+                    MonthlyMetricNormalized.account_id.in_(stale_ids)
+                ).delete(synchronize_session=False)
+                self.db.query(Account).filter(Account.id.in_(stale_ids)).delete(synchronize_session=False)
+                stats["accounts_deleted"] = len(stale_ids)
+
+        stats["accounts_created"] = len(created_account_numbers)
+        stats["accounts_updated"] = len(updated_account_numbers)
+
+        self.db.commit()
+        self._log(
+            "load",
+            "info",
+            f"Carga alternativos completada para doc {raw_document.id}: {stats['normalized_rows']} filas normalizadas",
             raw_document.id,
         )
         return stats
@@ -1108,6 +1268,9 @@ class DataLoadingService:
             year=year,
             month=month,
         )
+        refresh_years = {year}
+        if account.bank_code == "ubs":
+            refresh_years |= self._recompute_ubs_income_series(account=account)
         self._validate_ytd_consistency(
             account=account,
             year=year,
@@ -1120,10 +1283,11 @@ class DataLoadingService:
             year=year,
             raw_document_id=doc.id,
         )
-        self._refresh_normalized_activity_from_monthly_closings(
-            account=account,
-            year=year,
-        )
+        for refresh_year in sorted(refresh_years):
+            self._refresh_normalized_activity_from_monthly_closings(
+                account=account,
+                year=refresh_year,
+            )
 
         return True
 
@@ -1678,6 +1842,14 @@ class DataLoadingService:
             raw_document_id=source_document_id,
             account_id=account.id,
         )
+        refresh_years = {year}
+        if account.bank_code == "ubs":
+            refresh_years |= self._recompute_ubs_income_series(account=account)
+        for refresh_year in sorted(refresh_years):
+            self._refresh_normalized_activity_from_monthly_closings(
+                account=account,
+                year=refresh_year,
+            )
         return 1
 
     def _get_account_specific_values(
@@ -1963,6 +2135,48 @@ class DataLoadingService:
         # - quarterly tables may refine prior-month movements
         # - profit absorbs any continuity mismatch against the previous audited ending
         current.income = current.net_value - current.change_in_value - prev.net_value
+
+    def _recompute_ubs_income_series(self, account: Account) -> set[int]:
+        """
+        Recalcula utilidad UBS por identidad sobre la serie persistida.
+
+        Cubre reprocesos fuera de orden: si un mes previo cambia despuÃ©s,
+        los meses siguientes que dependen de ese ending auditado se corrigen.
+        """
+        if account.bank_code != "ubs":
+            return set()
+
+        closings = (
+            self.db.query(MonthlyClosing)
+            .filter(MonthlyClosing.account_id == account.id)
+            .order_by(MonthlyClosing.year, MonthlyClosing.month)
+            .all()
+        )
+        if not closings:
+            return set()
+
+        by_period = {
+            (closing.year, closing.month): closing
+            for closing in closings
+        }
+        touched_years: set[int] = set()
+
+        for current in closings:
+            if current.net_value is None or current.change_in_value is None:
+                continue
+
+            prev_year = current.year if current.month > 1 else current.year - 1
+            prev_month = current.month - 1 if current.month > 1 else 12
+            prev = by_period.get((prev_year, prev_month))
+            if prev is None or prev.net_value is None:
+                continue
+
+            recomputed_income = current.net_value - current.change_in_value - prev.net_value
+            if current.income != recomputed_income:
+                current.income = recomputed_income
+                touched_years.add(current.year)
+
+        return touched_years
 
     def _reconcile_account_ytd_series(
         self,
@@ -2271,6 +2485,36 @@ class DataLoadingService:
         if account:
             cache[account_number] = account
         return account
+
+    @staticmethod
+    def _alternatives_account_number(
+        *,
+        entity_name: str,
+        asset_class: str,
+        strategy: str,
+        currency: str,
+    ) -> str:
+        base = "||".join(
+            [
+                str(entity_name).strip(),
+                str(asset_class).strip(),
+                str(strategy).strip(),
+                str(currency).strip().upper(),
+            ]
+        )
+        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+        return f"ALT-{digest}"
+
+    @staticmethod
+    def _alternatives_identification_number(
+        *,
+        nemo_reference: str | None,
+        account_number: str,
+    ) -> str:
+        if nemo_reference:
+            return str(nemo_reference).strip().upper()[:5]
+        suffix = str(account_number).split("-")[-1][-6:].upper()
+        return f"ALT-{suffix}"
 
     @staticmethod
     def _safe_date(value) -> Optional[date]:

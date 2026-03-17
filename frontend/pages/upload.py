@@ -30,6 +30,7 @@ BANCOS = {
     "goldman_sachs": "Goldman Sachs",
     "bbh": "BBH (Brown Brothers Harriman)",
     "bice": "BICE",
+    "alternativos": "Alternativos",
 }
 
 
@@ -594,11 +595,18 @@ def render():
 
         excel_type = st.selectbox(
             "Tipo de archivo",
-            ["excel_positions", "excel_movements", "excel_prices", "excel_master"],
+            [
+                "excel_positions",
+                "excel_movements",
+                "excel_prices",
+                "excel_alternatives",
+                "excel_master",
+            ],
             format_func=lambda x: {
                 "excel_positions": "📊 Posiciones diarias",
                 "excel_movements": "💱 Movimientos diarios",
                 "excel_prices": "💰 Precios (FX + activos)",
+                "excel_alternatives": "🏗️ Alternativos (NAV + Movimientos)",
                 "excel_master": "🏛️ Maestro de cuentas (SSOT)",
             }[x],
         )
@@ -607,6 +615,12 @@ def render():
             st.warning(
                 "⚠️ El maestro de cuentas es el **Single Source of Truth**. "
                 "Al cargar, se actualiza la metadata de TODAS las cuentas."
+            )
+        elif excel_type == "excel_alternatives":
+            st.info(
+                "Este motor carga el Excel de Alternativos como una cartola independiente. "
+                "Persiste datos agregados por sociedad + clase de activo + estrategia + moneda "
+                "en la capa normalizada y los expone como subcuentas del banco sintético `Alternativos`."
             )
 
         excel_file = st.file_uploader(
@@ -631,12 +645,15 @@ def render():
                         "excel_positions",
                         "excel_movements",
                         "excel_prices",
+                        "excel_alternatives",
                     }:
+                        extra_data = {"bank_code": "alternativos"} if excel_type == "excel_alternatives" else None
                         result = api_client.upload_file(
                             "/documents/upload-and-process",
                             filepath=tmp_path,
                             filename=excel_file.name,
                             file_type=excel_type,
+                            extra_data=extra_data,
                         )
 
                     if result.get("is_duplicate"):
@@ -661,12 +678,25 @@ def render():
                                         f"⚠️ {len(ms['errors'])} filas con problemas"
                                     )
                             elif ls:
-                                st.success(
-                                    "✅ Datos operativos cargados: "
-                                    f"{ls.get('daily_positions', 0)} posiciones, "
-                                    f"{ls.get('daily_movements', 0)} movimientos, "
-                                    f"{ls.get('daily_prices', 0)} precios"
-                                )
+                                if excel_type == "excel_alternatives":
+                                    st.success(
+                                        "✅ Alternativos cargado: "
+                                        f"{ls.get('normalized_rows', 0)} filas normalizadas, "
+                                        f"{ls.get('accounts_created', 0)} subcuentas creadas, "
+                                        f"{ls.get('accounts_updated', 0)} actualizadas"
+                                    )
+                                    if ls.get("accounts_deleted"):
+                                        st.caption(
+                                            f"Subcuentas eliminadas por quedar fuera del archivo: "
+                                            f"{ls.get('accounts_deleted', 0)}"
+                                        )
+                                else:
+                                    st.success(
+                                        "✅ Datos operativos cargados: "
+                                        f"{ls.get('daily_positions', 0)} posiciones, "
+                                        f"{ls.get('daily_movements', 0)} movimientos, "
+                                        f"{ls.get('daily_prices', 0)} precios"
+                                    )
                                 if ls.get("errors"):
                                     st.warning(
                                         f"⚠️ {len(ls['errors'])} fila(s) con problemas de carga"
@@ -793,7 +823,7 @@ def render():
             filter_type = st.selectbox(
                 "Tipo",
                 ["", "pdf_cartola", "pdf_report", "excel_positions",
-                 "excel_movements", "excel_prices", "excel_master"],
+                 "excel_movements", "excel_prices", "excel_alternatives", "excel_master"],
                 key="doc_filter_type",
             )
         with col2:

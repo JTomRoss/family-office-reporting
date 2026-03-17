@@ -58,6 +58,7 @@ class DocumentStatus(str, PyEnum):
 class FileType(str, PyEnum):
     PDF_CARTOLA = "pdf_cartola"
     PDF_REPORT = "pdf_report"
+    EXCEL_ALTERNATIVES = "excel_alternatives"
     EXCEL_POSITIONS = "excel_positions"
     EXCEL_MOVEMENTS = "excel_movements"
     EXCEL_PRICES = "excel_prices"
@@ -206,8 +207,8 @@ class RawDocument(Base):
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     filepath: Mapped[str] = mapped_column(String(1000), nullable=False)
     file_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    # "pdf_cartola", "pdf_report", "excel_positions", "excel_movements",
-    # "excel_prices", "excel_master", "csv"
+    # "pdf_cartola", "pdf_report", "excel_alternatives", "excel_positions",
+    # "excel_movements", "excel_prices", "excel_master", "csv"
     sha256_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
 

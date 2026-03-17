@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from asset_taxonomy import asset_bucket_series
 from frontend import api_client
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES, render_fecha_filter
@@ -46,6 +47,8 @@ SOCIETY_DISPLAY_MAP = {
     "Armel Holdings": "Armel Hold.",
     "Ecoterra Internacional": "Ect. Internacional",
 }
+ETF_BANK_ORDER = ["jpmorgan", "goldman_sachs", "bbh", "ubs", "ubs_miami"]
+ASSET_SERIES = asset_bucket_series()
 
 
 def _fmt_bank(code):
@@ -170,6 +173,7 @@ def render():
     instruments_pct_table = data.get("instruments_pct_table", {})
     composition_by_society = data.get("composition_by_society", [])
     composition_by_instrument = data.get("composition_by_instrument", [])
+    asset_pct_by_bank = data.get("asset_pct_by_bank", {})
     society_montos_table = data.get("society_montos_table", [])
     society_movements_table = data.get("society_movements_table", [])
     society_returns_monthly = data.get("society_returns_monthly", [])
@@ -406,12 +410,33 @@ def render():
             st.info("Sin datos.")
 
     with gcol2:
-        st.markdown("**Por Instrumentos**")
-        if composition_by_instrument:
-            labels = [c["label"][:25] for c in composition_by_instrument]
-            values = [float(c["value"]) for c in composition_by_instrument]
-            fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4)])
-            fig.update_layout(height=350, margin=dict(l=10, r=10, t=10, b=10))
+        st.markdown("**% por Tipo de Activo en cada Banco**")
+        ordered_banks = [bank for bank in ETF_BANK_ORDER if bank in asset_pct_by_bank]
+        ordered_banks.extend(
+            bank for bank in sorted(asset_pct_by_bank.keys()) if bank not in ordered_banks
+        )
+        if ordered_banks:
+            fig = go.Figure()
+            for asset_key, label, color in ASSET_SERIES:
+                y_values = []
+                for bank in ordered_banks:
+                    payload = asset_pct_by_bank.get(bank, {}) if isinstance(asset_pct_by_bank.get(bank), dict) else {}
+                    y_values.append(float(payload.get(asset_key, 0.0) or 0.0))
+                fig.add_trace(
+                    go.Bar(
+                        x=[_fmt_bank(bank) for bank in ordered_banks],
+                        y=y_values,
+                        name=label,
+                        marker_color=color or None,
+                    )
+                )
+            fig.update_layout(
+                barmode="stack",
+                height=350,
+                margin=dict(l=10, r=10, t=10, b=10),
+                yaxis_title="% del banco",
+            )
+            fig.update_yaxes(range=[0, 100], tickformat=",.0f")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Sin datos.")

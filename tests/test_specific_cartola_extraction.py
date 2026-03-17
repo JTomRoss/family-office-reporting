@@ -22,6 +22,17 @@ def _raw_cartola_path(filename: str) -> Path:
     return Path(__file__).resolve().parents[1] / "data" / "raw" / "ubs" / "pdf_cartola" / filename
 
 
+def _goldman_raw_cartola_path(filename: str) -> Path:
+    return (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "raw"
+        / "goldman_sachs"
+        / "pdf_cartola"
+        / filename
+    )
+
+
 def _require(path: Path) -> None:
     if not path.exists():
         pytest.skip(f"Fixture PDF not found: {path}")
@@ -567,6 +578,97 @@ def test_goldman_mandato_has_statement_dates_and_balances():
     assert monthly[0]["account_number"] == "451-9"
     assert _as_decimal(monthly[0]["net_contributions"]) == Decimal("0.00")
     assert _as_decimal(monthly[0]["utilidad"]) == Decimal("1106908.06")
+
+
+@pytest.mark.parametrize(
+    (
+        "filename",
+        "expected_account",
+        "expected_opening",
+        "expected_movements",
+        "expected_profit",
+        "expected_closing",
+    ),
+    [
+        (
+            "202305 Telmar - GS.pdf",
+            "097-4",
+            Decimal("111232679.35"),
+            Decimal("-0.10"),
+            Decimal("-555931.41"),
+            Decimal("110676747.84"),
+        ),
+        (
+            "202406 Telmar - GS.pdf",
+            "097-4",
+            Decimal("123379607.32"),
+            Decimal("0"),
+            Decimal("2264393.55"),
+            Decimal("125644000.87"),
+        ),
+        (
+            "202306 Telmar - GS.pdf",
+            "097-4",
+            Decimal("110676747.84"),
+            Decimal("0.00"),
+            Decimal("2506847.47"),
+            Decimal("113183595.31"),
+        ),
+        (
+            "202305 Boatview - GS.pdf",
+            "214-9",
+            Decimal("47521970.93"),
+            Decimal("0"),
+            Decimal("-320516.68"),
+            Decimal("47201454.25"),
+        ),
+        (
+            "202306 Boatview - GS.pdf",
+            "214-9",
+            Decimal("47201454.25"),
+            Decimal("0.00"),
+            Decimal("1110421.42"),
+            Decimal("48311875.67"),
+        ),
+        (
+            "202406 Boatview - GS.pdf",
+            "214-9",
+            Decimal("52860140.28"),
+            Decimal("0"),
+            Decimal("1020179.83"),
+            Decimal("53880320.11"),
+        ),
+    ],
+)
+def test_goldman_mandato_falls_back_to_subportfolio_consolidation(
+    filename,
+    expected_account,
+    expected_opening,
+    expected_movements,
+    expected_profit,
+    expected_closing,
+):
+    path = _goldman_raw_cartola_path(filename)
+    _require(path)
+
+    result = GoldmanSachsCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == expected_account
+    assert result.opening_balance == expected_opening
+    assert result.closing_balance == expected_closing
+
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    row = monthly[0]
+    assert row["account_number"] == expected_account
+    assert _as_decimal(row["beginning_value"]) == expected_opening
+    assert _as_decimal(row["ending_value_with_accrual"]) == expected_closing
+    assert _as_decimal(row["net_contributions"]) == expected_movements
+    assert _as_decimal(row["utilidad"]) == expected_profit
+
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert "FIXED INCOME" in alloc
+    assert "PUBLIC EQUITY" in alloc
 
 
 def test_ubs_miami_emits_monthly_activity_contract():

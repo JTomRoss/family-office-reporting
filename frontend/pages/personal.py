@@ -2,10 +2,10 @@
 Pagina Detalle.
 
 Estructura:
-- Filtros: Sociedad, Nombre, Fecha
-- Saldo consolidado (sin caja en metrica)
-- Boton "Detalle por Banco" con tabla desplegable
-- Graficos: Por Banco, Por Tipo de Cuenta, Evolucion mensual YTD
+- Filtros dependientes: Banco, Sociedad, Consolidado, Nombre, Fecha
+- Saldo consolidado
+- Panel superior: rentabilidad mensual/YTD + tabla de movimientos (12 meses)
+- Vistas detalladas por banco, cuenta y sociedad
 """
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
+from asset_taxonomy import asset_bucket_colors, default_chart_color_sequence
 from frontend import api_client
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
@@ -27,6 +29,8 @@ ACCOUNT_TYPE_DISPLAY = {
     "etf": "ETF",
     "brokerage": "Brokerage",
     "mandato": "Mandato",
+    "pe": "Private Equity (PE)",
+    "re": "Real Estate (RE)",
     "current": "Current",
     "checking": "Checking",
     "savings": "Savings",
@@ -36,17 +40,30 @@ ACCOUNT_TYPE_DISPLAY = {
 }
 
 CONSOLIDATED_PRESETS = {
-    "Mi Investments": ["Boatview", "Telmar", "White Alaska"],
+    "Mi Investments": [
+        "Boatview",
+        "Telmar",
+        "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
+    ],
     "Mi Inv + Ect. Int": [
         "Boatview",
         "Telmar",
         "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
         "Ecoterra Internacional",
     ],
     "Mi Inv + Ect. Int+ Armel": [
         "Boatview",
         "Telmar",
         "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
         "Ecoterra Internacional",
         "Armel Holdings",
     ],
@@ -83,94 +100,296 @@ def _build_fecha_options(years: list[int]) -> list[str]:
     return values
 
 
-def _build_ytd_series(chart_data: list[dict], selected_year: int) -> list[float | None]:
-    by_month: dict[int, float | None] = {}
-    for row in chart_data:
-        fecha = str(row.get("fecha") or "")
-        if len(fecha) < 7:
-            continue
-        year = int(fecha[:4])
-        month = int(fecha[5:7])
-        if year != selected_year:
-            continue
-        by_month[month] = _to_float(row.get("rent_pct"))
-
-    out: list[float | None] = []
-    compound = 1.0
-    has_data = False
-    for month in range(1, 13):
-        ret = by_month.get(month)
-        if ret is None:
-            out.append(round((compound - 1) * 100, 4) if has_data else None)
-            continue
-        compound *= (1 + (ret / 100))
-        has_data = True
-        out.append(round((compound - 1) * 100, 4))
-    return out
+def _fecha_label(fecha_str: str) -> str:
+    parts = str(fecha_str).split("-")
+    if len(parts) != 2:
+        return str(fecha_str)
+    month = int(parts[1])
+    return f"{MONTHS[month - 1]} {parts[0][-2:]}"
 
 
-def _aggregate_detail_rows(
-    rows: list[dict],
+def _distinct_values(rows: list[dict], field: str) -> list[str]:
+    return sorted(
+        {
+            str(row.get(field) or "").strip()
+            for row in rows
+            if str(row.get(field) or "").strip()
+        }
+    )
+
+
+def _sanitize_multiselect_state(key: str, valid_options: list[str]) -> list[str]:
+    selected = [value for value in st.session_state.get(key, []) if value in valid_options]
+    st.session_state[key] = selected
+    return selected
+
+
+def _seed_detail_rows(
     *,
-    key_field: str,
-) -> dict[str, dict[str, float]]:
-    aggregated: dict[str, dict[str, float]] = {}
-    for row in rows:
-        key = str(row.get(key_field) or "").strip()
-        if not key:
-            continue
-        net = _to_float(row.get("net_value")) or 0.0
-        mov = _to_float(row.get("movimientos")) or 0.0
-        cash = _to_float(row.get("caja")) or 0.0
-        currency = str(row.get("moneda") or "").upper()
-        if key not in aggregated:
-            aggregated[key] = {
-                "monto_usd": 0.0,
-                "movimientos_mes": 0.0,
-                "caja_disponible": 0.0,
-            }
-        if currency == "USD":
-            aggregated[key]["monto_usd"] += net
-        aggregated[key]["movimientos_mes"] += mov
-        aggregated[key]["caja_disponible"] += cash
-    return aggregated
+    selected_year: int | None,
+    selected_month: int | None,
+    bank_codes: list[str] | None = None,
+    entity_names: list[str] | None = None,
+    person_names: list[str] | None = None,
+) -> list[dict]:
+    payload = {
+        "years": [selected_year] if selected_year else [],
+        "months": [selected_month] if selected_month else [],
+        "bank_codes": bank_codes or [],
+        "entity_names": entity_names or [],
+        "person_names": person_names or [],
+    }
+    try:
+        return api_client.post("/data/personal", json=payload).get("entities_table", [])
+    except Exception:
+        return []
 
 
-def _fmt_or_blank(value) -> str:
+def _fmt_or_blank(value, *, decimals: int = 1) -> str:
     if value is None:
         return ""
-    return fmt_number(value, decimals=1)
+    return fmt_number(value, decimals=decimals)
 
 
-def _summarize_account_labels(labels: list[str], *, max_items: int = 3) -> str:
-    if not labels:
-        return ""
-    if len(labels) <= max_items:
-        return ", ".join(labels)
-    return ", ".join(labels[:max_items]) + f", +{len(labels) - max_items} mas"
-
-
-def _build_bank_account_labels(rows: list[dict]) -> dict[str, str]:
-    labels_by_bank: dict[str, set[str]] = {}
-    for row in rows:
-        bank_code = str(row.get("banco") or "").strip()
-        if not bank_code:
-            continue
-        account_id = str(row.get("id") or row.get("account_number") or "").strip()
-        account_type = _fmt_account_type(str(row.get("tipo_cuenta") or ""))
-        if account_id and account_type:
-            label = f"{account_id} ({account_type})"
-        elif account_id:
-            label = account_id
-        elif account_type:
-            label = account_type
-        else:
-            continue
-        labels_by_bank.setdefault(bank_code, set()).add(label)
+def _default_detail_payload() -> dict:
     return {
-        bank_code: _summarize_account_labels(sorted(labels))
-        for bank_code, labels in labels_by_bank.items()
+        "selected_fecha": None,
+        "consolidated_usd": 0.0,
+        "consolidated_clp": 0.0,
+        "cash": 0.0,
+        "pie_charts": {"by_bank": [], "by_type": []},
+        "by_bank_detail": [],
+        "entities_table": [],
+        "summary_table": [],
+        "range_table": [],
+        "returns_panel": {"months": [], "rows": []},
+        "detail_views": {
+            "bank": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "society": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "asset": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": False},
+        },
     }
+
+
+def _display_detail_label(view_key: str, label: str) -> str:
+    if view_key == "bank":
+        return _fmt_bank(label)
+    return label
+
+
+def _render_movements_table(rows: list[dict], *, height: int = 360) -> None:
+    if not rows:
+        st.info("Sin datos de movimientos.")
+        return
+
+    df = pd.DataFrame(
+        [
+            {
+                "Fecha": _fecha_label(str(row.get("fecha") or "")),
+                "Movimientos": _fmt_or_blank(row.get("movimientos")),
+            }
+            for row in rows
+        ]
+    )
+    st.dataframe(df, hide_index=True, use_container_width=True, height=height)
+
+
+def _render_detail_table(
+    *,
+    view_key: str,
+    title_col: str,
+    rows: list[dict],
+    total_monto_usd: float,
+    show_activity_columns: bool,
+) -> None:
+    table_rows: list[dict] = []
+    total_mov = 0.0
+    total_caja = 0.0
+    for row in rows:
+        total_mov += _to_float(row.get("movimientos_mes")) or 0.0
+        total_caja += _to_float(row.get("caja_disponible")) or 0.0
+        table_rows.append(
+            {
+                title_col: _display_detail_label(view_key, str(row.get("label") or "")),
+                "Monto USD": _fmt_or_blank(row.get("monto_usd")),
+                "%": _fmt_or_blank(row.get("pct_total"), decimals=2),
+            }
+        )
+        if show_activity_columns:
+            table_rows[-1]["Mov mes"] = _fmt_or_blank(row.get("movimientos_mes"))
+            table_rows[-1]["Caja disponible"] = _fmt_or_blank(row.get("caja_disponible"))
+
+    if table_rows:
+        total_row = {
+            title_col: "Total",
+            "Monto USD": _fmt_or_blank(total_monto_usd),
+            "%": _fmt_or_blank(100.0 if total_monto_usd > 0 else None, decimals=2),
+        }
+        if show_activity_columns:
+            total_row["Mov mes"] = _fmt_or_blank(total_mov)
+            total_row["Caja disponible"] = _fmt_or_blank(total_caja)
+        table_rows.append(total_row)
+
+    columns = [title_col, "Monto USD"]
+    if show_activity_columns:
+        columns.extend(["Mov mes", "Caja disponible"])
+    columns.append("%")
+
+    render_table(
+        pd.DataFrame(
+            table_rows,
+            columns=columns,
+        ),
+        label_col=title_col,
+        bold_row_labels={"Total"},
+    )
+
+
+def _detail_chart_spacer_px(view_key: str, row_count: int) -> int:
+    if view_key == "bank":
+        return min(max((row_count - 3) * 18, 24), 96)
+    if view_key == "account":
+        return min(max((row_count - 4) * 18, 48), 144)
+    return 0
+
+
+def _detail_chart_color(
+    *,
+    view_key: str,
+    label: str,
+    color_map: dict[str, str],
+    fallback_color_map: dict[str, str],
+) -> str | None:
+    taxonomy_colors = asset_bucket_colors()
+    normalized = str(label or "").strip()
+    normalized_lower = normalized.lower()
+
+    if view_key == "bank" and normalized_lower == "alternativos":
+        return taxonomy_colors.get("Alternativos") or "#2E7D5A"
+    if view_key == "account":
+        if normalized.endswith("-ALT-PE"):
+            return taxonomy_colors.get("PE") or taxonomy_colors.get("Alternativos") or "#2E7D5A"
+        if normalized.endswith("-ALT-RE"):
+            return taxonomy_colors.get("RE") or taxonomy_colors.get("Real Estate") or "#6AA56A"
+    if view_key == "asset":
+        if normalized == "PE":
+            return taxonomy_colors.get("PE") or taxonomy_colors.get("Alternativos") or "#2E7D5A"
+        if normalized == "RE":
+            return taxonomy_colors.get("RE") or taxonomy_colors.get("Real Estate") or "#6AA56A"
+
+    return color_map.get(normalized) or fallback_color_map.get(normalized)
+
+
+def _render_detail_section(
+    *,
+    section_title: str,
+    view_key: str,
+    label_title: str,
+    payload: dict,
+) -> None:
+    st.markdown(f"#### {section_title}")
+    table_rows = payload.get("table_rows", [])
+    composition = payload.get("composition", [])
+    history_months = payload.get("history_months", [])
+    history_series = payload.get("history_series", [])
+    total_monto_usd = _to_float(payload.get("total_monto_usd")) or 0.0
+    show_activity_columns = bool(payload.get("show_activity_columns", True))
+    chart_spacer_px = _detail_chart_spacer_px(view_key, len(table_rows))
+    color_map = asset_bucket_colors() if view_key == "asset" else {}
+    fallback_palette = default_chart_color_sequence()
+    fallback_color_map = {
+        str(row.get("label") or ""): fallback_palette[idx % len(fallback_palette)]
+        for idx, row in enumerate(composition)
+    } if fallback_palette else {}
+
+    left, middle, right = st.columns([3, 3, 4])
+
+    with left:
+        if table_rows:
+            _render_detail_table(
+                view_key=view_key,
+                title_col=label_title,
+                rows=table_rows,
+                total_monto_usd=total_monto_usd,
+                show_activity_columns=show_activity_columns,
+            )
+        else:
+            st.info("Sin datos para la tabla.")
+
+    with middle:
+        if chart_spacer_px:
+            st.markdown(f"<div style='height:{chart_spacer_px}px'></div>", unsafe_allow_html=True)
+        if composition:
+            labels = [_display_detail_label(view_key, str(row.get("label") or "")) for row in composition]
+            values = [_to_float(row.get("value")) or 0.0 for row in composition]
+            marker_colors = [
+                _detail_chart_color(
+                    view_key=view_key,
+                    label=str(row.get("label") or ""),
+                    color_map=color_map,
+                    fallback_color_map=fallback_color_map,
+                )
+                for row in composition
+            ]
+            fig = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=labels,
+                        values=values,
+                        hole=0.42,
+                        marker=dict(colors=marker_colors) if any(marker_colors) else None,
+                    )
+                ]
+            )
+            fig.update_layout(height=360, margin=dict(l=10, r=10, t=20, b=20))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Sin datos para la composición.")
+
+    with right:
+        if chart_spacer_px:
+            st.markdown(f"<div style='height:{chart_spacer_px}px'></div>", unsafe_allow_html=True)
+        if history_months and history_series:
+            fig = go.Figure()
+            x_labels = [_fecha_label(month) for month in history_months]
+            history_color_map = {
+                str(series.get("label") or ""): fallback_palette[idx % len(fallback_palette)]
+                for idx, series in enumerate(history_series)
+            } if fallback_palette else {}
+            for series in history_series:
+                pct_values = [_to_float(val) or 0.0 for val in series.get("pct_values", [])]
+                amount_values = [_to_float(val) or 0.0 for val in series.get("amount_values", [])]
+                text_values = [f"{val:.1f}%" if val >= 7 else "" for val in pct_values]
+                label = str(series.get("label") or "")
+                fig.add_trace(
+                    go.Bar(
+                        x=x_labels,
+                        y=pct_values,
+                        name=_display_detail_label(view_key, label),
+                        text=text_values,
+                        textposition="inside",
+                        customdata=amount_values,
+                        marker_color=_detail_chart_color(
+                            view_key=view_key,
+                            label=label,
+                            color_map=color_map,
+                            fallback_color_map=history_color_map,
+                        ),
+                        hovertemplate="%{fullData.name}<br>%{x}<br>%{y:.2f}%<br>USD %{customdata:,.2f}<extra></extra>",
+                    )
+                )
+            fig.update_layout(
+                barmode="stack",
+                height=360,
+                margin=dict(l=20, r=20, t=20, b=20),
+                yaxis_title="% del total",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            )
+            fig.update_yaxes(range=[0, 100], tickformat=",.0f")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Sin datos para la evolución mensual.")
 
 
 def render():
@@ -181,6 +400,7 @@ def render():
         opts = api_client.get("/accounts/filter-options")
     except Exception:
         opts = {
+            "bank_codes": [],
             "entity_names": [],
             "person_names": [],
             "years": [],
@@ -188,20 +408,61 @@ def render():
         }
 
     bank_options_all = sorted(opts.get("bank_codes", []))
-    entity_options = sorted(opts.get("entity_names", []))
-    person_options = sorted(opts.get("person_names", []))
-    account_type_options_all = sorted(opts.get("account_types", []))
+    entity_options_all = sorted(opts.get("entity_names", []))
+    person_options_all = sorted(opts.get("person_names", []))
     year_options = [int(y) for y in opts.get("years", []) if y is not None]
     fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
     if not fecha_options:
         fecha_options = _build_fecha_options(year_options)
+
+    raw_selected_consolidated = st.session_state.get("detalle_consolidated", "")
+    raw_selected_entities = list(st.session_state.get("detalle_sociedad", []))
+    raw_selected_banks = list(st.session_state.get("detalle_banco", []))
+    raw_selected_people = list(st.session_state.get("detalle_nombre", []))
+    current_fecha = st.session_state.get("detalle_fecha")
+    if current_fecha not in fecha_options and fecha_options:
+        current_fecha = fecha_options[0]
+        st.session_state["detalle_fecha"] = current_fecha
+
+    selected_year_seed = int(current_fecha[:4]) if current_fecha else None
+    selected_month_seed = int(current_fecha[5:7]) if current_fecha else None
+    preset_entities_seed = list(CONSOLIDATED_PRESETS.get(raw_selected_consolidated, []))
+    effective_entities_seed = sorted(set(raw_selected_entities) | set(preset_entities_seed))
+    effective_people_seed = [] if preset_entities_seed else raw_selected_people
+
+    bank_seed_rows = _seed_detail_rows(
+        selected_year=selected_year_seed,
+        selected_month=selected_month_seed,
+        entity_names=effective_entities_seed,
+        person_names=effective_people_seed,
+    )
+    entity_seed_rows = _seed_detail_rows(
+        selected_year=selected_year_seed,
+        selected_month=selected_month_seed,
+        bank_codes=raw_selected_banks,
+        person_names=effective_people_seed,
+    )
+    person_seed_rows = _seed_detail_rows(
+        selected_year=selected_year_seed,
+        selected_month=selected_month_seed,
+        bank_codes=raw_selected_banks,
+        entity_names=effective_entities_seed,
+    )
+
+    bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
+    entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
+    person_options = _distinct_values(person_seed_rows, "nombre") or person_options_all
+
+    _sanitize_multiselect_state("detalle_banco", bank_options)
+    _sanitize_multiselect_state("detalle_sociedad", entity_options)
+    _sanitize_multiselect_state("detalle_nombre", person_options)
 
     st.markdown("### Filtros")
     f1, f2, f3, f4, f5 = st.columns(5)
     with f1:
         selected_banks = st.multiselect(
             "Banco",
-            options=bank_options_all,
+            options=bank_options,
             format_func=_fmt_bank,
             key="detalle_banco",
         )
@@ -239,14 +500,15 @@ def render():
 
     preset_entities = list(CONSOLIDATED_PRESETS.get(selected_consolidated, []))
     selected_entities_effective = sorted(set(selected_entities) | set(preset_entities))
+    effective_people = [] if preset_entities else selected_people
     if selected_consolidated and preset_entities:
         st.caption(f"Consolidado activo: {', '.join(preset_entities)}")
 
     selected_year = int(selected_fecha[:4]) if selected_fecha else None
     selected_month = int(selected_fecha[5:7]) if selected_fecha else None
-    effective_people = [] if preset_entities else selected_people
     has_scope_filter = bool(selected_banks or selected_entities_effective or effective_people)
 
+    data = _default_detail_payload()
     if has_scope_filter:
         payload = {
             "bank_codes": selected_banks,
@@ -259,35 +521,7 @@ def render():
             data = api_client.post("/data/personal", json=payload)
         except Exception as exc:
             st.error(f"Error obteniendo datos de detalle: {exc}")
-            data = {
-                "consolidated_usd": 0.0,
-                "consolidated_clp": 0.0,
-                "pie_charts": {"by_bank": [], "by_type": []},
-                "by_bank_detail": [],
-                "entities_table": [],
-            }
-    else:
-        data = {
-            "consolidated_usd": 0.0,
-            "consolidated_clp": 0.0,
-            "pie_charts": {"by_bank": [], "by_type": []},
-            "by_bank_detail": [],
-            "entities_table": [],
-        }
 
-    ytd_payload = {
-        "bank_codes": selected_banks,
-        "entity_names": selected_entities_effective,
-        "person_names": effective_people,
-        "years": [selected_year] if selected_year else [],
-    }
-    try:
-        ytd_data = api_client.post("/data/summary", json=ytd_payload) if has_scope_filter else {"chart_data": []}
-    except Exception:
-        ytd_data = {"chart_data": []}
-    ytd_values = _build_ytd_series(ytd_data.get("chart_data", []), selected_year) if selected_year else [None] * 12
-
-    if has_scope_filter:
         render_health_warning(
             {
                 "years": [selected_year] if selected_year else [],
@@ -306,12 +540,14 @@ def render():
 
     if "detalle_show_bank_detail" not in st.session_state:
         st.session_state["detalle_show_bank_detail"] = False
-    if "detalle_show_type_detail" not in st.session_state:
-        st.session_state["detalle_show_type_detail"] = False
+    if "detalle_show_account_detail" not in st.session_state:
+        st.session_state["detalle_show_account_detail"] = False
     if "detalle_show_society_detail" not in st.session_state:
         st.session_state["detalle_show_society_detail"] = False
+    if "detalle_show_asset_detail" not in st.session_state:
+        st.session_state["detalle_show_asset_detail"] = False
 
-    m1, m2, m3, m4, m5 = st.columns([1, 1, 1.1, 1.4, 1.2])
+    m1, m2, m3, m4, m5, m6 = st.columns([1, 1, 1.1, 1.2, 1.2, 1.2])
     with m1:
         st.metric("Total USD", fmt_currency(data.get("consolidated_usd", 0), decimals=2))
     with m2:
@@ -320,218 +556,97 @@ def render():
         if st.button("Detalle por Banco", key="detalle_toggle_bank_detail"):
             st.session_state["detalle_show_bank_detail"] = not st.session_state["detalle_show_bank_detail"]
     with m4:
-        if st.button("Detalle por Tipo de Cuenta", key="detalle_toggle_type_detail"):
-            st.session_state["detalle_show_type_detail"] = not st.session_state["detalle_show_type_detail"]
+        if st.button("Detalle por Cuenta", key="detalle_toggle_account_detail"):
+            st.session_state["detalle_show_account_detail"] = not st.session_state["detalle_show_account_detail"]
     with m5:
         if st.button("Detalle por Sociedad", key="detalle_toggle_society_detail"):
             st.session_state["detalle_show_society_detail"] = not st.session_state["detalle_show_society_detail"]
-
-    if st.session_state["detalle_show_bank_detail"]:
-        st.markdown("#### Detalle por Banco")
-        st.caption("Los montos por banco agregan todas las cuentas visibles del filtro actual.")
-        bank_rows = data.get("by_bank_detail", [])
-        bank_account_labels = _build_bank_account_labels(data.get("entities_table", []))
-        bank_map = {
-            str(row.get("bank_code", "")): row
-            for row in bank_rows
-            if str(row.get("bank_code", "")).strip()
-        }
-        table_rows: list[dict] = []
-        total_monto = 0.0
-        total_mov = 0.0
-        total_caja = 0.0
-        for bank_code in bank_options_all:
-            row = bank_map.get(bank_code)
-            monto = _to_float(row.get("monto_usd")) if row else None
-            mov = _to_float(row.get("movimientos_mes")) if row else None
-            caja = _to_float(row.get("caja_disponible")) if row else None
-            total_monto += monto or 0.0
-            total_mov += mov or 0.0
-            total_caja += caja or 0.0
-            table_rows.append(
-                {
-                    "Banco": _fmt_bank(str(bank_code)),
-                    "Monto USD": _fmt_or_blank(monto),
-                    "Movimientos del mes": _fmt_or_blank(mov),
-                    "Caja disponible": _fmt_or_blank(caja),
-                    "Cuentas visibles": bank_account_labels.get(bank_code, ""),
-                }
-            )
-        table_rows.append(
-            {
-                "Banco": "Total",
-                "Monto USD": _fmt_or_blank(total_monto),
-                "Movimientos del mes": _fmt_or_blank(total_mov),
-                "Caja disponible": _fmt_or_blank(total_caja),
-                "Cuentas visibles": "",
-            }
-        )
-        render_table(
-            pd.DataFrame(
-                table_rows,
-                columns=[
-                    "Banco",
-                    "Monto USD",
-                    "Movimientos del mes",
-                    "Caja disponible",
-                    "Cuentas visibles",
-                ],
-            ),
-            label_col="Banco",
-            bold_row_labels={"Total"},
-        )
-
-    if st.session_state["detalle_show_type_detail"]:
-        st.markdown("#### Detalle por Tipo de Cuenta")
-        type_agg = _aggregate_detail_rows(
-            data.get("entities_table", []),
-            key_field="tipo_cuenta",
-        )
-        type_rows = []
-        total_monto = 0.0
-        total_mov = 0.0
-        total_caja = 0.0
-        for account_type in account_type_options_all:
-            vals = type_agg.get(account_type)
-            monto = _to_float(vals.get("monto_usd")) if vals else None
-            mov = _to_float(vals.get("movimientos_mes")) if vals else None
-            caja = _to_float(vals.get("caja_disponible")) if vals else None
-            total_monto += monto or 0.0
-            total_mov += mov or 0.0
-            total_caja += caja or 0.0
-            type_rows.append(
-                {
-                    "Tipo de Cuenta": _fmt_account_type(account_type),
-                    "Monto USD": _fmt_or_blank(monto),
-                    "Movimientos del mes": _fmt_or_blank(mov),
-                    "Caja disponible": _fmt_or_blank(caja),
-                }
-            )
-        type_rows.append(
-            {
-                "Tipo de Cuenta": "Total",
-                "Monto USD": _fmt_or_blank(total_monto),
-                "Movimientos del mes": _fmt_or_blank(total_mov),
-                "Caja disponible": _fmt_or_blank(total_caja),
-            }
-        )
-        render_table(
-            pd.DataFrame(
-                type_rows,
-                columns=["Tipo de Cuenta", "Monto USD", "Movimientos del mes", "Caja disponible"],
-            ),
-            label_col="Tipo de Cuenta",
-            bold_row_labels={"Total"},
-        )
-
-    if st.session_state["detalle_show_society_detail"]:
-        st.markdown("#### Detalle por Sociedad")
-        entities_rows = data.get("entities_table", []) if has_scope_filter else []
-        society_agg = _aggregate_detail_rows(entities_rows, key_field="sociedad")
-        visible_societies = sorted(
-            {
-                str(row.get("sociedad") or "").strip()
-                for row in entities_rows
-                if str(row.get("sociedad") or "").strip()
-            }
-        )
-        society_scope: list[str] = []
-        for name in selected_entities_effective + visible_societies:
-            clean = str(name or "").strip()
-            if clean and clean not in society_scope:
-                society_scope.append(clean)
-
-        society_rows = []
-        total_monto = 0.0
-        total_mov = 0.0
-        total_caja = 0.0
-        for society in society_scope:
-            vals = society_agg.get(society)
-            monto = _to_float(vals.get("monto_usd")) if vals else None
-            mov = _to_float(vals.get("movimientos_mes")) if vals else None
-            caja = _to_float(vals.get("caja_disponible")) if vals else None
-            total_monto += monto or 0.0
-            total_mov += mov or 0.0
-            total_caja += caja or 0.0
-            society_rows.append(
-                {
-                    "Sociedad": society,
-                    "Monto USD": _fmt_or_blank(monto),
-                    "Movimientos del mes": _fmt_or_blank(mov),
-                    "Caja disponible": _fmt_or_blank(caja),
-                }
-            )
-        if society_rows:
-            society_rows.append(
-                {
-                    "Sociedad": "Total",
-                    "Monto USD": _fmt_or_blank(total_monto),
-                    "Movimientos del mes": _fmt_or_blank(total_mov),
-                    "Caja disponible": _fmt_or_blank(total_caja),
-                }
-            )
-
-        render_table(
-            pd.DataFrame(
-                society_rows,
-                columns=["Sociedad", "Monto USD", "Movimientos del mes", "Caja disponible"],
-            ),
-            label_col="Sociedad",
-            bold_row_labels={"Total"},
-        )
-
-        if not has_scope_filter:
-            st.caption("Activa al menos un filtro para poblar esta tabla.")
-        elif not society_rows:
-            st.caption("Sin sociedades visibles para el filtro actual.")
-        else:
-            st.caption("Tabla por sociedad aplicada sobre el mismo scope visible en Detalle.")
+    with m6:
+        if st.button("Detalle por Activo", key="detalle_toggle_asset_detail"):
+            st.session_state["detalle_show_asset_detail"] = not st.session_state["detalle_show_asset_detail"]
 
     st.markdown("---")
 
-    g1, g2, g3 = st.columns(3)
-
-    with g1:
-        st.subheader("Por Banco")
-        by_bank = data.get("pie_charts", {}).get("by_bank", [])
-        labels = [_fmt_bank(str(r.get("label", ""))) for r in by_bank]
-        values = [_to_float(r.get("value")) or 0.0 for r in by_bank]
-        if values and sum(values) > 0:
-            fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4)])
-            fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Sin datos.")
-
-    with g2:
-        st.subheader("Por Tipo de Cuenta")
-        by_type = data.get("pie_charts", {}).get("by_type", [])
-        labels = [_fmt_account_type(str(r.get("label", ""))) for r in by_type]
-        values = [_to_float(r.get("value")) or 0.0 for r in by_type]
-        if values and sum(values) > 0:
-            fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4)])
-            fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Sin datos.")
-
-    with g3:
-        label_year = selected_year if selected_year else "Ano"
-        st.subheader(f"Evolucion Rentabilidad YTD ({label_year})")
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=MONTHS,
-                y=ytd_values,
-                mode="lines+markers",
-                name="YTD",
-                line=dict(color="#E67E22", width=2),
+    top_left, top_right = st.columns([2, 1])
+    returns_rows = data.get("returns_panel", {}).get("rows", [])
+    with top_left:
+        st.subheader("Evolucion Rentabilidad Mensual y YTD")
+        if returns_rows:
+            x_labels = [_fecha_label(str(row.get("fecha") or "")) for row in returns_rows]
+            monthly_values = [_to_float(row.get("rent_mensual_pct")) for row in returns_rows]
+            ytd_values = [_to_float(row.get("rent_ytd_pct")) for row in returns_rows]
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig.add_trace(
+                go.Bar(
+                    x=x_labels,
+                    y=monthly_values,
+                    name="Rentabilidad mensual",
+                    marker_color="#AFC8E2",
+                    opacity=0.95,
+                ),
+                secondary_y=False,
             )
+            fig.add_trace(
+                go.Scatter(
+                    x=x_labels,
+                    y=ytd_values,
+                    mode="lines+markers",
+                    name="Rentabilidad YTD",
+                    line=dict(color="#E67E22", width=2),
+                ),
+                secondary_y=True,
+            )
+            fig.update_layout(
+                height=360,
+                margin=dict(l=20, r=20, t=20, b=20),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            )
+            fig.update_yaxes(title_text="% Mensual", tickformat=",.2f", showgrid=False, secondary_y=False)
+            fig.update_yaxes(
+                title_text="% YTD",
+                tickformat=",.2f",
+                showgrid=True,
+                gridcolor="#D6DCE5",
+                zeroline=False,
+                secondary_y=True,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Sin datos para la rentabilidad.")
+    with top_right:
+        st.subheader("Movimientos Ultimos 12 Meses")
+        _render_movements_table(returns_rows, height=360)
+
+    detail_views = data.get("detail_views", {})
+
+    if st.session_state["detalle_show_bank_detail"]:
+        _render_detail_section(
+            section_title="Detalle por Banco",
+            view_key="bank",
+            label_title="Banco",
+            payload=detail_views.get("bank", {}),
         )
-        fig.update_layout(
-            height=320,
-            yaxis_title="% YTD",
-            margin=dict(l=20, r=20, t=20, b=20),
+
+    if st.session_state["detalle_show_account_detail"]:
+        _render_detail_section(
+            section_title="Detalle por Cuenta",
+            view_key="account",
+            label_title="Cuenta",
+            payload=detail_views.get("account", {}),
         )
-        fig.update_yaxes(tickformat=",.2f")
-        st.plotly_chart(fig, use_container_width=True)
+
+    if st.session_state["detalle_show_society_detail"]:
+        _render_detail_section(
+            section_title="Detalle por Sociedad",
+            view_key="society",
+            label_title="Sociedad",
+            payload=detail_views.get("society", {}),
+        )
+
+    if st.session_state["detalle_show_asset_detail"]:
+        _render_detail_section(
+            section_title="Detalle por Activo",
+            view_key="asset",
+            label_title="Activo",
+            payload=detail_views.get("asset", {}),
+        )

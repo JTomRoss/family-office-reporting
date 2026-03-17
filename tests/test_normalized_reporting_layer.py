@@ -18,6 +18,7 @@ from backend.db.models import (
 from backend.routers.data import (
     PERSONAL_ENTITY_NAMES,
     _build_health_report,
+    _etf_asset_bucket_from_instrument,
     get_etf,
     get_mandates,
     get_normalization_quality,
@@ -618,6 +619,312 @@ def test_personal_exposes_sibling_accounts_separately_when_one_normalized_value_
     assert rows[("ubs", "206-560552-02", "mandato")]["movimientos"] == -40.0
     assert rows[("ubs", "206-560552-01", "brokerage")]["net_value"] == 54185.0
     assert rows[("ubs", "206-560552-01", "brokerage")]["movimientos"] == -448.0
+
+
+def test_get_personal_exposes_returns_panel_and_detail_views_from_backend(db_session):
+    jpm = _mk_account(
+        db_session,
+        account_number="9001",
+        bank_code="jpmorgan",
+        account_type="etf",
+        entity_name="Boatview",
+    )
+    ubs = _mk_account(
+        db_session,
+        account_number="206-560552-01",
+        bank_code="ubs",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=jpm.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=jpm.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("105.00"),
+                income=Decimal("5.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=jpm.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("110.00"),
+                income=Decimal("3.00"),
+                change_in_value=Decimal("2.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=ubs.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("200.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=ubs.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("210.00"),
+                income=Decimal("10.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=ubs.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("220.00"),
+                income=Decimal("5.00"),
+                change_in_value=Decimal("5.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=jpm.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("105.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("5.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=jpm.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("110.00"),
+                movements_net=Decimal("2.00"),
+                profit_period=Decimal("3.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=ubs.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("210.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("10.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=ubs.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("220.00"),
+                movements_net=Decimal("5.00"),
+                profit_period=Decimal("5.00"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                etf_code="IWDA",
+                etf_name="IWDA",
+                quantity=Decimal("1"),
+                market_value=Decimal("60.00"),
+                market_value_usd=Decimal("60.00"),
+                weight_pct=Decimal("60.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                etf_code="VDCA",
+                etf_name="VDCA",
+                quantity=Decimal("1"),
+                market_value=Decimal("40.00"),
+                market_value_usd=Decimal("40.00"),
+                weight_pct=Decimal("40.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                etf_code="IWDA",
+                etf_name="IWDA",
+                quantity=Decimal("1"),
+                market_value=Decimal("70.00"),
+                market_value_usd=Decimal("70.00"),
+                weight_pct=Decimal("58.3333"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                etf_code="VDCA",
+                etf_name="VDCA",
+                quantity=Decimal("1"),
+                market_value=Decimal("50.00"),
+                market_value_usd=Decimal("50.00"),
+                weight_pct=Decimal("41.6667"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[2]),
+        db_session,
+    )
+
+    assert payload["selected_fecha"] == "2025-02"
+    assert payload["returns_panel"]["rows"][-1]["fecha"] == "2025-02"
+    assert payload["returns_panel"]["rows"][-1]["movimientos"] == 7.0
+
+    bank_view = payload["detail_views"]["bank"]
+    assert bank_view["history_months"][-1] == "2025-02"
+    bank_rows = {row["label"]: row for row in bank_view["table_rows"]}
+    assert bank_rows["jpmorgan"]["monto_usd"] == 110.0
+    assert bank_rows["ubs"]["monto_usd"] == 220.0
+
+    account_rows = {row["label"]: row for row in payload["detail_views"]["account"]["table_rows"]}
+    assert account_rows["BV-JPM-ETF-9001"]["monto_usd"] == 110.0
+    assert account_rows["BV-UBS S-Man-5201"]["monto_usd"] == 220.0
+
+    asset_view = payload["detail_views"]["asset"]
+    assert asset_view["show_activity_columns"] is False
+    asset_rows = {row["label"]: row for row in asset_view["table_rows"]}
+    assert asset_rows["RV DM"]["monto_usd"] == 70.0
+    assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
+
+
+def test_etf_asset_bucket_classifies_core_tickers_and_cash_aliases():
+    assert _etf_asset_bucket_from_instrument("IWDA") == "RV DM"
+    assert _etf_asset_bucket_from_instrument("IEMA") == "RV EM"
+    assert _etf_asset_bucket_from_instrument("VDPA") == "RF IG Long"
+    assert _etf_asset_bucket_from_instrument("VDCA") == "RF IG Short"
+    assert _etf_asset_bucket_from_instrument("IHYA") == "HY"
+    assert _etf_asset_bucket_from_instrument("ALT") == "Alternativos"
+    assert _etf_asset_bucket_from_instrument("ALT RE") == "Real Estate"
+    assert _etf_asset_bucket_from_instrument("Money Market") == "Caja"
+    assert _etf_asset_bucket_from_instrument("Call Deposits USD") == "Caja"
+    assert _etf_asset_bucket_from_instrument("Caja USD") == "Caja"
+
+
+def test_get_etf_exposes_asset_pct_by_bank_with_new_taxonomy(db_session):
+    jpm = _mk_account(
+        db_session,
+        account_number="ETF-ASSET-001",
+        bank_code="jpmorgan",
+        account_type="etf",
+        entity_name="Telmar",
+    )
+    gs = _mk_account(
+        db_session,
+        account_number="ETF-ASSET-002",
+        bank_code="goldman_sachs",
+        account_type="etf",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                etf_code="IWDA",
+                etf_name="IWDA",
+                quantity=Decimal("1"),
+                market_value=Decimal("60.00"),
+                market_value_usd=Decimal("60.00"),
+                weight_pct=Decimal("60.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                etf_code="MM",
+                etf_name="Money Market",
+                quantity=Decimal("1"),
+                market_value=Decimal("40.00"),
+                market_value_usd=Decimal("40.00"),
+                weight_pct=Decimal("40.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=gs.id,
+                bank_code="goldman_sachs",
+                report_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                etf_code="IEMA",
+                etf_name="IEMA",
+                quantity=Decimal("1"),
+                market_value=Decimal("25.00"),
+                market_value_usd=Decimal("25.00"),
+                weight_pct=Decimal("25.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=gs.id,
+                bank_code="goldman_sachs",
+                report_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                etf_code="IHYA",
+                etf_name="IHYA",
+                quantity=Decimal("1"),
+                market_value=Decimal("75.00"),
+                market_value_usd=Decimal("75.00"),
+                weight_pct=Decimal("75.0"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_etf(
+        FilterParams(
+            years=[2025],
+            fecha="2025-12",
+            bank_codes=["jpmorgan", "goldman_sachs"],
+        ),
+        db_session,
+    )
+
+    assert payload["asset_pct_by_bank"]["jpmorgan"] == {"RV DM": 60.0, "Caja": 40.0}
+    assert payload["asset_pct_by_bank"]["goldman_sachs"] == {"RV EM": 25.0, "HY": 75.0}
 
 
 def test_etf_control_uses_normalized_ending_without_accrual(db_session):
@@ -1559,3 +1866,249 @@ def test_health_report_reads_ytd_from_normalized_columns(db_session):
     assert report["summary"]["ytd_movement_mismatch_count"] == 1
     assert report["summary"]["ytd_profit_mismatch_count"] == 1
     assert len(report["ytd_issues"]) == 2
+
+
+def test_health_report_notes_bbh_ytd_when_prior_adjustments_explain_gap(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="7085",
+        bank_code="bbh",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    parser_version = _mk_parser_version(db_session, name="tests.health.bbh_ytd_note")
+    jan_doc = RawDocument(
+        filename="202501 Boatview BBH EQ.pdf",
+        filepath="data/raw/bbh/pdf_cartola/202501 Boatview BBH EQ.pdf",
+        file_type="pdf_cartola",
+        sha256_hash="health-bbh-ytd-jan",
+        file_size_bytes=1,
+        bank_code="bbh",
+        account_id=acct.id,
+        status="parsed",
+    )
+    feb_doc = RawDocument(
+        filename="202502 Boatview BBH EQ.pdf",
+        filepath="data/raw/bbh/pdf_cartola/202502 Boatview BBH EQ.pdf",
+        file_type="pdf_cartola",
+        sha256_hash="health-bbh-ytd-feb",
+        file_size_bytes=1,
+        bank_code="bbh",
+        account_id=acct.id,
+        status="parsed",
+    )
+    db_session.add_all(
+        [
+            jan_doc,
+            feb_doc,
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("100.00"),
+                income=Decimal("10.00"),
+                change_in_value=Decimal("59.65"),
+                currency="USD",
+                source_document_id=1,
+            ),
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("110.00"),
+                income=Decimal("0.35"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+                source_document_id=2,
+            ),
+            MonthlyMetricNormalized(
+                account_id=acct.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("110.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.35"),
+                movements_ytd=Decimal("2210.88"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.flush()
+
+    jan_mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 1)
+        .one()
+    )
+    feb_mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2025, MonthlyClosing.month == 2)
+        .one()
+    )
+    jan_mc.source_document_id = jan_doc.id
+    feb_mc.source_document_id = feb_doc.id
+
+    db_session.add_all(
+        [
+            ParsedStatement(
+                raw_document_id=jan_doc.id,
+                account_id=acct.id,
+                statement_date=date(2025, 1, 31),
+                period_start=date(2025, 1, 1),
+                period_end=date(2025, 1, 31),
+                opening_balance=Decimal("90.00"),
+                closing_balance=Decimal("100.00"),
+                currency="USD",
+                parser_version_id=parser_version.id,
+                parsed_data_json=json.dumps(
+                    {
+                        "qualitative_data": {
+                            "account_monthly_activity": [
+                                {
+                                    "account_number": "7085",
+                                    "net_contributions": "59.65",
+                                    "net_contributions_ytd": "59.65",
+                                    "prior_period_adjustments": "0.00",
+                                }
+                            ]
+                        }
+                    }
+                ),
+            ),
+            ParsedStatement(
+                raw_document_id=feb_doc.id,
+                account_id=acct.id,
+                statement_date=date(2025, 2, 28),
+                period_start=date(2025, 2, 1),
+                period_end=date(2025, 2, 28),
+                opening_balance=Decimal("100.00"),
+                closing_balance=Decimal("110.00"),
+                currency="USD",
+                parser_version_id=parser_version.id,
+                parsed_data_json=json.dumps(
+                    {
+                        "qualitative_data": {
+                            "account_monthly_activity": [
+                                {
+                                    "account_number": "7085",
+                                    "net_contributions": "0.00",
+                                    "net_contributions_ytd": "2210.88",
+                                    "prior_period_adjustments": "2151.23",
+                                }
+                            ]
+                        }
+                    }
+                ),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = _build_health_report(
+        db=db_session,
+        filters=HealthAuditParams(years=[2025], bank_codes=["bbh"], account_types=["mandato"], limit=50),
+    )
+
+    movement_issue = next(
+        issue for issue in report["ytd_issues"]
+        if issue["metric"] == "movements_ytd"
+    )
+    assert movement_issue["difference"] == pytest.approx(2151.23)
+    assert movement_issue["note"] == "YTD BBH incluye prior adjustments"
+
+
+def test_summary_and_personal_include_normalized_only_alternatives_bank(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="ALT-TEST-001",
+        bank_code="alternativos",
+        account_type="investment",
+        entity_name="Telmar",
+    )
+    acct.identification_number = "ALT-T001"
+    acct.metadata_json = json.dumps(
+        {
+            "source": "alternatives_excel",
+            "asset_class": "PE",
+            "strategy": "Buyout",
+            "currency": "USD",
+            "nemo_reference": "TRFV9",
+            "account_group_label": "Telmar-ALT-PE",
+            "detail_label": "Telmar | PE | Buyout | USD",
+        }
+    )
+    db_session.add_all(
+        [
+            MonthlyMetricNormalized(
+                account_id=acct.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                ending_value_with_accrual=Decimal("100.00"),
+                ending_value_without_accrual=Decimal("100.00"),
+                cash_value=Decimal("0.00"),
+                movements_net=Decimal("90.00"),
+                profit_period=Decimal("10.00"),
+                movements_ytd=Decimal("90.00"),
+                profit_ytd=Decimal("10.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=acct.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("130.00"),
+                ending_value_without_accrual=Decimal("130.00"),
+                cash_value=Decimal("0.00"),
+                movements_net=Decimal("5.00"),
+                profit_period=Decimal("25.00"),
+                movements_ytd=Decimal("5.00"),
+                profit_ytd=Decimal("25.00"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    summary_payload = get_summary(
+        FilterParams(years=[2025], bank_codes=["alternativos"], entity_names=["Telmar"]),
+        db_session,
+    )
+    consolidated = {row["fecha"]: row for row in summary_payload["consolidated_rows"]}
+    detail = next(row for row in summary_payload["rows"] if row["fecha"] == "2025-01")
+
+    assert consolidated["2025-01"]["ending_value"] == 130.0
+    assert consolidated["2025-01"]["movimientos"] == 5.0
+    assert consolidated["2025-01"]["utilidad"] == 25.0
+    assert consolidated["2025-01"]["rent_mensual_pct"] == 25.0
+    assert detail["banco"] == "alternativos"
+    assert detail["account_number"] == "ALT-TEST-001"
+    assert detail["detail_label"] == "Telmar | PE | Buyout | USD"
+
+    personal_payload = get_personal(
+        FilterParams(
+            years=[2025],
+            months=[1],
+            bank_codes=["alternativos"],
+            entity_names=["Telmar"],
+        ),
+        db_session,
+    )
+
+    assert personal_payload["selected_fecha"] == "2025-01"
+    assert personal_payload["consolidated_usd"] == 130.0
+    assert personal_payload["by_bank_detail"] == [
+        {
+            "bank_code": "alternativos",
+            "monto_usd": 130.0,
+            "movimientos_mes": 5.0,
+            "caja_disponible": 0.0,
+        }
+    ]
+    assert personal_payload["entities_table"][0]["detail_label"] == "Telmar | PE | Buyout | USD"
+    assert personal_payload["detail_views"]["account"]["table_rows"][0]["label"] == "Telmar-ALT-PE"
+    assert personal_payload["detail_views"]["asset"]["table_rows"][0]["label"] == "PE"

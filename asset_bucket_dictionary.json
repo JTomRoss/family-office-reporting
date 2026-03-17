@@ -1,0 +1,149 @@
+{
+  "default_bucket": "RV DM",
+  "order": [
+    "Caja",
+    "RF IG Short",
+    "RF IG Long",
+    "HY",
+    "Alternativos",
+    "Real Estate",
+    "RV EM",
+    "RV DM"
+  ],
+  "buckets": {
+    "RV DM": {
+      "tone": "rv",
+      "color": "#B53639"
+    },
+    "RV EM": {
+      "tone": "rv",
+      "color": "#D85759"
+    },
+    "RF IG Short": {
+      "tone": "rf",
+      "color": "#2D6FB7"
+    },
+    "RF IG Long": {
+      "tone": "rf",
+      "color": "#4D92D9"
+    },
+    "HY": {
+      "tone": "rf",
+      "color": "#8AB8EB"
+    },
+    "Alternativos": {
+      "tone": "alt",
+      "color": "#2E7D5A"
+    },
+    "Real Estate": {
+      "tone": "alt",
+      "color": "#6AA56A"
+    },
+    "PE": {
+      "tone": "alt",
+      "color": "#2E7D5A"
+    },
+    "RE": {
+      "tone": "alt",
+      "color": "#6AA56A"
+    },
+    "Caja": {
+      "tone": "cash",
+      "color": "#D5DEE9"
+    }
+  },
+  "instrument_aliases": {
+    "IWDA": "RV DM",
+    "IEMA": "RV EM",
+    "VDCA": "RF IG Short",
+    "VDPA": "RF IG Long",
+    "IHYA": "HY",
+    "SPDR": "RF IG Short",
+    "ALT": "Alternativos",
+    "ALT RE": "Real Estate",
+    "MONEY MARKET": "Caja",
+    "RV DM": "RV DM",
+    "RV EM": "RV EM",
+    "RF IG SHORT": "RF IG Short",
+    "RF IG LONG": "RF IG Long",
+    "HY": "HY",
+    "CAJA": "Caja",
+    "ALTERNATIVOS": "Alternativos",
+    "REAL ESTATE": "Real Estate"
+  },
+  "keyword_rules": [
+    {
+      "bucket": "Caja",
+      "tokens": [
+        "money market",
+        "deposit",
+        "deposits",
+        "cash",
+        "caja",
+        "liquidity",
+        "li-liq",
+        "sweep"
+      ]
+    },
+    {
+      "bucket": "Real Estate",
+      "tokens": [
+        "alt re",
+        "real estate"
+      ]
+    },
+    {
+      "bucket": "Alternativos",
+      "tokens": [
+        "alternative",
+        "alternatives",
+        "alternativo",
+        "alternativos"
+      ]
+    },
+    {
+      "bucket": "HY",
+      "tokens": [
+        "high yield",
+        "hy corp",
+        "hy bond"
+      ]
+    },
+    {
+      "bucket": "RF IG Short",
+      "tokens": [
+        "1-3 year",
+        "1-3yr",
+        "short duration",
+        "short-duration",
+        "cmn class"
+      ]
+    },
+    {
+      "bucket": "RF IG Long",
+      "tokens": [
+        "corporate bond",
+        "investment grade",
+        "ig long",
+        "long duration",
+        "long-duration"
+      ]
+    },
+    {
+      "bucket": "RV EM",
+      "tokens": [
+        "emerging markets",
+        "emerging market"
+      ]
+    },
+    {
+      "bucket": "RV DM",
+      "tokens": [
+        "msci world",
+        "world index",
+        "developed markets",
+        "developed market"
+      ]
+    }
+  ]
+}

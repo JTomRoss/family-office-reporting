@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsCustodyParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.1.0"
+    VERSION = "2.1.1"
     DESCRIPTION = "Parser para cartolas Goldman Sachs Mandato/Wrap (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -179,6 +179,13 @@ class GoldmanSachsCustodyParser(BaseParser):
             sub_overviews = self._extract_sub_portfolio_overviews(page_texts, warnings)
             if sub_overviews:
                 qualitative["sub_portfolio_overviews"] = sub_overviews
+                opening_balance, closing_balance = self._apply_sub_portfolio_summary_fallback(
+                    balances=balances,
+                    qualitative=qualitative,
+                    sub_overviews=sub_overviews,
+                    opening_balance=opening_balance,
+                    closing_balance=closing_balance,
+                )
 
             monthly = self._build_account_monthly_activity(
                 account_number=balances.get("account_number"),
@@ -309,6 +316,154 @@ class GoldmanSachsCustodyParser(BaseParser):
         ]
 
     # ── validate ──────────────────────────────────────────────────────
+    def _apply_sub_portfolio_summary_fallback(
+        self,
+        *,
+        balances: dict[str, Any],
+        qualitative: dict[str, Any],
+        sub_overviews: list[dict[str, Any]],
+        opening_balance: Decimal | None,
+        closing_balance: Decimal | None,
+    ) -> tuple[Decimal | None, Decimal | None]:
+        """Fill missing account-level monthly data from sub-portfolio overviews."""
+        summary = self._aggregate_sub_portfolio_overviews(sub_overviews)
+        if not summary:
+            return opening_balance, closing_balance
+
+        if opening_balance is None:
+            opening_balance = summary.get("opening_balance")
+        if closing_balance is None:
+            closing_balance = summary.get("closing_balance")
+
+        if balances.get("total_portfolio") is None and closing_balance is not None:
+            balances["total_portfolio"] = closing_balance
+
+        if not balances.get("investment_results") and summary.get("investment_results"):
+            balances["investment_results"] = summary["investment_results"]
+
+        if not balances.get("portfolio_activity") and summary.get("portfolio_activity"):
+            balances["portfolio_activity"] = summary["portfolio_activity"]
+
+        if not qualitative.get("asset_allocation") and summary.get("asset_allocation"):
+            qualitative["asset_allocation"] = self._json_safe(summary["asset_allocation"])
+
+        return opening_balance, closing_balance
+
+    def _aggregate_sub_portfolio_overviews(
+        self,
+        sub_overviews: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        totals = {
+            "opening_balance": Decimal("0"),
+            "closing_balance": Decimal("0"),
+            "net_contributions": Decimal("0"),
+            "utilidad": Decimal("0"),
+        }
+        seen = {key: False for key in totals}
+        asset_allocation: dict[str, dict[str, Decimal | str]] = {}
+
+        for overview in sub_overviews:
+            if not isinstance(overview, dict):
+                continue
+
+            investment_results = overview.get("investment_results")
+            if not isinstance(investment_results, dict):
+                investment_results = {}
+            portfolio_activity = overview.get("portfolio_activity")
+            if not isinstance(portfolio_activity, dict):
+                portfolio_activity = {}
+
+            opening_value = self._coalesce_decimal(
+                investment_results.get("beginning_market_value"),
+                portfolio_activity.get("opening_value"),
+            )
+            closing_value = self._coalesce_decimal(
+                investment_results.get("ending_market_value"),
+                portfolio_activity.get("closing_value"),
+                overview.get("total_portfolio"),
+            )
+            net_contributions = self._coalesce_decimal(
+                investment_results.get("net_deposits_withdrawals"),
+            )
+            utilidad = self._coalesce_decimal(
+                investment_results.get("investment_results"),
+            )
+
+            if opening_value is not None:
+                totals["opening_balance"] += opening_value
+                seen["opening_balance"] = True
+            if closing_value is not None:
+                totals["closing_balance"] += closing_value
+                seen["closing_balance"] = True
+            if net_contributions is not None:
+                totals["net_contributions"] += net_contributions
+                seen["net_contributions"] = True
+            if utilidad is not None:
+                totals["utilidad"] += utilidad
+                seen["utilidad"] = True
+
+            sub_asset_alloc = overview.get("asset_allocation")
+            if not isinstance(sub_asset_alloc, dict):
+                continue
+            for label, payload in sub_asset_alloc.items():
+                if not isinstance(payload, dict):
+                    continue
+                market_value = self._coalesce_decimal(
+                    payload.get("market_value"),
+                    payload.get("value"),
+                    payload.get("amount"),
+                )
+                if market_value is None:
+                    continue
+                existing = asset_allocation.setdefault(
+                    str(label),
+                    {"market_value": Decimal("0")},
+                )
+                existing["market_value"] += market_value
+
+        if not any(seen.values()) and not asset_allocation:
+            return {}
+
+        closing_total = totals["closing_balance"] if seen["closing_balance"] else None
+        if closing_total not in (None, Decimal("0")):
+            for payload in asset_allocation.values():
+                market_value = payload["market_value"]
+                payload["percentage"] = f"{(market_value / closing_total * Decimal('100')):.2f}%"
+
+        summary: dict[str, Any] = {}
+        if seen["opening_balance"]:
+            summary["opening_balance"] = totals["opening_balance"]
+        if seen["closing_balance"]:
+            summary["closing_balance"] = totals["closing_balance"]
+        if seen["net_contributions"] or seen["utilidad"]:
+            summary["investment_results"] = {
+                "beginning_market_value": (
+                    totals["opening_balance"] if seen["opening_balance"] else None
+                ),
+                "net_deposits_withdrawals": (
+                    totals["net_contributions"] if seen["net_contributions"] else None
+                ),
+                "investment_results": totals["utilidad"] if seen["utilidad"] else None,
+                "ending_market_value": (
+                    totals["closing_balance"] if seen["closing_balance"] else None
+                ),
+            }
+        if seen["opening_balance"] or seen["closing_balance"]:
+            summary["portfolio_activity"] = {
+                "opening_value": totals["opening_balance"] if seen["opening_balance"] else None,
+                "closing_value": totals["closing_balance"] if seen["closing_balance"] else None,
+            }
+        if asset_allocation:
+            summary["asset_allocation"] = asset_allocation
+        return summary
+
+    def _coalesce_decimal(self, *values: Any) -> Decimal | None:
+        for value in values:
+            decimal_value = self._to_decimal(value)
+            if decimal_value is not None:
+                return decimal_value
+        return None
+
     def validate(self, result: ParseResult) -> list[str]:
         errors: list[str] = []
         bal = result.balances or {}

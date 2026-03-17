@@ -32,6 +32,17 @@ def _cartola_path(filename: str) -> Path:
     return Path(__file__).resolve().parents[1] / "Documentos" / "Cartolas" / filename
 
 
+def _goldman_raw_cartola_path(filename: str) -> Path:
+    return (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "raw"
+        / "goldman_sachs"
+        / "pdf_cartola"
+        / filename
+    )
+
+
 def _require(path: Path) -> None:
     if not path.exists():
         pytest.skip(f"Fixture PDF not found: {path}")
@@ -146,6 +157,66 @@ def test_loader_maps_goldman_mandato_activity_to_monthly_closing(db_session):
     )
     assert normalized.ending_value_with_accrual == mc.net_value
     assert normalized.ending_value_without_accrual == mc.net_value
+    assert normalized.movements_net == mc.change_in_value
+    assert normalized.profit_period == mc.income
+
+
+def test_loader_maps_goldman_raw_subportfolio_summary_to_monthly_closing(db_session):
+    path = _goldman_raw_cartola_path("202305 Telmar - GS.pdf")
+    _require(path)
+
+    parser = GoldmanSachsCustodyParser()
+    result = parser.safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "097-4"
+
+    acct = _create_account(
+        db_session,
+        account_number="097-4",
+        bank_code="goldman_sachs",
+        account_type="mandato",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202305 Telmar - GS.pdf",
+        bank_code="goldman_sachs",
+    )
+    pv = _create_parser_version(db_session, parser)
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id)
+        .one()
+    )
+    assert mc.net_value == Decimal("110676747.84")
+    assert mc.change_in_value == Decimal("-0.10")
+    assert mc.income == Decimal("-555931.41")
+
+    alloc = json.loads(mc.asset_allocation_json or "{}")
+    assert set(alloc.keys()) == {
+        "Cash, Deposits & Money Market",
+        "Fixed Income",
+        "Equities",
+    }
+    assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("1192230.13")
+    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("11893895.07")
+    assert Decimal(alloc["Equities"]["value"]) == Decimal("37461987.07")
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == mc.year,
+            MonthlyMetricNormalized.month == mc.month,
+        )
+        .one()
+    )
+    assert normalized.ending_value_with_accrual == mc.net_value
     assert normalized.movements_net == mc.change_in_value
     assert normalized.profit_period == mc.income
 
@@ -1199,6 +1270,126 @@ def test_loader_ubs_profit_absorbs_beginning_vs_previous_ending_gap(db_session):
     assert march_norm.profit_period == Decimal("-820371")
 
 
+def test_loader_ubs_reprocess_previous_month_realigns_following_profit(db_session):
+    parser = UBSSwitzerlandCustodyParser()
+    acct = _create_account(
+        db_session,
+        account_number="206-560402-02",
+        bank_code="ubs",
+        account_type="brokerage",
+    )
+    may_doc = _create_raw_document(
+        db_session,
+        filename="202405 Telmar UBS SW Brokerage (0402 61K).pdf",
+        bank_code="ubs",
+    )
+    jun_doc = _create_raw_document(
+        db_session,
+        filename="202406 Telmar UBS SW Brokerage (0402 61K).pdf",
+        bank_code="ubs",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    june_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-0402-202406"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2024, 6, 30),
+        period_start=date(2024, 6, 1),
+        period_end=date(2024, 6, 30),
+        closing_balance=Decimal("2956"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": None,
+                    "ending_value": "2956",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "2956",
+                    "ending_value_without_accrual": "2956",
+                    "net_contributions": "0",
+                    "utilidad": None,
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=june_result, raw_document=jun_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    june_before = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2024, MonthlyClosing.month == 6)
+        .one()
+    )
+    assert june_before.income is None
+
+    may_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("ubs-0402-202405"),
+        bank_code="ubs",
+        account_number=acct.account_number,
+        statement_date=date(2024, 5, 31),
+        period_start=date(2024, 5, 1),
+        period_end=date(2024, 5, 31),
+        opening_balance=Decimal("-449"),
+        closing_balance=Decimal("-462"),
+        currency="USD",
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "-449",
+                    "ending_value": "-462",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "-462",
+                    "ending_value_without_accrual": "-462",
+                    "net_contributions": "0",
+                    "utilidad": "-13",
+                }
+            ],
+        },
+    )
+    stats = loader.load_parse_result(result=may_result, raw_document=may_doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    june_after = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2024, MonthlyClosing.month == 6)
+        .one()
+    )
+    assert june_after.change_in_value == Decimal("0")
+    assert june_after.income == Decimal("3418")
+
+    june_norm = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2024,
+            MonthlyMetricNormalized.month == 6,
+        )
+        .one()
+    )
+    assert june_norm.movements_net == Decimal("0")
+    assert june_norm.profit_period == Decimal("3418")
+
+
 def test_loader_ubs_history_does_not_override_direct_monthly_statement(db_session):
     parser = UBSSwitzerlandCustodyParser()
     acct = _create_account(
@@ -1862,6 +2053,107 @@ def test_loader_jpmorgan_bonds_uses_portfolio_activity_when_monthly_block_missin
     )
     assert norm.movements_net == mc.change_in_value
     assert norm.profit_period == mc.income
+
+
+def test_loader_loads_alternatives_into_normalized_with_synthetic_bank(db_session):
+    raw_doc = RawDocument(
+        filename="Alternativos.xlsx",
+        filepath="data/raw/alternativos/excel_alternatives/Alternativos.xlsx",
+        file_type="excel_alternatives",
+        sha256_hash=_mk_hash("alternatives-loader"),
+        file_size_bytes=1,
+        bank_code="alternativos",
+        status="parsed",
+    )
+    db_session.add(raw_doc)
+    db_session.flush()
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name="parsers.excel.alternatives",
+        parser_version="1.0.1",
+        source_file_hash=_mk_hash("alternatives-loader-source"),
+        bank_code="alternativos",
+        rows=[
+            ParsedRow(
+                row_number=2,
+                data={
+                    "entity_name": "Telmar",
+                    "asset_class": "PE",
+                    "strategy": "Buyout",
+                    "currency": "USD",
+                    "nemo_reference": "TRFV9",
+                    "year": 2024,
+                    "month": 12,
+                    "closing_date": "2024-12-31",
+                    "ending_value": 100.0,
+                    "movements_net": 90.0,
+                    "profit_period": 10.0,
+                    "movements_ytd": 90.0,
+                    "profit_ytd": 10.0,
+                },
+            ),
+            ParsedRow(
+                row_number=3,
+                data={
+                    "entity_name": "Telmar",
+                    "asset_class": "PE",
+                    "strategy": "Buyout",
+                    "currency": "USD",
+                    "nemo_reference": "TRFV9",
+                    "year": 2025,
+                    "month": 1,
+                    "closing_date": "2025-01-31",
+                    "ending_value": 130.0,
+                    "movements_net": 5.0,
+                    "profit_period": 25.0,
+                    "movements_ytd": 5.0,
+                    "profit_ytd": 25.0,
+                },
+            ),
+        ],
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_alternatives_result(result=result, raw_document=raw_doc)
+
+    assert stats["normalized_rows"] == 2
+    assert stats["accounts_created"] == 1
+    assert stats["accounts_updated"] == 0
+    assert stats["accounts_deleted"] == 0
+    assert not stats["errors"]
+
+    account = (
+        db_session.query(Account)
+        .filter(Account.bank_code == "alternativos", Account.entity_name == "Telmar")
+        .one()
+    )
+    assert account.account_type == "investment"
+    assert account.bank_name == "Alternativos"
+    assert account.identification_number == "TRFV9"
+
+    metadata = json.loads(account.metadata_json or "{}")
+    assert metadata["source"] == "alternatives_excel"
+    assert metadata["asset_class"] == "PE"
+    assert metadata["strategy"] == "Buyout"
+    assert metadata["nemo_reference"] == "TRFV9"
+    assert metadata["account_group_label"] == "Telmar-ALT-PE"
+    assert metadata["detail_label"] == "Telmar | PE | Buyout | USD"
+
+    normalized_rows = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(MonthlyMetricNormalized.account_id == account.id)
+        .order_by(MonthlyMetricNormalized.year, MonthlyMetricNormalized.month)
+        .all()
+    )
+    assert len(normalized_rows) == 2
+    assert normalized_rows[0].ending_value_with_accrual == Decimal("100.0")
+    assert normalized_rows[0].movements_net == Decimal("90.0")
+    assert normalized_rows[1].ending_value_with_accrual == Decimal("130.0")
+    assert normalized_rows[1].profit_period == Decimal("25.0")
+
+    closings = db_session.query(MonthlyClosing).filter(MonthlyClosing.account_id == account.id).all()
+    assert closings == []
 
 
 # ── Parser selection by account_id (regression) ─────────────────────

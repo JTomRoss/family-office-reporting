@@ -28,6 +28,8 @@ ACCOUNT_TYPE_DISPLAY = {
     "etf": "ETF",
     "brokerage": "Brokerage",
     "mandato": "Mandato",
+    "pe": "Private Equity (PE)",
+    "re": "Real Estate (RE)",
     "current": "Current",
     "checking": "Checking",
     "savings": "Savings",
@@ -37,17 +39,30 @@ ACCOUNT_TYPE_DISPLAY = {
 }
 
 CONSOLIDATED_PRESETS = {
-    "Mi Investments": ["Boatview", "Telmar", "White Alaska"],
+    "Mi Investments": [
+        "Boatview",
+        "Telmar",
+        "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
+    ],
     "Mi Inv + Ect. Int": [
         "Boatview",
         "Telmar",
         "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
         "Ecoterra Internacional",
     ],
     "Mi Inv + Ect. Int+ Armel": [
         "Boatview",
         "Telmar",
         "White Alaska",
+        "Ecoterra RE",
+        "Ecoterra RE II",
+        "Ecoterra RE III",
         "Ecoterra Internacional",
         "Armel Holdings",
     ],

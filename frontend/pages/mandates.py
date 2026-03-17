@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from asset_taxonomy import coarse_asset_bucket_series
 from frontend import api_client
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
@@ -31,11 +32,7 @@ FIXED_BANKS = [
     ("ubs_miami", "UBS Miami"),
 ]
 
-ASSET_SERIES = [
-    ("Cash, Deposits & Money Market", "Caja", "#0B66C3"),
-    ("Fixed Income", "Renta Fija", "#88C6F2"),
-    ("Equities", "Renta Variable", "#FF3131"),
-]
+ASSET_SERIES = coarse_asset_bucket_series()
 
 
 def _pick_asset_value(payload: dict, asset_key: str) -> float:
