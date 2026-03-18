@@ -15,6 +15,7 @@ Funcionalidades:
 
 import streamlit as st
 import tempfile
+from html import escape
 from io import BytesIO
 from pathlib import Path
 
@@ -35,6 +36,22 @@ BANCOS = {
 
 
 _UPPERCASE_TYPES = {"etf"}
+_BATCH_PREVIEW_EDITOR_KEY = "batch_preview_editor"
+_BATCH_PREVIEW_PAYLOAD_FIELDS = (
+    "status",
+    "confidence",
+    "recognition_reason",
+    "account_id",
+    "account_number",
+    "identification_number",
+    "bank_code",
+    "entity_name",
+    "account_type",
+    "entity_type",
+    "person_name",
+    "internal_code",
+    "currency",
+)
 
 
 def _fmt_account_type(raw: str) -> str:
@@ -67,6 +84,159 @@ def _load_master_accounts() -> list[dict]:
         return []
 
 
+def _batch_account_label(account: dict, duplicated_bases: set[str]) -> str:
+    base = str(account.get("identification_number") or account.get("account_number") or "").strip()
+    if not base:
+        return ""
+    if base not in duplicated_bases:
+        return base
+    return " | ".join(
+        part for part in [
+            base,
+            str(account.get("entity_name") or "").strip(),
+            _fmt_account_type(str(account.get("account_type") or "").strip()),
+            BANCOS.get(str(account.get("bank_code") or "").strip(), str(account.get("bank_code") or "").strip()),
+        ] if part
+    )
+
+
+def _build_batch_preview_row(*, uploaded_file, row_key: str, payload_row: dict) -> dict:
+    preview_row = {
+        "row_key": row_key,
+        "filename": payload_row.get("filename", uploaded_file.name),
+        "selected": False,
+    }
+    for field in _BATCH_PREVIEW_PAYLOAD_FIELDS:
+        preview_row[field] = payload_row.get(field, "")
+    return preview_row
+
+
+def _apply_preview_payload_to_rows(rows: list[dict], payload_rows: list[dict]) -> None:
+    for row, payload_row in zip(rows, payload_rows):
+        for field in _BATCH_PREVIEW_PAYLOAD_FIELDS:
+            row[field] = payload_row.get(field, "")
+        row["selected"] = False
+
+
+def _stable_batch_file_key(uploaded_file) -> str:
+    return f"{uploaded_file.name}:{getattr(uploaded_file, 'size', 0)}"
+
+
+def _request_batch_context_reset() -> None:
+    st.session_state["batch_ctx_reset_requested"] = True
+
+
+def _bump_batch_preview_editor_nonce() -> int:
+    current = int(st.session_state.get("batch_preview_editor_nonce", 0)) + 1
+    st.session_state["batch_preview_editor_nonce"] = current
+    return current
+
+
+def _render_cartola_coverage_matrix(rows: list[dict], *, year: int) -> None:
+    if not rows:
+        st.info("No hay datos suficientes para construir la matriz de cobertura.")
+        return
+
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        entity_name = str(row.get("entity_name") or "").strip()
+        account_type = str(row.get("account_type") or "").strip()
+        if not entity_name or not account_type:
+            continue
+        grouped.setdefault(entity_name, []).append(row)
+
+    if not grouped:
+        st.info("No hay datos suficientes para construir la matriz de cobertura.")
+        return
+
+    month_headers = [f"{year}-{month:02d}" for month in range(1, 13)]
+    html_parts = [
+        """
+        <style>
+          .coverage-wrap {
+            overflow-x: auto;
+            margin-top: 0.5rem;
+          }
+          table.coverage-matrix {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 1180px;
+            font-size: 0.92rem;
+          }
+          table.coverage-matrix th,
+          table.coverage-matrix td {
+            border: 1px solid #cfd7e3;
+            padding: 6px 8px;
+            text-align: center;
+          }
+          table.coverage-matrix th {
+            background: #f3f6fb;
+            font-weight: 600;
+            white-space: nowrap;
+          }
+          table.coverage-matrix td.entity {
+            text-align: left;
+            font-weight: 600;
+            min-width: 190px;
+            background: #fbfcfe;
+          }
+          table.coverage-matrix td.account-type {
+            text-align: left;
+            min-width: 130px;
+            background: #ffffff;
+          }
+          table.coverage-matrix td.month {
+            min-width: 54px;
+            height: 32px;
+            padding: 0;
+          }
+          table.coverage-matrix td.month.loaded {
+            background: #f2cfee;
+          }
+          table.coverage-matrix td.month.empty {
+            background: #ffffff;
+          }
+        </style>
+        <div class="coverage-wrap">
+        <table class="coverage-matrix">
+          <thead>
+            <tr>
+              <th>Sociedad</th>
+              <th>Tipo de cuenta</th>
+        """
+    ]
+    html_parts.extend(f"<th>{escape(header)}</th>" for header in month_headers)
+    html_parts.append("</tr></thead><tbody>")
+
+    for entity_name in sorted(grouped.keys()):
+        entity_rows = sorted(
+            grouped[entity_name],
+            key=lambda item: _fmt_account_type(str(item.get("account_type") or "")),
+        )
+        rowspan = len(entity_rows)
+        for idx, row in enumerate(entity_rows):
+            loaded_months = {
+                int(month)
+                for month in row.get("loaded_months", [])
+                if isinstance(month, int) or str(month).isdigit()
+            }
+            html_parts.append("<tr>")
+            if idx == 0:
+                html_parts.append(
+                    f"<td class='entity' rowspan='{rowspan}'>{escape(entity_name)}</td>"
+                )
+            html_parts.append(
+                f"<td class='account-type'>{escape(_fmt_account_type(str(row.get('account_type') or '')))}</td>"
+            )
+            for month in range(1, 13):
+                css_class = "loaded" if month in loaded_months else "empty"
+                html_parts.append(f"<td class='month {css_class}'></td>")
+            html_parts.append("</tr>")
+
+    html_parts.append("</tbody></table></div>")
+    st.markdown("".join(html_parts), unsafe_allow_html=True)
+
+
 def render():
     st.title("📁 Carga de Documentos")
     st.markdown("---")
@@ -94,9 +264,12 @@ def render():
         st.markdown("---")
 
         if is_batch_mode:
-            # ── OPCIÓN A: Carga por lote (solo selectores, sin texto) ──
+            if st.session_state.pop("batch_ctx_reset_requested", False):
+                st.session_state["batch_ctx_bank"] = ""
+                st.session_state["batch_ctx_entity"] = ""
+                st.session_state["batch_ctx_type"] = ""
             st.caption(
-                "Opcional: indica Banco, Sociedad y/o Tipo de cuenta para pre-llenar la tabla y aumentar la probabilidad de reconocimiento."
+                "Usa estos campos para confirmar manualmente las filas marcadas con ✕ cuando una cartola quede ambigua o sin match."
             )
             opts = api_client.get("/accounts/filter-options")
             batch_entities = sorted(opts.get("entity_names", []) or [])
@@ -123,6 +296,12 @@ def render():
                     format_func=lambda x: _fmt_account_type(x) if x else "— Ninguno —",
                     key="batch_ctx_type",
                 )
+            pdf_type_batch = st.selectbox(
+                "Tipo de documento",
+                ["pdf_cartola", "pdf_report"],
+                format_func=lambda x: "Cartola bancaria" if x == "pdf_cartola" else "Reporte mandato",
+                key="batch_pdf_type",
+            )
             st.markdown("---")
             batch_files = st.file_uploader(
                 "Subir varias cartolas (PDFs)",
@@ -131,119 +310,239 @@ def render():
                 key="batch_pdf_upload",
             )
             if batch_files:
-                master_accounts = _load_master_accounts()
-                # Filtrar cuentas según contexto para opciones por defecto
-                def _filter_accounts(bank="", entity="", acct_type=""):
-                    out = master_accounts
-                    if bank:
-                        out = [a for a in out if (a.get("bank_code") or "") == bank]
-                    if entity:
-                        out = [a for a in out if (a.get("entity_name") or "").strip() == entity]
-                    if acct_type:
-                        out = [a for a in out if (a.get("account_type") or "") == acct_type]
-                    return out
+                import pandas as pd
 
-                st.info(f"Selecciona Banco, Sociedad, Tipo y Cuenta para cada archivo y procesa.")
-                pdf_type_batch = st.selectbox(
-                    "Tipo de documento",
-                    ["pdf_cartola", "pdf_report"],
-                    format_func=lambda x: "Cartola bancaria" if x == "pdf_cartola" else "Reporte mandato",
-                    key="batch_pdf_type",
+                master_accounts = _load_master_accounts()
+                file_entries = [(_stable_batch_file_key(file), file) for file in batch_files]
+                batch_preview_signature = {
+                    "file_keys": [row_key for row_key, _ in file_entries],
+                    "file_type": pdf_type_batch,
+                }
+                if st.session_state.get("batch_preview_signature") != batch_preview_signature:
+                    existing_rows_by_key = {
+                        str(row.get("row_key") or ""): dict(row)
+                        for row in st.session_state.get("batch_preview_rows", [])
+                    }
+                    new_file_entries = [
+                        (row_key, uploaded_file)
+                        for row_key, uploaded_file in file_entries
+                        if row_key not in existing_rows_by_key
+                    ]
+                    new_rows_by_key: dict[str, dict] = {}
+                    if new_file_entries:
+                        preview_payload = api_client.post(
+                            "/documents/preview-batch-recognition",
+                            json={
+                                "filenames": [uploaded_file.name for _, uploaded_file in new_file_entries],
+                            },
+                        )
+                        payload_rows = preview_payload.get("rows", [])
+                        for (row_key, uploaded_file), payload_row in zip(new_file_entries, payload_rows):
+                            new_rows_by_key[row_key] = _build_batch_preview_row(
+                                uploaded_file=uploaded_file,
+                                row_key=row_key,
+                                payload_row=payload_row,
+                            )
+
+                    preview_rows = []
+                    for row_key, uploaded_file in file_entries:
+                        existing_row = existing_rows_by_key.get(row_key)
+                        row = existing_row if existing_row is not None else new_rows_by_key.get(row_key)
+                        if row is None:
+                            continue
+                        row["selected"] = False
+                        preview_rows.append(row)
+                    st.session_state["batch_preview_rows"] = preview_rows
+                    st.session_state["batch_preview_signature"] = batch_preview_signature
+                    _bump_batch_preview_editor_nonce()
+                    _request_batch_context_reset()
+                    st.rerun()
+
+                preview_rows = list(st.session_state.get("batch_preview_rows", []))
+                file_lookup = {
+                    row_key: uploaded_file
+                    for row_key, uploaded_file in file_entries
+                }
+                preview_rows = [row for row in preview_rows if row.get("row_key") in file_lookup]
+                st.session_state["batch_preview_rows"] = preview_rows
+
+                base_account_labels = [
+                    str(account.get("identification_number") or account.get("account_number") or "").strip()
+                    for account in master_accounts
+                    if str(account.get("identification_number") or account.get("account_number") or "").strip()
+                ]
+                duplicated_bases = {
+                    label for label in base_account_labels
+                    if base_account_labels.count(label) > 1
+                }
+                preview_df = pd.DataFrame(
+                    [
+                        {
+                            "Archivo": row.get("filename", ""),
+                            "Banco": BANCOS.get(row.get("bank_code", ""), row.get("bank_code", "")) or "— Seleccionar —",
+                            "Sociedad": row.get("entity_name", "") or "— Seleccionar —",
+                            "Tipo cuenta": _fmt_account_type(row.get("account_type", "")) or "— Seleccionar —",
+                            "Cuenta": (
+                                _batch_account_label(row, duplicated_bases)
+                                if (row.get("identification_number") or row.get("account_number"))
+                                else "— Seleccionar —"
+                            ),
+                            "Estado": row.get("status", ""),
+                            "Confianza": row.get("confidence", ""),
+                            "Detalle": row.get("recognition_reason", ""),
+                            "✕": bool(row.get("selected")),
+                        }
+                        for row in preview_rows
+                    ]
                 )
-                for idx, file in enumerate(batch_files):
-                    with st.expander(f"📄 {file.name}", expanded=(idx == 0)):
-                        def _bank_index():
-                            if not batch_ctx_bank or batch_ctx_bank not in bank_options:
-                                return 0
-                            return bank_options.index(batch_ctx_bank) + 1
-                        def _entity_index():
-                            if not batch_ctx_entity or batch_ctx_entity not in batch_entities:
-                                return 0
-                            return batch_entities.index(batch_ctx_entity) + 1
-                        def _type_index():
-                            if not batch_ctx_type or batch_ctx_type not in batch_types:
-                                return 0
-                            return batch_types.index(batch_ctx_type) + 1
-                        row_bank = st.selectbox(
-                            "Banco",
-                            options=[""] + bank_options,
-                            format_func=lambda x: BANCOS.get(x, x) if x else "— Seleccionar —",
-                            index=min(_bank_index(), len(bank_options)),
-                            key=f"batch_row_bank_{idx}_{file.name}",
+
+                edited_preview_df = st.data_editor(
+                    preview_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    num_rows="fixed",
+                    disabled=["Archivo", "Banco", "Sociedad", "Tipo cuenta", "Cuenta", "Estado", "Confianza", "Detalle"],
+                    column_config={
+                        "✕": st.column_config.CheckboxColumn(
+                            "✕",
+                            help="Quita esta fila del lote antes de procesar",
+                            default=False,
+                        ),
+                    },
+                    key=f"{_BATCH_PREVIEW_EDITOR_KEY}_{int(st.session_state.get('batch_preview_editor_nonce', 0))}",
+                )
+
+                for idx, edited_row in enumerate(edited_preview_df.to_dict("records")):
+                    if idx >= len(preview_rows):
+                        continue
+                    preview_row = preview_rows[idx]
+                    preview_row["selected"] = bool(edited_row.get("✕"))
+                st.session_state["batch_preview_rows"] = preview_rows
+
+                recognized_count = sum(1 for row in preview_rows if row.get("status") == "reconocido" and row.get("account_id"))
+                ambiguous_count = sum(1 for row in preview_rows if row.get("status") == "ambiguo")
+                no_match_count = sum(1 for row in preview_rows if row.get("status") == "sin_match")
+
+                st.info(
+                    f"Preview: {recognized_count} reconocidas, {ambiguous_count} ambiguas, "
+                    f"{no_match_count} sin match. Marca ✕ para quitar filas o confirmar manualmente su contexto."
+                )
+
+                selected_rows = [row for row in preview_rows if row.get("selected")]
+                selected_count = len(selected_rows)
+                processable_rows = [
+                    row for row in preview_rows
+                    if row.get("status") == "reconocido" and row.get("account_id")
+                ]
+                unresolved_count = len(preview_rows) - len(processable_rows)
+
+                action_col1, action_col2, action_col3, action_col4 = st.columns([1.2, 1.4, 1, 2])
+                with action_col1:
+                    if st.button(
+                        f"Aplicar contexto ({selected_count})",
+                        disabled=selected_count == 0 or not (batch_ctx_bank or batch_ctx_entity or batch_ctx_type),
+                        key="batch_apply_context",
+                    ):
+                        preview_payload = api_client.post(
+                            "/documents/apply-batch-context",
+                            json={
+                                "filenames": [row.get("filename", "") for row in selected_rows],
+                                "bank_code": batch_ctx_bank,
+                                "entity_name": batch_ctx_entity,
+                                "account_type": batch_ctx_type,
+                            },
                         )
-                        row_entity = st.selectbox(
-                            "Sociedad",
-                            options=[""] + batch_entities,
-                            index=min(_entity_index(), len(batch_entities)),
-                            key=f"batch_row_entity_{idx}_{file.name}",
-                        )
-                        row_type = st.selectbox(
-                            "Tipo de cuenta",
-                            options=[""] + batch_types,
-                            format_func=lambda x: _fmt_account_type(x) if x else "— Seleccionar —",
-                            index=min(_type_index(), len(batch_types)),
-                            key=f"batch_row_type_{idx}_{file.name}",
-                        )
-                        row_accounts = _filter_accounts(row_bank, row_entity, row_type)
-                        account_options = [
-                            a for a in row_accounts
-                            if (a.get("identification_number") or a.get("account_number"))
+                        _apply_preview_payload_to_rows(selected_rows, preview_payload.get("rows", []))
+                        st.session_state["batch_preview_rows"] = preview_rows
+                        _bump_batch_preview_editor_nonce()
+                        _request_batch_context_reset()
+                        st.rerun()
+                with action_col2:
+                    if st.button(
+                        f"Quitar seleccionados ({selected_count})",
+                        disabled=selected_count == 0,
+                        key="batch_remove_selected",
+                    ):
+                        st.session_state["batch_preview_rows"] = [
+                            row for row in preview_rows if not row.get("selected")
                         ]
-                        account_numbers = [a.get("account_number", "") for a in account_options]
-                        account_labels = [
-                            f"{a.get('identification_number') or a.get('account_number')} ({a.get('entity_name','')})"
-                            for a in account_options
-                        ]
-                        options_cuenta = [""] + account_numbers
-                        labels_cuenta = ["— Seleccionar —"] + account_labels
-                        def _fmt_cuenta(v):
-                            if not v:
-                                return "— Seleccionar —"
-                            for a in account_options:
-                                if a.get("account_number") == v:
-                                    return f"{a.get('identification_number') or v} ({a.get('entity_name','')})"
-                            return v
-                        selected_account_number = st.selectbox(
-                            "Cuenta (dígito verificador)",
-                            options=options_cuenta,
-                            format_func=_fmt_cuenta,
-                            key=f"batch_row_account_{idx}_{file.name}",
-                        )
-                        acc = next((a for a in account_options if a.get("account_number") == selected_account_number), None)
-                        if acc and st.button("Procesar este archivo", key=f"batch_btn_{idx}_{file.name}"):
+                        _bump_batch_preview_editor_nonce()
+                        st.rerun()
+                with action_col3:
+                    if st.button(
+                        f"Procesar lote ({len(processable_rows)})",
+                        type="primary",
+                        disabled=len(processable_rows) == 0,
+                        key="batch_process_all",
+                    ):
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        processed = 0
+                        duplicates = 0
+                        errors: list[str] = []
+                        total = len(processable_rows)
+                        for idx, row in enumerate(processable_rows, start=1):
+                            uploaded_file = file_lookup.get(row.get("row_key", ""))
+                            if uploaded_file is None:
+                                errors.append(f"{row.get('filename', 'archivo')}: archivo no disponible en memoria")
+                                continue
+                            status_text.text(f"Procesando: {row.get('filename', '')}...")
+                            progress_bar.progress(int(((idx - 1) / total) * 100))
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                                file.seek(0)
-                                tmp.write(file.read())
+                                uploaded_file.seek(0)
+                                tmp.write(uploaded_file.read())
                                 tmp_path = tmp.name
                             try:
                                 result = api_client.upload_file(
                                     "/documents/upload-and-process",
                                     filepath=tmp_path,
-                                    filename=file.name,
+                                    filename=row.get("filename", ""),
                                     file_type=pdf_type_batch,
                                     extra_data={
-                                        "bank_code": acc.get("bank_code", ""),
-                                        "account_number": acc.get("account_number", ""),
-                                        "identification_number": acc.get("identification_number", ""),
-                                        "entity_name": acc.get("entity_name", ""),
-                                        "account_type": acc.get("account_type", ""),
-                                        "entity_type": acc.get("entity_type", ""),
-                                        "person_name": acc.get("person_name", "") or "",
-                                        "internal_code": acc.get("internal_code", "") or "",
-                                        "currency": acc.get("currency", ""),
+                                        "account_id": row.get("account_id"),
+                                        "bank_code": row.get("bank_code", ""),
+                                        "account_number": row.get("account_number", ""),
+                                        "identification_number": row.get("identification_number", ""),
+                                        "entity_name": row.get("entity_name", ""),
+                                        "account_type": row.get("account_type", ""),
+                                        "entity_type": row.get("entity_type", ""),
+                                        "person_name": row.get("person_name", "") or "",
+                                        "internal_code": row.get("internal_code", "") or "",
+                                        "currency": row.get("currency", ""),
                                     },
                                 )
                                 if result.get("is_duplicate"):
-                                    st.warning(f"Documento ya existe (ID: {result.get('id')}). Reclasificar u omitir en Carga guiada.")
+                                    duplicates += 1
                                 else:
-                                    st.success(f"Procesado: {result.get('process_result', {}).get('status', 'OK')}")
-                            except Exception as e:
-                                st.error(str(e))
+                                    processed += 1
+                            except Exception as exc:
+                                errors.append(f"{row.get('filename', '')}: {exc}")
                             finally:
                                 Path(tmp_path).unlink(missing_ok=True)
-                st.caption("Usa **Procesar este archivo** dentro de cada expander para subir ese PDF con la cuenta seleccionada.")
+
+                        progress_bar.progress(100)
+                        status_text.text("Proceso terminado.")
+                        if processed:
+                            st.success(f"Procesadas: {processed} cartola(s).")
+                        if duplicates:
+                            st.warning(f"Duplicadas detectadas: {duplicates}.")
+                        if unresolved_count:
+                            st.info(f"Quedaron sin procesar {unresolved_count} fila(s) no reconocidas o ambiguas.")
+                        for err in errors:
+                            st.error(err)
+                with action_col4:
+                    st.caption(
+                        f"Filas en lote: {len(preview_rows)}. Seleccionadas: {selected_count}. "
+                        f"Procesables: {len(processable_rows)}."
+                    )
+
+                if unresolved_count:
+                    st.warning(
+                        "Para corregir filas ambiguas, marca ✕ en esas filas, completa Banco/Sociedad/Tipo de cuenta arriba "
+                        "y usa 'Aplicar contexto'. Ese botón confirma manualmente la cuenta cuando el contexto identifica una sola."
+                    )
             else:
-                st.caption("Selecciona uno o más PDFs para ver la tabla de asignación.")
+                st.caption("Selecciona uno o más PDFs para ver la tabla de reconocimiento previo.")
 
         else:
             # ── Carga guiada (flujo actual) ─────────────────────
@@ -875,6 +1174,8 @@ def render():
                     "filename": "Archivo",
                     "file_type": "Tipo",
                     "bank_code": "Banco",
+                    "entity_name": "Sociedad",
+                    "account_type": "Tipo de cuenta",
                     "status": "Estado",
                     "uploaded_at": "Subido",
                 }
@@ -882,6 +1183,12 @@ def render():
                 df_show = df_docs[show_cols].rename(columns=col_rename).reset_index(drop=True)
                 if "ID" in df_show.columns:
                     df_show["ID"] = df_show["ID"].astype(str)
+                if "Tipo de cuenta" in df_show.columns:
+                    df_show["Tipo de cuenta"] = df_show["Tipo de cuenta"].map(
+                        lambda value: "Multiple" if str(value or "").strip().lower() == "multiple" else (
+                            _fmt_account_type(str(value or "")) if value else ""
+                        )
+                    )
 
                 # Mensaje en verde tras eliminar (persiste después del rerun)
                 if "doc_deleted_count" in st.session_state:
@@ -986,68 +1293,47 @@ def render():
 
         st.markdown("---")
         st.subheader("Cobertura de Cartolas por Sociedad y Tipo de Cuenta")
-        st.caption(
-            "Cada celda muestra el rango de fechas cargadas: primera cartola / ultima cartola (YYYY-MM/YYYY-MM). "
-            "Vacio = sin cartola cargada."
-        )
+        st.caption("Cada celda se pinta cuando existe cartola persistida para ese mes. Blanco = sin cartola.")
 
         try:
-            import pandas as pd
+            coverage_seed = api_client.get("/documents/cartola-coverage")
+            available_entities = coverage_seed.get("entities", [])
+            year_options = sorted({2026, *coverage_seed.get("available_years", [])}, reverse=True)
+            if not year_options:
+                year_options = [2026]
 
-            opts = api_client.get("/accounts/filter-options")
-            all_societies = set(opts.get("entity_names", []))
-            all_account_types = set(opts.get("account_types", []))
+            if "doc_coverage_entity" not in st.session_state:
+                st.session_state["doc_coverage_entity"] = "__all__"
+            valid_entities = {"__all__", *available_entities}
+            if st.session_state["doc_coverage_entity"] not in valid_entities:
+                st.session_state["doc_coverage_entity"] = "__all__"
 
-            summary_payload = api_client.post("/data/summary", json={})
-            detail_rows = summary_payload.get("rows", [])
+            if "doc_coverage_year" not in st.session_state or st.session_state["doc_coverage_year"] not in year_options:
+                st.session_state["doc_coverage_year"] = 2026 if 2026 in year_options else year_options[0]
 
-            # Por (sociedad, account_type) guardamos (primera_fecha, ultima_fecha)
-            range_by_combo: dict[tuple[str, str], tuple[str, str]] = {}
-            for row in detail_rows:
-                fecha = str(row.get("fecha") or "").strip()
-                sociedad = str(row.get("sociedad") or "").strip()
-                account_type = str(row.get("account_type") or "").strip()
-                if not fecha or not sociedad or not account_type:
-                    continue
-                all_societies.add(sociedad)
-                all_account_types.add(account_type)
-                key = (sociedad, account_type)
-                if key not in range_by_combo:
-                    range_by_combo[key] = (fecha, fecha)
-                else:
-                    old_min, old_max = range_by_combo[key]
-                    range_by_combo[key] = (min(old_min, fecha), max(old_max, fecha))
+            filter_soc_col, filter_year_col = st.columns(2)
+            with filter_soc_col:
+                selected_entity = st.selectbox(
+                    "Sociedad",
+                    options=["__all__"] + available_entities,
+                    format_func=lambda value: "Todas las sociedades" if value == "__all__" else value,
+                    key="doc_coverage_entity",
+                )
+            with filter_year_col:
+                selected_year = st.selectbox(
+                    "Año",
+                    options=year_options,
+                    key="doc_coverage_year",
+                )
 
-            societies_sorted = sorted(s for s in all_societies if s)
-            account_types_sorted = sorted(t for t in all_account_types if t)
-
-            if societies_sorted and account_types_sorted:
-                col_labels: dict[str, str] = {}
-                used_labels: set[str] = set()
-                for account_type in account_types_sorted:
-                    base_label = _fmt_account_type(account_type)
-                    label = base_label
-                    if label in used_labels:
-                        label = f"{base_label} ({account_type})"
-                    used_labels.add(label)
-                    col_labels[account_type] = label
-
-                matrix_rows = []
-                matrix_cols = ["Sociedad"] + [col_labels[t] for t in account_types_sorted]
-                for sociedad in societies_sorted:
-                    row_out = {"Sociedad": sociedad}
-                    for account_type in account_types_sorted:
-                        rng = range_by_combo.get((sociedad, account_type), ("", ""))
-                        if rng[0] and rng[1]:
-                            row_out[col_labels[account_type]] = f"{rng[0]}/{rng[1]}"
-                        else:
-                            row_out[col_labels[account_type]] = ""
-                    matrix_rows.append(row_out)
-
-                df_matrix = pd.DataFrame(matrix_rows, columns=matrix_cols)
-                render_table(df_matrix, label_col="Sociedad", fixed_equal_cols=True)
-            else:
-                st.info("No hay datos suficientes para construir la matriz de cobertura.")
+            coverage_params = {"year": int(selected_year)}
+            if selected_entity != "__all__":
+                coverage_params["entity_name"] = selected_entity
+            coverage_payload = api_client.get("/documents/cartola-coverage", params=coverage_params)
+            _render_cartola_coverage_matrix(
+                coverage_payload.get("rows", []),
+                year=int(coverage_payload.get("selected_year") or selected_year),
+            )
         except Exception as exc:
             st.info(f"No se pudo construir la matriz de cobertura: {exc}")
 

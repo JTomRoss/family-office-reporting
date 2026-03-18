@@ -17,6 +17,7 @@ from plotly.subplots import make_subplots
 
 from asset_taxonomy import asset_bucket_colors, default_chart_color_sequence
 from frontend import api_client
+from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_currency, fmt_number
@@ -166,6 +167,7 @@ def _default_detail_payload() -> dict:
         "detail_views": {
             "bank": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "account": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account_grouped": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "society": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "asset": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": False},
         },
@@ -248,7 +250,7 @@ def _render_detail_table(
 
 def _detail_chart_spacer_px(view_key: str, row_count: int) -> int:
     if view_key == "bank":
-        return min(max((row_count - 3) * 18, 24), 96)
+        return 0
     if view_key == "account":
         return min(max((row_count - 4) * 18, 48), 144)
     return 0
@@ -287,8 +289,10 @@ def _render_detail_section(
     view_key: str,
     label_title: str,
     payload: dict,
+    show_heading: bool = True,
 ) -> None:
-    st.markdown(f"#### {section_title}")
+    if show_heading:
+        st.markdown(f"#### {section_title}")
     table_rows = payload.get("table_rows", [])
     composition = payload.get("composition", [])
     history_months = payload.get("history_months", [])
@@ -570,11 +574,12 @@ def render():
     top_left, top_right = st.columns([2, 1])
     returns_rows = data.get("returns_panel", {}).get("rows", [])
     with top_left:
-        st.subheader("Evolucion Rentabilidad Mensual y YTD")
+        st.subheader("Rentabilidad (%)")
         if returns_rows:
             x_labels = [_fecha_label(str(row.get("fecha") or "")) for row in returns_rows]
             monthly_values = [_to_float(row.get("rent_mensual_pct")) for row in returns_rows]
             ytd_values = [_to_float(row.get("rent_ytd_pct")) for row in returns_rows]
+            axis_ranges = aligned_dual_return_axes(monthly_values, ytd_values)
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             fig.add_trace(
                 go.Bar(
@@ -601,13 +606,22 @@ def render():
                 margin=dict(l=20, r=20, t=20, b=20),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
             )
-            fig.update_yaxes(title_text="% Mensual", tickformat=",.2f", showgrid=False, secondary_y=False)
+            fig.update_yaxes(
+                title_text="% Mensual",
+                tickformat=",.2f",
+                showgrid=False,
+                zeroline=True,
+                zerolinecolor="#9EA7B3",
+                range=axis_ranges["primary_range"],
+                secondary_y=False,
+            )
             fig.update_yaxes(
                 title_text="% YTD",
                 tickformat=",.2f",
                 showgrid=True,
                 gridcolor="#D6DCE5",
                 zeroline=False,
+                range=axis_ranges["secondary_range"],
                 secondary_y=True,
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -628,11 +642,17 @@ def render():
         )
 
     if st.session_state["detalle_show_account_detail"]:
+        st.markdown("#### Detalle por Cuenta")
+        grouped_accounts = st.toggle(
+            "Agrupar cuentas por sociedad-banco-tipo",
+            key="detalle_account_grouped",
+        )
         _render_detail_section(
             section_title="Detalle por Cuenta",
             view_key="account",
             label_title="Cuenta",
-            payload=detail_views.get("account", {}),
+            payload=detail_views.get("account_grouped" if grouped_accounts else "account", {}),
+            show_heading=False,
         )
 
     if st.session_state["detalle_show_society_detail"]:

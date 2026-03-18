@@ -78,7 +78,7 @@ base_css = """
       div[data-testid="stTable"] table tbody tr th {
         display: none !important;
       }
-      /* Primera columna visible (índice oculto): izquierda */
+      /* Primera columna visible (indice oculto): izquierda */
       div[data-testid="stTable"] table thead tr th:nth-child(2),
       div[data-testid="stTable"] table tbody tr td:nth-child(2),
       div[data-testid="stTable"] table td.col0,
@@ -113,7 +113,6 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navegacion",
     [
-        "🏠 Inicio",
         "👤 Detalle",
         "📑 Mandatos",
         "📈 ETF",
@@ -127,10 +126,7 @@ page = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("v0.1.0 | Uso interno")
 
-if page == "🏠 Inicio":
-    from frontend.pages.home import render
-    render()
-elif page == "👤 Detalle":
+if page == "👤 Detalle":
     from frontend.pages.personal import render
     render()
 elif page == "📑 Mandatos":

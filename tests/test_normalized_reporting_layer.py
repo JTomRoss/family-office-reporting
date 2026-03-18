@@ -824,6 +824,165 @@ def test_get_personal_exposes_returns_panel_and_detail_views_from_backend(db_ses
     assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
 
 
+def test_get_personal_exposes_grouped_account_detail_view(db_session):
+    first = _mk_account(
+        db_session,
+        account_number="3400",
+        bank_code="jpmorgan",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    second = _mk_account(
+        db_session,
+        account_number="9200",
+        bank_code="jpmorgan",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=first.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("90.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=first.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("100.00"),
+                income=Decimal("10.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=second.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("135.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=second.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("150.00"),
+                income=Decimal("15.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=first.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("100.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("10.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=second.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("150.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("15.00"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[1]),
+        db_session,
+    )
+
+    account_rows = payload["detail_views"]["account"]["table_rows"]
+    assert len(account_rows) == 2
+
+    grouped_rows = payload["detail_views"]["account_grouped"]["table_rows"]
+    assert len(grouped_rows) == 1
+    assert grouped_rows[0]["label"] == "BV-JPM-Man"
+    assert grouped_rows[0]["monto_usd"] == 250.0
+    assert grouped_rows[0]["movimientos_mes"] == 0.0
+
+
+def test_get_personal_society_view_keeps_zero_societies_when_filtering_by_name(db_session):
+    active = _mk_account(
+        db_session,
+        account_number="NAME-001",
+        bank_code="jpmorgan",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    active.person_name = "Juan Perez"
+    inactive = _mk_account(
+        db_session,
+        account_number="NAME-002",
+        bank_code="goldman_sachs",
+        account_type="mandato",
+        entity_name="Telmar",
+    )
+    inactive.person_name = "Juan Perez"
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=active.id,
+                closing_date=date(2024, 12, 31),
+                year=2024,
+                month=12,
+                net_value=Decimal("80.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=active.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                net_value=Decimal("100.00"),
+                income=Decimal("20.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=active.id,
+                closing_date=date(2025, 1, 31),
+                year=2025,
+                month=1,
+                ending_value_with_accrual=Decimal("100.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("20.00"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(person_names=["Juan Perez"], years=[2025], months=[1]),
+        db_session,
+    )
+
+    society_rows = {row["label"]: row for row in payload["detail_views"]["society"]["table_rows"]}
+    assert society_rows["Boatview"]["monto_usd"] == 100.0
+    assert society_rows["Telmar"]["monto_usd"] == 0.0
+
+
 def test_etf_asset_bucket_classifies_core_tickers_and_cash_aliases():
     assert _etf_asset_bucket_from_instrument("IWDA") == "RV DM"
     assert _etf_asset_bucket_from_instrument("IEMA") == "RV EM"

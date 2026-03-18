@@ -183,6 +183,20 @@ def _distinct_values(rows: list[dict], field: str) -> list[str]:
     )
 
 
+def _distinct_account_type_values(rows: list[dict]) -> list[str]:
+    values: set[str] = set()
+    for row in rows:
+        bank_code = str(row.get("banco") or "").strip().lower()
+        asset_class = str(row.get("asset_class") or "").strip().upper()
+        if bank_code == "alternativos" and asset_class in {"PE", "RE"}:
+            values.add(asset_class.lower())
+            continue
+        account_type = str(row.get("account_type") or row.get("tipo_cuenta") or "").strip().lower()
+        if account_type:
+            values.add(account_type)
+    return sorted(values)
+
+
 def _sanitize_multiselect_state(key: str, valid_options: list[str]) -> list[str]:
     selected = [value for value in st.session_state.get(key, []) if value in valid_options]
     st.session_state[key] = selected
@@ -241,11 +255,16 @@ def render():
 
     bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
     entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
-    account_type_options = _distinct_values(type_seed_rows, "account_type") or account_type_options_all
+    account_type_options = _distinct_account_type_values(type_seed_rows)
+    if not account_type_options:
+        if set(raw_selected_banks) == {"alternativos"}:
+            account_type_options = [opt for opt in account_type_options_all if opt in {"pe", "re"}]
+        else:
+            account_type_options = account_type_options_all
 
-    selected_banks_default = _sanitize_multiselect_state("summary_bank_codes", bank_options)
-    selected_entities_default = _sanitize_multiselect_state("summary_entity_names", entity_options)
-    selected_types_default = _sanitize_multiselect_state("summary_account_types", account_type_options)
+    _sanitize_multiselect_state("summary_bank_codes", bank_options)
+    _sanitize_multiselect_state("summary_entity_names", entity_options)
+    _sanitize_multiselect_state("summary_account_types", account_type_options)
 
     st.markdown("### Filtros")
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -254,7 +273,6 @@ def render():
         selected_banks = st.multiselect(
             "Banco",
             options=bank_options,
-            default=selected_banks_default,
             format_func=_fmt_bank,
             key="summary_bank_codes",
         )
@@ -262,7 +280,6 @@ def render():
         selected_entities = st.multiselect(
             "Sociedad",
             options=entity_options,
-            default=selected_entities_default,
             key="summary_entity_names",
         )
     with c3:
@@ -276,7 +293,6 @@ def render():
         selected_types = st.multiselect(
             "Tipo de cuenta",
             options=account_type_options,
-            default=selected_types_default,
             format_func=_fmt_account_type,
             key="summary_account_types",
         )

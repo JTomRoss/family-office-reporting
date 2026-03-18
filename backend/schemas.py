@@ -63,6 +63,8 @@ class DocumentListItem(BaseModel):
     filename: str
     file_type: str
     bank_code: Optional[str]
+    entity_name: Optional[str] = None
+    account_type: Optional[str] = None
     period_year: Optional[int]
     period_month: Optional[int]
     status: str

@@ -16,6 +16,7 @@ import streamlit as st
 
 from asset_taxonomy import asset_bucket_series
 from frontend import api_client
+from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES, render_fecha_filter
 from frontend.components.number_format import fmt_number, fmt_percent
@@ -222,20 +223,11 @@ def render():
         ytd_returns = _compute_ytd_from_monthly(monthly_returns)
         monthly_vals = [v for v in monthly_returns if v is not None]
         if monthly_vals:
-            ytd_vals = [v for v in ytd_returns if v is not None]
-            mensual_max_raw = max(monthly_vals + [0.0])
-            mensual_min_raw = min(monthly_vals + [0.0])
-            mensual_max = max(5.0, mensual_max_raw * 1.1)
-            mensual_min = min(-1.0, mensual_min_raw * 1.1)
-            if mensual_max <= mensual_min:
-                mensual_max = mensual_min + 1.0
-
-            ytd_max_raw = max(ytd_vals + [0.0]) if ytd_vals else 0.0
-            ytd_min_raw = min(ytd_vals + [0.0]) if ytd_vals else 0.0
-            ytd_max = max(5.0, ytd_max_raw * 1.1)
-            ytd_min = min(-1.0, ytd_min_raw * 1.1)
-            if ytd_max <= ytd_min:
-                ytd_max = ytd_min + 1.0
+            axis_ranges = aligned_dual_return_axes(
+                monthly_returns,
+                ytd_returns,
+                secondary_min_padding=1.0,
+            )
 
             fig_ret = go.Figure()
             fig_ret.add_trace(
@@ -265,7 +257,7 @@ def render():
                 yaxis=dict(
                     title="% Mensual",
                     tickformat=",.2f",
-                    range=[mensual_min, mensual_max],
+                    range=axis_ranges["primary_range"],
                     showgrid=True,
                     gridcolor="#D6DCE5",
                     zeroline=True,
@@ -274,7 +266,8 @@ def render():
                 yaxis2=dict(
                     title="% YTD",
                     tickformat=",.2f",
-                    range=[ytd_min, ytd_max],
+                    range=axis_ranges["secondary_range"],
+                    dtick=2,
                     overlaying="y",
                     side="right",
                     showgrid=False,

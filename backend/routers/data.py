@@ -1740,6 +1740,14 @@ def _account_detail_label(row: dict) -> str:
     return "-".join(part for part in [entity, bank, account_type, account_suffix] if part)
 
 
+def _compact_account_detail_label(row: dict) -> str:
+    entity = _entity_abbreviation(row.get("sociedad") or row.get("entity_name"))
+    bank = BANK_ABBREVIATIONS.get(str(row.get("banco") or row.get("bank_code") or "").strip(), "")
+    account_type_key = str(row.get("account_type") or row.get("tipo_cuenta") or "").strip().lower()
+    account_type = ACCOUNT_TYPE_ABBREVIATIONS.get(account_type_key, _account_type_display_label(account_type_key))
+    return "-".join(part for part in [entity, bank, account_type] if part)
+
+
 def _build_etf_asset_allocation_pct_for_month(
     db: Session,
     filters: FilterParams,
@@ -2299,6 +2307,22 @@ def _personal_detail_group_descriptor(
         label = _account_detail_label(row)
         key = f"{entity_name}::{bank_code}::{account_type}::{account_id}"
         return (key, label)
+    if group_by == "account_compact":
+        bank_code = str(row.get("banco") or row.get("bank_code") or "").strip()
+        account_type = str(row.get("account_type") or row.get("tipo_cuenta") or "").strip().lower()
+        entity_name = str(row.get("sociedad") or row.get("entity_name") or "").strip()
+        if not bank_code or not account_type or not entity_name:
+            return (None, None)
+        if bank_code == "alternativos":
+            asset_class = str(row.get("asset_class") or "").strip().upper()
+            account_group_label = str(row.get("account_group_label") or "").strip()
+            if asset_class:
+                label = account_group_label or f"{entity_name}-ALT-{asset_class}"
+                key = f"{entity_name}::{bank_code}::{asset_class}"
+                return (key, label)
+        label = _compact_account_detail_label(row)
+        key = f"{entity_name}::{bank_code}::{account_type}"
+        return (key, label)
     if group_by == "society":
         society = str(row.get("sociedad") or "").strip()
         return (society or None, society or None)
@@ -2316,10 +2340,24 @@ def _build_personal_detail_view(
     group_by: str,
     label_order: list[str] | None = None,
     show_activity_columns: bool = True,
+    seed_groups: list[tuple[str, str]] | None = None,
 ) -> dict:
     current_by_group: dict[str, dict] = {}
     six_month_amounts: dict[str, dict[str, float]] = {}
     six_month_totals: dict[str, float] = {month: 0.0 for month in history_months}
+
+    for key, label in seed_groups or []:
+        if not key or not label:
+            continue
+        current_by_group.setdefault(
+            key,
+            {
+                "label": label,
+                "monto_usd": 0.0,
+                "movimientos_mes": 0.0,
+                "caja_disponible": 0.0,
+            },
+        )
 
     for row in snapshot_rows:
         key, label = _personal_detail_group_descriptor(row, group_by=group_by)
@@ -2422,6 +2460,48 @@ def _build_personal_detail_view(
         "total_monto_usd": round(total_amount, 2),
         "show_activity_columns": show_activity_columns,
     }
+
+
+def _build_personal_seed_groups(
+    *,
+    db: Session,
+    filters: FilterParams,
+    group_by: str,
+) -> list[tuple[str, str]]:
+    query = db.query(Account)
+    query = _apply_account_filters(query, filters)
+    accounts = query.order_by(
+        Account.entity_name,
+        Account.bank_code,
+        Account.account_type,
+        Account.account_number,
+    ).all()
+
+    seed_groups: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for acct in accounts:
+        metadata = _account_metadata(acct)
+        key, label = _personal_detail_group_descriptor(
+            {
+                "sociedad": acct.entity_name,
+                "entity_name": acct.entity_name,
+                "banco": acct.bank_code,
+                "bank_code": acct.bank_code,
+                "tipo_cuenta": acct.account_type,
+                "account_type": acct.account_type,
+                "account_number": acct.account_number,
+                "id": acct.identification_number or acct.account_number,
+                "asset_class": metadata.get("asset_class"),
+                "account_group_label": metadata.get("account_group_label"),
+                "detail_label": metadata.get("detail_label"),
+            },
+            group_by=group_by,
+        )
+        if not key or not label or key in seen:
+            continue
+        seen.add(key)
+        seed_groups.append((key, label))
+    return seed_groups
 
 
 def _build_personal_asset_detail_view(
@@ -2755,6 +2835,15 @@ def get_personal(
         end_key=selected_key,
     )
     history_months = _rolling_month_keys(selected_key, 6)
+    society_seed_groups = (
+        _build_personal_seed_groups(
+            db=db,
+            filters=filters,
+            group_by="society",
+        )
+        if getattr(filters, "person_names", None)
+        else None
+    )
     detail_views = {
         "bank": _build_personal_detail_view(
             snapshot_rows=entities_table,
@@ -2768,11 +2857,18 @@ def get_personal(
             history_months=history_months,
             group_by="account",
         ),
+        "account_grouped": _build_personal_detail_view(
+            snapshot_rows=entities_table,
+            history_rows=history_rows,
+            history_months=history_months,
+            group_by="account_compact",
+        ),
         "society": _build_personal_detail_view(
             snapshot_rows=entities_table,
             history_rows=history_rows,
             history_months=history_months,
             group_by="society",
+            seed_groups=society_seed_groups,
         ),
         "asset": _build_personal_asset_detail_view(
             db=db,
