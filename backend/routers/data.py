@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import and_, extract, func, or_
 from sqlalchemy.orm import Session
 
-from asset_taxonomy import asset_bucket_order, classify_etf_asset_bucket
+from asset_taxonomy import asset_bucket_detail_label, asset_bucket_order, classify_etf_asset_bucket
 from calculations.profit import monthly_return_pct, ytd_return_pct
 from calculations.reconciliation import reconcile_monthly
 from backend.db.models import (
@@ -274,7 +274,7 @@ def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
             if _is_mixed_cash_bucket(key_norm):
                 continue
             if not any(
-                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
             ):
                 continue
             val = _payload_value(payload)
@@ -292,7 +292,7 @@ def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
                 or ""
             )
             if not any(
-                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
             ):
                 continue
             val = _payload_value(row)
@@ -303,11 +303,29 @@ def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
     return max(total, 0.0)
 
 
+def _extract_asset_allocation_amount(payload) -> Optional[float]:
+    if isinstance(payload, dict):
+        raw = (
+            payload.get("value")
+            or payload.get("ending")
+            or payload.get("total")
+            or payload.get("ending_value")
+            or payload.get("market_value")
+            or payload.get("amount")
+        )
+    else:
+        raw = payload
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _is_cash_asset_label(label: str | None) -> bool:
     key = re.sub(r"[^a-z0-9]", "", str(label or "").lower())
     return any(
         token in key
-        for token in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+        for token in ("cash", "deposit", "moneymarket", "liquidity")
     )
 
 
@@ -1639,6 +1657,8 @@ INSTRUMENT_NAME_MAP: dict[str, str] = {
     # ── SPDR ──
     "SPDR": "SPDR",
     "SPDR BLOOMBERG 1-10 YEAR U.S.": "SPDR",
+    "SPDR BLOOMBERG 1-10 YEAR U.S": "SPDR",
+    "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG": "SPDR",
     # ── JPM money market variants ──
     "JPM LI-LIQ LVNAV FD - USD - W -": "Money Market",
     "P JPM LI-LIQ LVNAV FD - USD - W -": "Money Market",
@@ -1652,7 +1672,7 @@ INSTRUMENT_NAME_MAP: dict[str, str] = {
 }
 
 # Orden fijo de instrumentos
-INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
+INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "SPDR", "IHYA", "Money Market"]
 
 # Instrumentos considerados caja/money market
 CASH_INSTRUMENTS = {"Money Market"}
@@ -1671,6 +1691,8 @@ def _normalize_instrument(name: str) -> str:
         return "VDPA"
     if "USDCPBD" in upper_compact and "USDA" in upper_compact:
         return "VDPA"
+    if "SPDR" in upper_compact and "BLOOMBERG" in upper_compact:
+        return "SPDR"
     # Detección heurística de money market / caja
     low = name.lower()
     if any(kw in low for kw in ("sweep", "liquidity", "money market", "cash", "depósito", "deposito", "deposit", "deposits", "li-liq")):
@@ -1694,6 +1716,13 @@ def _coarse_etf_asset_bucket(bucket: str) -> str:
     if bucket in {"RF IG Short", "RF IG Long", "HY"}:
         return "Fixed Income"
     return "Equities"
+
+
+def _personal_asset_table_label(bucket: str | None) -> str:
+    normalized = str(bucket or "").strip()
+    if normalized in {"PE", "RE"}:
+        return normalized
+    return asset_bucket_detail_label(normalized)
 
 
 def _empty_detail_view(*, show_activity_columns: bool = True) -> dict:
@@ -2523,83 +2552,129 @@ def _build_personal_asset_detail_view(
     if not years:
         return _empty_detail_view(show_activity_columns=False)
 
-    query = (
-        db.query(
-            EtfComposition.year,
-            EtfComposition.month,
-            EtfComposition.etf_name,
-            EtfComposition.market_value_usd,
-            EtfComposition.market_value,
-            Account.bank_code,
-            Account.entity_name,
-        )
-        .join(Account, EtfComposition.account_id == Account.id)
-        .filter(EtfComposition.year.in_(years))
-    )
-    if filters.bank_codes:
-        query = query.filter(Account.bank_code.in_(filters.bank_codes))
-    if filters.entity_names:
-        query = query.filter(Account.entity_name.in_(filters.entity_names))
-    if getattr(filters, "person_names", None):
-        query = query.filter(Account.person_name.in_(filters.person_names))
-
     amounts_by_month_bucket: dict[str, dict[str, float]] = {}
-    for year, month, etf_name, market_value_usd, market_value, _, _ in query.all():
-        month_key = f"{year}-{month:02d}"
-        if month_key not in relevant_months:
-            continue
-        bucket = _etf_asset_bucket_from_instrument(etf_name or "")
-        amount = _to_float(market_value_usd)
-        if amount is None:
-            amount = _to_float(market_value) or 0.0
-        amounts_by_month_bucket.setdefault(month_key, {})
-        amounts_by_month_bucket[month_key][bucket] = amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
+    selected_types = {
+        str(account_type).strip().lower()
+        for account_type in (filters.account_types or [])
+        if str(account_type).strip()
+    }
+    has_type_filter = bool(selected_types)
+    include_etf = (not has_type_filter) or ("etf" in selected_types)
+    include_jpm_brokerage = (not has_type_filter) or ("brokerage" in selected_types)
+    include_alternatives = (not has_type_filter) or bool(selected_types & {"pe", "re"})
 
-    alternatives_query = (
-        db.query(
-            MonthlyMetricNormalized.year,
-            MonthlyMetricNormalized.month,
-            MonthlyMetricNormalized.ending_value_with_accrual,
-            Account,
+    if include_etf:
+        query = (
+            db.query(
+                EtfComposition.year,
+                EtfComposition.month,
+                EtfComposition.etf_name,
+                EtfComposition.market_value_usd,
+                EtfComposition.market_value,
+                Account.bank_code,
+                Account.entity_name,
+            )
+            .join(Account, EtfComposition.account_id == Account.id)
+            .filter(
+                EtfComposition.year.in_(years),
+                Account.account_type == "etf",
+            )
         )
-        .join(Account, MonthlyMetricNormalized.account_id == Account.id)
-        .filter(
-            Account.bank_code == "alternativos",
-            MonthlyMetricNormalized.year.in_(years),
-        )
-    )
-    if filters.bank_codes:
-        alternatives_query = alternatives_query.filter(Account.bank_code.in_(filters.bank_codes))
-    if filters.entity_names:
-        alternatives_query = alternatives_query.filter(Account.entity_name.in_(filters.entity_names))
-    if getattr(filters, "person_names", None):
-        alternatives_query = alternatives_query.filter(Account.person_name.in_(filters.person_names))
+        if filters.bank_codes:
+            query = query.filter(Account.bank_code.in_(filters.bank_codes))
+        if filters.entity_names:
+            query = query.filter(Account.entity_name.in_(filters.entity_names))
+        if getattr(filters, "person_names", None):
+            query = query.filter(Account.person_name.in_(filters.person_names))
 
-    for year, month, ending_value, acct in alternatives_query.all():
-        month_key = f"{year}-{month:02d}"
-        if month_key not in relevant_months:
-            continue
-        metadata = _account_metadata(acct)
-        bucket = str(metadata.get("asset_class") or "").strip().upper()
-        if bucket not in {"PE", "RE"}:
-            continue
-        amount = _to_float(ending_value) or 0.0
-        amounts_by_month_bucket.setdefault(month_key, {})
-        amounts_by_month_bucket[month_key][bucket] = (
-            amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
+        for year, month, etf_name, market_value_usd, market_value, _, _ in query.all():
+            month_key = f"{year}-{month:02d}"
+            if month_key not in relevant_months:
+                continue
+            bucket = _etf_asset_bucket_from_instrument(etf_name or "")
+            amount = _to_float(market_value_usd)
+            if amount is None:
+                amount = _to_float(market_value) or 0.0
+            amounts_by_month_bucket.setdefault(month_key, {})
+            amounts_by_month_bucket[month_key][bucket] = amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
+
+    if include_jpm_brokerage:
+        brokerage_rows = _query_closing_rows(
+            db=db,
+            filters=filters,
+            years=years,
+            account_type="brokerage",
         )
+        for mc, acct, norm in brokerage_rows.all():
+            if acct.bank_code != "jpmorgan":
+                continue
+            month_key = f"{mc.year}-{mc.month:02d}"
+            if month_key not in relevant_months:
+                continue
+            alloc_json = _resolve_asset_allocation_json(mc, norm)
+            if not alloc_json:
+                continue
+            try:
+                alloc = json.loads(alloc_json)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(alloc, dict):
+                continue
+            amounts_by_month_bucket.setdefault(month_key, {})
+            for bucket, payload in alloc.items():
+                amount = _extract_asset_allocation_amount(payload)
+                if amount is None or amount <= 0:
+                    continue
+                bucket_label = str(bucket).strip() or "Other"
+                amounts_by_month_bucket[month_key][bucket_label] = (
+                    amounts_by_month_bucket[month_key].get(bucket_label, 0.0) + amount
+                )
+
+    if include_alternatives:
+        alternatives_query = (
+            db.query(
+                MonthlyMetricNormalized.year,
+                MonthlyMetricNormalized.month,
+                MonthlyMetricNormalized.ending_value_with_accrual,
+                Account,
+            )
+            .join(Account, MonthlyMetricNormalized.account_id == Account.id)
+            .filter(
+                Account.bank_code == "alternativos",
+                MonthlyMetricNormalized.year.in_(years),
+            )
+        )
+        if filters.bank_codes:
+            alternatives_query = alternatives_query.filter(Account.bank_code.in_(filters.bank_codes))
+        if filters.entity_names:
+            alternatives_query = alternatives_query.filter(Account.entity_name.in_(filters.entity_names))
+        if getattr(filters, "person_names", None):
+            alternatives_query = alternatives_query.filter(Account.person_name.in_(filters.person_names))
+
+        for year, month, ending_value, acct in alternatives_query.all():
+            month_key = f"{year}-{month:02d}"
+            if month_key not in relevant_months:
+                continue
+            metadata = _account_metadata(acct)
+            bucket = str(metadata.get("asset_class") or "").strip().upper()
+            if bucket not in {"PE", "RE"}:
+                continue
+            amount = _to_float(ending_value) or 0.0
+            amounts_by_month_bucket.setdefault(month_key, {})
+            amounts_by_month_bucket[month_key][bucket] = (
+                amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
+            )
 
     if not amounts_by_month_bucket.get(selected_key):
         return _empty_detail_view(show_activity_columns=False)
 
     label_order = []
     for bucket in ASSET_BUCKET_ORDER:
+        label_order.append(bucket)
         if bucket == "Alternativos":
             label_order.append("PE")
         elif bucket == "Real Estate":
             label_order.append("RE")
-        else:
-            label_order.append(bucket)
 
     snapshot_rows = [
         {
@@ -2623,7 +2698,7 @@ def _build_personal_asset_detail_view(
         for bucket, amount in amounts_by_month_bucket.get(month_key, {}).items()
         if amount > 0
     ]
-    return _build_personal_detail_view(
+    detail_view = _build_personal_detail_view(
         snapshot_rows=snapshot_rows,
         history_rows=history_rows,
         history_months=history_months,
@@ -2631,6 +2706,9 @@ def _build_personal_asset_detail_view(
         label_order=label_order,
         show_activity_columns=False,
     )
+    for row in detail_view["table_rows"]:
+        row["table_label"] = _personal_asset_table_label(row.get("label"))
+    return detail_view
 
 
 def _build_personal_returns_panel(
@@ -2668,6 +2746,7 @@ def _build_personal_returns_panel(
         rows.append(
             {
                 "fecha": fecha,
+                "ending_value": _to_float(source_row.get("ending_value")),
                 "rent_mensual_pct": _to_float(source_row.get("rent_mensual_pct")),
                 "rent_ytd_pct": ytd_by_month.get(fecha),
                 "movimientos": _to_float(source_row.get("movimientos")),

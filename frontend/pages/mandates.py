@@ -435,7 +435,7 @@ def _build_bank_month_tables(
             has_total = True
             total_y[mk] = (compound - 1) * 100
         else:
-            total_y[mk] = (compound - 1) * 100 if has_total else None
+            total_y[mk] = None
     ret_m_rows.append(total_m)
     ret_y_rows.append(total_y)
 
@@ -772,6 +772,7 @@ def render():
             bold_cols=["Total"],
             label_col="Banco",
             pinned_row_labels={"Total"},
+            fixed_equal_cols=True,
         )
     else:
         st.info("Sin datos de movimientos por banco.")
@@ -789,7 +790,7 @@ def render():
     if not ret_df.empty:
         ret_df, ret_cols = _rename_month_columns(ret_df, chart_year)
         for col in ret_cols:
-            ret_df[col] = ret_df[col].apply(lambda x: fmt_percent(x, decimals=2))
+            ret_df[col] = ret_df[col].apply(_fmt_pct_cell)
         render_table(ret_df, bold_row_labels={"Total"}, label_col="Banco", pinned_row_labels={"Total"})
     else:
         st.info("Sin datos de rentabilidad por banco.")

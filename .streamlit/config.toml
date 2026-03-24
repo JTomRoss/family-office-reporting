@@ -1,0 +1,7 @@
+# Tema fijo para que todos los usuarios vean la misma apariencia (fondo blanco).
+# Sin esto, Streamlit sigue el modo claro/oscuro del sistema de cada uno (p. ej. Mac en oscuro).
+[theme]
+base = "light"
+
+[client]
+showSidebarNavigation = false

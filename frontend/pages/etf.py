@@ -35,14 +35,18 @@ SOCIETY_COLUMNS = [
     "Total",
 ]
 
-INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "IHYA", "Money Market"]
+INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "SPDR", "IHYA", "Money Market"]
 BENCHMARK_BY_INSTRUMENT = {
     "IWDA": 36.0,
     "IEMA": 4.0,
     "VDCA": 27.0,
     "VDPA": 23.0,
+    "SPDR": 0.0,
     "IHYA": 10.0,
     "Money Market": 0.0,
+}
+INSTRUMENT_DISPLAY_MAP = {
+    "SPDR": "Bloom. 1-10years",
 }
 SOCIETY_DISPLAY_MAP = {
     "Armel Holdings": "Armel Hold.",
@@ -74,6 +78,10 @@ def _society_label(name: str) -> str:
     return SOCIETY_DISPLAY_MAP.get(name, name)
 
 
+def _instrument_label(name: str) -> str:
+    return INSTRUMENT_DISPLAY_MAP.get(name, name)
+
+
 def _to_float(val):
     try:
         return float(val)
@@ -81,18 +89,37 @@ def _to_float(val):
         return None
 
 
-def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float | None]:
-    ytd_values: list[float | None] = []
+def _month_label(fecha_key: str) -> str:
+    year = int(fecha_key[:4])
+    month = int(fecha_key[5:7])
+    return f"{MONTHS[month - 1]} {str(year)[-2:]}"
+
+
+def _rolling_month_keys(end_key: str, size: int = 12) -> list[str]:
+    year = int(end_key[:4])
+    month = int(end_key[5:7])
+    keys: list[str] = []
+    for _ in range(size):
+        keys.append(f"{year}-{month:02d}")
+        month -= 1
+        if month == 0:
+            year -= 1
+            month = 12
+    return list(reversed(keys))
+
+
+def _compute_accumulated_from_monthly(monthly_returns: list[float | None]) -> list[float | None]:
+    accumulated_values: list[float | None] = []
     compound = 1.0
     has_data = False
     for ret in monthly_returns:
         if ret is None:
-            ytd_values.append(round((compound - 1) * 100, 4) if has_data else None)
+            accumulated_values.append(round((compound - 1) * 100, 4) if has_data else None)
             continue
         compound *= 1 + (ret / 100)
         has_data = True
-        ytd_values.append(round((compound - 1) * 100, 4))
-    return ytd_values
+        accumulated_values.append(round((compound - 1) * 100, 4))
+    return accumulated_values
 
 
 def render():
@@ -196,10 +223,11 @@ def render():
     )
 
     try:
+        years_payload = [selected_year - 1, selected_year] if selected_year else []
         etf_summary = api_client.post(
             "/data/summary",
             json={
-                "years": [selected_year] if selected_year else [],
+                "years": years_payload,
                 "bank_codes": selected_banks,
                 "entity_names": selected_entities,
                 "account_types": ["etf"],
@@ -210,29 +238,27 @@ def render():
         etf_summary = {"consolidated_rows": []}
     etf_consolidated = etf_summary.get("consolidated_rows", [])
 
-    st.subheader("Rentabilidad")
-    chart_year = selected_year
-    if chart_year is None and fecha and len(str(fecha)) >= 4 and str(fecha)[:4].isdigit():
-        chart_year = int(str(fecha)[:4])
-
-    if chart_year:
-        month_keys = [f"{chart_year}-{m:02d}" for m in range(1, 13)]
-        chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
+    st.subheader("Rentabilidad ultimos 12 meses (%)")
+    chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
+    if chart_map:
+        end_key = str(fecha) if fecha in chart_map else max(chart_map.keys())
+        month_keys = _rolling_month_keys(end_key, 12)
+        x_labels = [_month_label(key) for key in month_keys]
         rent_key = "rent_mensual_sin_caja_pct" if sin_caja else "rent_mensual_pct"
         monthly_returns = [_to_float(chart_map.get(key, {}).get(rent_key)) for key in month_keys]
-        ytd_returns = _compute_ytd_from_monthly(monthly_returns)
+        accumulated_returns = _compute_accumulated_from_monthly(monthly_returns)
         monthly_vals = [v for v in monthly_returns if v is not None]
         if monthly_vals:
             axis_ranges = aligned_dual_return_axes(
                 monthly_returns,
-                ytd_returns,
+                accumulated_returns,
                 secondary_min_padding=1.0,
             )
 
             fig_ret = go.Figure()
             fig_ret.add_trace(
                 go.Bar(
-                    x=MONTHS,
+                    x=x_labels,
                     y=monthly_returns,
                     name="Rentabilidad Mensual",
                     marker_color="#AFC8E2",
@@ -242,10 +268,10 @@ def render():
             )
             fig_ret.add_trace(
                 go.Scatter(
-                    x=MONTHS,
-                    y=ytd_returns,
+                    x=x_labels,
+                    y=accumulated_returns,
                     mode="lines+markers",
-                    name="Rentabilidad YTD",
+                    name="Rentabilidad acumulada",
                     line=dict(color="#E67E22", width=2),
                     yaxis="y2",
                 )
@@ -264,7 +290,7 @@ def render():
                     zerolinecolor="#9EA7B3",
                 ),
                 yaxis2=dict(
-                    title="% YTD",
+                    title="% acumulada",
                     tickformat=",.2f",
                     range=axis_ranges["secondary_range"],
                     dtick=2,
@@ -292,7 +318,7 @@ def render():
 
         for instr in INSTRUMENT_ORDER:
             vals = instruments_table.get(instr, {})
-            row = {"Instrumento": instr}
+            row = {"Instrumento": _instrument_label(instr)}
             for col in active_society_cols:
                 v = float(vals.get(col, 0) or 0)
                 row[col] = _fmt_num(v)
@@ -304,16 +330,18 @@ def render():
             total_row[col] = _fmt_num(totals_raw[col])
         instr_rows.append(total_row)
 
-        control_row = {"Instrumento": "control"}
+        control_row = {"Instrumento": ""}
+        has_any_difference = False
         for col in active_society_cols:
             expected = float(control_expected.get(col, 0) or 0)
             diff = abs(totals_raw[col] - expected)
-            if col == "Total":
-                signed_diff = totals_raw[col] - expected
-                control_row[col] = "OK" if diff <= 1 else f"DIFERENCIA ({fmt_number(signed_diff, decimals=1)})"
+            if diff <= 1:
+                control_row[col] = ""
             else:
-                control_row[col] = "OK" if diff <= 1 else "DIFERENCIA"
-        instr_rows.append(control_row)
+                has_any_difference = True
+                control_row[col] = "Diferencia"
+        if has_any_difference:
+            instr_rows.append(control_row)
 
         df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + active_society_cols)
         df_instr = df_instr.rename(columns={c: _society_label(c) for c in active_society_cols})
@@ -321,7 +349,6 @@ def render():
             df_instr,
             bold_row_labels={"Total"},
             bold_cols=["Total"],
-            small_row_labels={"control"},
             label_col="Instrumento",
             fixed_equal_cols=True,
         )
@@ -345,7 +372,7 @@ def render():
                 if sin_caja and instr == "Money Market":
                     continue
                 vals = instruments_pct_table[instr]
-                row = {"Instrumento": instr}
+                row = {"Instrumento": _instrument_label(instr)}
                 for col in active_society_cols:
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)
@@ -359,7 +386,7 @@ def render():
             if instr not in INSTRUMENT_ORDER:
                 if sin_caja and instr == "Money Market":
                     continue
-                row = {"Instrumento": instr}
+                row = {"Instrumento": _instrument_label(instr)}
                 for col in active_society_cols:
                     v = vals.get(col, 0)
                     row[col] = _fmt_pct(v)

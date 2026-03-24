@@ -9,6 +9,7 @@ from parsers.jpmorgan.custody import JPMorganCustodyParser
 from parsers.jpmorgan.etf import JPMorganEtfParser
 from parsers.bbh.custody import BBHCustodyParser
 from parsers.goldman_sachs.custody import GoldmanSachsCustodyParser
+from parsers.goldman_sachs.etf import GoldmanSachsEtfParser
 from parsers.ubs.custody import UBSSwitzerlandCustodyParser
 from parsers.ubs_miami.custody import UBSMiamiCustodyParser
 from parsers.base import ParseResult, ParserStatus
@@ -477,6 +478,128 @@ def test_jpm_brokerage_reads_net_contributions_when_amounts_wrap_to_next_line():
     assert _as_decimal(row["utilidad"]) == Decimal("11567.70")
 
 
+def test_jpm_brokerage_extracts_cash_fixed_income_summary_categories():
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. B99719001",
+                "For the Period 2/1/26 to 2/28/26",
+                "Cash & Fixed Income Summary",
+                "Asset Categories Beginning Market Value Ending Market Value Change In Value Allocation",
+                "Cash 15,920,368.36 15,967,852.51 47,484.15 85%",
+                "Short Term 328.56 328.81 0.25 1%",
+                "Non-US Fixed Income 2,590,600.32 2,574,871.20 (15,729.12) 14%",
+                "Total Value 18,511,297.24 18,543,052.52 31,755.28 100%",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 18,511,297.24 18,954,678.10",
+                "Net Contributions/Withdrawals 0.00 (443,380.86)",
+                "Income & Distributions 348.81 57,539.81",
+                "Change In Investment Value 31,406.47 92,656.03",
+                "Ending Market Value 18,543,052.52 18,543,052.52",
+            ]
+        ),
+        "B99719001",
+    )
+    assert row is not None
+    alloc = row.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("Cash", {}).get("ending")) == Decimal("15967852.51")
+    assert _as_decimal(alloc.get("Short Term", {}).get("ending")) == Decimal("328.81")
+    assert _as_decimal(alloc.get("Non-US Fixed Income", {}).get("ending")) == Decimal("2574871.20")
+
+
+def test_jpm_brokerage_merges_cash_fixed_summary_from_separate_page():
+    parser = JPMorganBrokerageParser()
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash="test-hash-merge-summary",
+        bank_code="jpmorgan",
+        currency="USD",
+    )
+    pages = [
+        "\n".join(
+            [
+                "ACCT. B99719001",
+                "For the Period 2/1/26 to 2/28/26",
+                "Cash & Fixed Income Summary",
+                "Cash 15,920,368.36 15,967,852.51 47,484.15 85%",
+                "Short Term 328.56 328.81 0.25 1%",
+                "Non-US Fixed Income 2,590,600.32 2,574,871.20 (15,729.12) 14%",
+            ]
+        ),
+        "\n".join(
+            [
+                "ACCT. B99719001",
+                "For the Period 2/1/26 to 2/28/26",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 18,511,297.24 18,954,678.10",
+                "Net Contributions/Withdrawals 0.00 (443,380.86)",
+                "Income & Distributions 348.81 57,539.81",
+                "Change In Investment Value 31,406.47 92,656.03",
+                "Ending Market Value 18,543,052.52 18,543,052.52",
+            ]
+        ),
+    ]
+    parser._extract_per_account_monthly_activity(pages, result)
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    alloc = monthly[0].get("asset_allocation", {})
+    assert _as_decimal(alloc.get("Cash", {}).get("ending")) == Decimal("15967852.51")
+    assert _as_decimal(alloc.get("Short Term", {}).get("ending")) == Decimal("328.81")
+    assert _as_decimal(alloc.get("Non-US Fixed Income", {}).get("ending")) == Decimal("2574871.20")
+
+
+def test_jpm_brokerage_summary_parses_non_us_line_with_trailing_text():
+    parser = JPMorganBrokerageParser()
+    alloc = parser._extract_cash_fixed_income_summary(
+        "\n".join(
+            [
+                "Cash & Fixed Income Summary",
+                "Cash 16,258,536.38 15,920,368.36 (338,168.02) 85%",
+                "Short Term 0.00 328.56 328.56 1%",
+                "Non-US Fixed Income 2,577,373.29 2,590,600.32 13,227.03 14% Short Term",
+                "Total Value $18,836,237.54 $18,511,297.24 ($324,940.30) 100%",
+            ]
+        )
+    )
+    assert alloc is not None
+    assert _as_decimal(alloc.get("Non-US Fixed Income", {}).get("ending")) == Decimal("2590600.32")
+
+
+def test_jpm_brokerage_extracts_holdings_from_table_without_detail_keyword():
+    parser = JPMorganBrokerageParser()
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash="test-hash-holdings-no-detail",
+        bank_code="jpmorgan",
+        currency="USD",
+    )
+    pages = [
+        "\n".join(
+            [
+                "ACCT. D16567000",
+                "For the Period 2/1/26 to 2/28/26",
+                "Adjusted Cost Unrealized Est. Annual Inc.",
+                "Price Quantity Value Original Cost Gain/Loss Accrued Div. Yield",
+                "Global Equity",
+                "ISHARES CORE MSCI WORLD 134.27 12,564.000 1,686,968.28 1,565,738.66 121,229.62",
+            ]
+        )
+    ]
+    parser._extract_holdings(pages, result)
+    rows = [row.data for row in result.rows if not row.data.get("is_total")]
+    world = next((row for row in rows if row.get("instrument") == "ISHARES CORE MSCI WORLD"), None)
+    assert world is not None
+    assert world.get("section") == "equity"
+    assert _as_decimal(world.get("market_value")) == Decimal("1686968.28")
+
+
 def test_jpm_mandato_extracts_three_subaccounts():
     path = _cartola_path("20251231-statements-2600-Mandato - JPMorgan.pdf")
     _require(path)
@@ -578,6 +701,20 @@ def test_goldman_mandato_has_statement_dates_and_balances():
     assert monthly[0]["account_number"] == "451-9"
     assert _as_decimal(monthly[0]["net_contributions"]) == Decimal("0.00")
     assert _as_decimal(monthly[0]["utilidad"]) == Decimal("1106908.06")
+
+
+def test_goldman_etf_recovers_spdr_bloomberg_alias_from_legacy_layout():
+    path = _goldman_raw_cartola_path("202410 Boatview - GS (ETF).pdf")
+    _require(path)
+
+    result = GoldmanSachsEtfParser().safe_parse(path)
+    assert result.is_success
+
+    names = {
+        str((row.data or {}).get("instrument") or "").strip()
+        for row in result.rows
+    }
+    assert "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG" in names
 
 
 @pytest.mark.parametrize(

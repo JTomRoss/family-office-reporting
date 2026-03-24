@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from asset_taxonomy import asset_bucket_detail_label
 from backend.db.models import (
     Account,
     EtfComposition,
@@ -805,6 +806,7 @@ def test_get_personal_exposes_returns_panel_and_detail_views_from_backend(db_ses
 
     assert payload["selected_fecha"] == "2025-02"
     assert payload["returns_panel"]["rows"][-1]["fecha"] == "2025-02"
+    assert payload["returns_panel"]["rows"][-1]["ending_value"] == 330.0
     assert payload["returns_panel"]["rows"][-1]["movimientos"] == 7.0
 
     bank_view = payload["detail_views"]["bank"]
@@ -822,6 +824,96 @@ def test_get_personal_exposes_returns_panel_and_detail_views_from_backend(db_ses
     asset_rows = {row["label"]: row for row in asset_view["table_rows"]}
     assert asset_rows["RV DM"]["monto_usd"] == 70.0
     assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
+
+
+def test_get_personal_asset_view_includes_jpm_brokerage_bucketized_allocation_and_table_labels(db_session):
+    brokerage = _mk_account(
+        db_session,
+        account_number="1000",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Boatview",
+    )
+    etf = _mk_account(
+        db_session,
+        account_number="9001",
+        bank_code="jpmorgan",
+        account_type="etf",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=brokerage.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("150.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+                asset_allocation_json=json.dumps(
+                    {
+                        "Caja": {"value": "10.00"},
+                        "RF IG Short": {"value": "50.00"},
+                        "Non US RF": {"value": "20.00"},
+                        "RV DM": {"value": "70.00"},
+                    }
+                ),
+            ),
+            MonthlyMetricNormalized(
+                account_id=brokerage.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("150.00"),
+                ending_value_without_accrual=Decimal("150.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.00"),
+                cash_value=Decimal("10.00"),
+                asset_allocation_json=json.dumps(
+                    {
+                        "Caja": {"value": "10.00"},
+                        "RF IG Short": {"value": "50.00"},
+                        "Non US RF": {"value": "20.00"},
+                        "RV DM": {"value": "70.00"},
+                    }
+                ),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=etf.id,
+                bank_code="jpmorgan",
+                report_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                etf_code="IWDA",
+                etf_name="IWDA",
+                quantity=Decimal("1"),
+                market_value=Decimal("999.00"),
+                market_value_usd=Decimal("999.00"),
+                weight_pct=Decimal("100.0"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[2], account_types=["brokerage"]),
+        db_session,
+    )
+
+    asset_rows = {row["label"]: row for row in payload["detail_views"]["asset"]["table_rows"]}
+    assert asset_rows["Caja"]["monto_usd"] == 10.0
+    assert asset_rows["Caja"]["table_label"] == "Cash"
+    assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
+    assert asset_rows["RF IG Short"]["table_label"] == "IG Fixed income"
+    assert asset_rows["Non US RF"]["monto_usd"] == 20.0
+    assert asset_rows["Non US RF"]["table_label"] == asset_bucket_detail_label("Non US RF")
+    assert asset_rows["RV DM"]["monto_usd"] == 70.0
+    assert asset_rows["RV DM"]["table_label"] == "Global Equity"
+    assert sum(row["monto_usd"] for row in asset_rows.values()) == 150.0
 
 
 def test_get_personal_exposes_grouped_account_detail_view(db_session):
@@ -989,6 +1081,11 @@ def test_etf_asset_bucket_classifies_core_tickers_and_cash_aliases():
     assert _etf_asset_bucket_from_instrument("VDPA") == "RF IG Long"
     assert _etf_asset_bucket_from_instrument("VDCA") == "RF IG Short"
     assert _etf_asset_bucket_from_instrument("IHYA") == "HY"
+    assert _etf_asset_bucket_from_instrument("SPDR BLOOMBERG 1-10 YEAR U.S.") == "RF IG Short"
+    assert _etf_asset_bucket_from_instrument("SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG") == "RF IG Short"
+    assert _etf_asset_bucket_from_instrument("non us fixed income") == "Non US RF"
+    assert _etf_asset_bucket_from_instrument("1-3yr") == "RF IG Short"
+    assert _etf_asset_bucket_from_instrument("short-duration") == "RF IG Short"
     assert _etf_asset_bucket_from_instrument("ALT") == "Alternativos"
     assert _etf_asset_bucket_from_instrument("ALT RE") == "Real Estate"
     assert _etf_asset_bucket_from_instrument("Money Market") == "Caja"
@@ -1212,6 +1309,69 @@ def test_etf_normalizes_p_jpm_li_liq_to_money_market(db_session):
     assert "Money Market" in instruments
     assert "P JPM LI-LIQ LVNAV FD - USD - W -" not in instruments
     assert instruments["Money Market"]["Total"] == 50.0
+
+
+def test_etf_normalizes_spdr_aliases_from_jpm_and_gs(db_session):
+    jpm = _mk_account(
+        db_session,
+        account_number="NORM-ETF-SPDR-JPM",
+        bank_code="jpmorgan",
+        account_type="etf",
+        entity_name="Telmar",
+    )
+    gs = _mk_account(
+        db_session,
+        account_number="NORM-ETF-SPDR-GS",
+        bank_code="goldman_sachs",
+        account_type="etf",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            EtfComposition(
+                account_id=jpm.id,
+                bank_code="jpmorgan",
+                report_date=date(2024, 10, 31),
+                year=2024,
+                month=10,
+                etf_code="SPDR",
+                etf_name="SPDR BLOOMBERG 1-10 YEAR U.S.",
+                quantity=Decimal("1"),
+                market_value=Decimal("120.00"),
+                weight_pct=Decimal("60.0"),
+                currency="USD",
+            ),
+            EtfComposition(
+                account_id=gs.id,
+                bank_code="goldman_sachs",
+                report_date=date(2024, 10, 31),
+                year=2024,
+                month=10,
+                etf_code="SPDR",
+                etf_name="SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG",
+                quantity=Decimal("1"),
+                market_value=Decimal("80.00"),
+                weight_pct=Decimal("40.0"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_etf(
+        FilterParams(
+            years=[2024],
+            fecha="2024-10",
+            bank_codes=["jpmorgan", "goldman_sachs"],
+            entity_names=["Telmar", "Boatview"],
+        ),
+        db_session,
+    )
+    instruments = payload["instruments_table"]
+    assert "SPDR" in instruments
+    assert instruments["SPDR"]["Telmar"] == 120.0
+    assert instruments["SPDR"]["Boatview GS"] == 80.0
+    assert instruments["SPDR"]["Total"] == 200.0
 
 
 def test_etf_pct_table_uses_column_totals_per_society(db_session):

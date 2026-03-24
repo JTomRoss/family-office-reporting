@@ -20,6 +20,11 @@ from typing import Optional, Any
 
 from sqlalchemy.orm import Session
 
+from asset_taxonomy import (
+    asset_bucket_order,
+    classify_etf_asset_bucket,
+    classify_etf_asset_bucket_with_match,
+)
 from backend.db.models import (
     Account,
     DailyMovement,
@@ -36,6 +41,30 @@ from backend.db.models import (
 from parsers.base import ParseResult
 
 logger = logging.getLogger(__name__)
+_ASSET_BUCKET_ORDER = tuple(asset_bucket_order())
+_BROKERAGE_ETF_SEARCH_BUCKETS = {"RV DM", "RV EM", "HY", "RF IG Long", "RF IG Short"}
+_BROKERAGE_OTHERS_LABEL_TO_BUCKET = {
+    "shortterm": "RF IG Short",
+    "rfigshort": "RF IG Short",
+    "nonusfixedincome": "Non US RF",
+    "nonusrf": "Non US RF",
+}
+_BROKERAGE_CASH_LABEL_TO_BUCKET = {
+    "cash": "Caja",
+    "caja": "Caja",
+}
+_BROKERAGE_CASH_MARKERS = (
+    "depositsweep",
+    "liquiditysweep",
+    "liliq",
+    "primemmfd",
+    "moneymarket",
+    "proceedsfrompendingsales",
+    "creditbalance",
+    "availablebalance",
+    "cashequivalent",
+    "liqheritag",
+)
 
 _ALTERNATIVES_BANK_CODE = "alternativos"
 _ALTERNATIVES_BANK_NAME = "Alternativos"
@@ -168,7 +197,7 @@ def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[D
             if _is_mixed_cash_bucket(key_norm):
                 continue
             if not any(
-                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
             ):
                 continue
             val = _value_from_payload(payload)
@@ -184,7 +213,7 @@ def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[D
             if _is_mixed_cash_bucket(name_norm):
                 continue
             if not any(
-                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "shortterm", "liquidity")
+                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
             ):
                 continue
             val = _value_from_payload(row)
@@ -245,6 +274,32 @@ def _cash_from_jpmorgan_parsed_payload(parsed_data_json: str | None) -> Optional
     return _cash_from_jpmorgan_holdings_rows(rows)
 
 
+def _rows_from_parsed_payload(
+    parsed_data_json: str | None,
+    *,
+    account_number: str | None = None,
+) -> list[dict[str, Any]]:
+    if not parsed_data_json:
+        return []
+    try:
+        payload = json.loads(parsed_data_json)
+    except (TypeError, ValueError):
+        return []
+    rows = payload.get("rows") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return []
+
+    filtered_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_account = str(row.get("account_number") or "").strip()
+        if account_number and row_account and row_account != account_number:
+            continue
+        filtered_rows.append(row)
+    return filtered_rows
+
+
 def _normalize_asset_label(label: Any) -> str:
     text = str(label or "").strip().lower()
     return re.sub(r"[^a-z0-9]", "", text)
@@ -294,6 +349,16 @@ def _extract_asset_allocation_entries(asset_alloc: Any) -> list[tuple[str, Decim
             continue
         entries.append((label_norm, val))
     return entries
+
+
+def _asset_allocation_total_value(asset_alloc: Any) -> Optional[Decimal]:
+    entries = _extract_asset_allocation_entries(asset_alloc)
+    if not entries:
+        return None
+    total = Decimal("0")
+    for _, amount in entries:
+        total += amount
+    return total
 
 
 def _pick_asset_class_value(
@@ -373,6 +438,17 @@ def _normalize_mandate_asset_allocation(asset_alloc: Any) -> dict[str, dict[str,
         "Fixed Income": {"value": str(fixed_income)},
         "Equities": {"value": str(equities)},
     }
+
+
+def _asset_bucket_sort_key(bucket: str) -> tuple[int, str]:
+    try:
+        return (_ASSET_BUCKET_ORDER.index(bucket), bucket)
+    except ValueError:
+        return (len(_ASSET_BUCKET_ORDER), bucket)
+
+
+def _normalize_alloc_label(label: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
 
 
 class DataLoadingService:
@@ -1181,6 +1257,8 @@ class DataLoadingService:
                 account_id=account.id,
             )
 
+        parsed_rows = self._rows_for_account(result, account)
+
         # Asset allocation (normalizado para Mandatos, por cuenta cuando aplica).
         raw_asset_alloc = self._resolve_asset_allocation_for_account(
             result=result,
@@ -1189,8 +1267,26 @@ class DataLoadingService:
         )
         if account.account_type == "mandato":
             asset_alloc = _normalize_mandate_asset_allocation(raw_asset_alloc) or raw_asset_alloc
+        elif account.bank_code == "jpmorgan" and account.account_type == "brokerage":
+            asset_alloc = self._derive_jpm_brokerage_asset_allocation(
+                account=account,
+                raw_asset_alloc=raw_asset_alloc,
+                parsed_rows=parsed_rows,
+                year=year,
+                month=month,
+                source_document_id=doc.id,
+            )
         else:
             asset_alloc = raw_asset_alloc
+
+        if (
+            closing_bal is None
+            and account.bank_code == "jpmorgan"
+            and account.account_type == "brokerage"
+        ):
+            closing_from_alloc = _asset_allocation_total_value(asset_alloc)
+            if closing_from_alloc is not None:
+                closing_bal = closing_from_alloc
         asset_alloc_json = json.dumps(asset_alloc) if asset_alloc else None
 
         parsed_bank_code = result.bank_code or doc.bank_code
@@ -1260,7 +1356,7 @@ class DataLoadingService:
             movements=change_in_value,
             profit=income,
             asset_alloc_json=asset_alloc_json,
-            parsed_rows=self._rows_for_account(result, account),
+            parsed_rows=parsed_rows,
         )
 
         self._recompute_ubs_income_from_identity(
@@ -1434,6 +1530,24 @@ class DataLoadingService:
                 if existing_alloc is not None
                 else closing.asset_allocation_json
             )
+            alloc_payload = None
+            if alloc_json:
+                try:
+                    decoded = json.loads(alloc_json)
+                    if isinstance(decoded, (dict, list)):
+                        alloc_payload = decoded
+                except (TypeError, ValueError):
+                    alloc_payload = None
+            derived_alloc = self._derive_jpm_brokerage_asset_allocation(
+                account=account,
+                raw_asset_alloc=alloc_payload,
+                year=closing.year,
+                month=closing.month,
+                source_document_id=closing.source_document_id,
+            )
+            if derived_alloc:
+                alloc_json = json.dumps(derived_alloc)
+                closing.asset_allocation_json = alloc_json
 
             existing_cash = normalized.cash_value if normalized else None
             cash_value = (
@@ -1514,6 +1628,163 @@ class DataLoadingService:
                             return alloc
 
         return None
+
+    def _derive_jpm_brokerage_asset_allocation(
+        self,
+        *,
+        account: Account,
+        raw_asset_alloc: dict | list | None,
+        parsed_rows: list[dict[str, Any]] | None = None,
+        year: int | None = None,
+        month: int | None = None,
+        source_document_id: int | None = None,
+    ) -> dict | list | None:
+        if account.bank_code != "jpmorgan" or account.account_type != "brokerage":
+            return raw_asset_alloc
+
+        other_bucket_totals = self._brokerage_others_bucket_totals_from_raw_asset_allocation(raw_asset_alloc)
+        summary_cash_total = self._brokerage_cash_total_from_raw_asset_allocation(raw_asset_alloc)
+        rows = list(parsed_rows or [])
+        if not rows and year is not None and month is not None:
+            rows = self._persisted_rows_for_account_month(
+                account=account,
+                year=year,
+                month=month,
+                source_document_id=source_document_id,
+            )
+
+        # Búsqueda ETF: solo instrumentos ETF/cash (misma clasificación base de ETF).
+        bucket_totals = self._brokerage_etf_bucket_totals_from_rows(rows)
+
+        # Búsqueda Otros: Short Term + Non-US Fixed Income salen del summary.
+        for bucket, amount in other_bucket_totals.items():
+            bucket_totals[bucket] = amount
+
+        # Fallback defensivo: si no se detectó cash en holdings ETF, usar Cash del summary.
+        if "Caja" not in bucket_totals and summary_cash_total is not None:
+            bucket_totals["Caja"] = summary_cash_total
+
+        if not bucket_totals:
+            return raw_asset_alloc
+
+        return {
+            bucket: {"value": str(bucket_totals[bucket])}
+            for bucket in sorted(bucket_totals, key=_asset_bucket_sort_key)
+            if bucket_totals[bucket] != Decimal("0")
+        }
+
+    @staticmethod
+    def _brokerage_bucket_from_etf_search_instrument(instrument: str) -> str | None:
+        instrument_norm = re.sub(r"[^a-z0-9]", "", str(instrument or "").lower())
+        if any(marker in instrument_norm for marker in _BROKERAGE_CASH_MARKERS):
+            return "Caja"
+
+        bucket, matched = classify_etf_asset_bucket_with_match(instrument)
+        if matched and bucket == "Caja":
+            return "Caja"
+        if matched and bucket in _BROKERAGE_ETF_SEARCH_BUCKETS:
+            return bucket
+        return None
+
+    @classmethod
+    def _brokerage_etf_bucket_totals_from_rows(
+        cls,
+        rows: list[dict[str, Any]],
+    ) -> dict[str, Decimal]:
+        bucket_totals: dict[str, Decimal] = {}
+        for row in rows:
+            if not isinstance(row, dict) or row.get("is_total"):
+                continue
+            instrument = str(row.get("instrument") or "").strip()
+            if not instrument:
+                continue
+            amount = _safe_decimal(
+                row.get("market_value") or row.get("value") or row.get("amount")
+            )
+            if amount is None or amount == Decimal("0"):
+                continue
+
+            bucket = cls._brokerage_bucket_from_etf_search_instrument(instrument)
+            if not bucket:
+                continue
+            bucket_totals[bucket] = bucket_totals.get(bucket, Decimal("0")) + amount
+        return bucket_totals
+
+    @staticmethod
+    def _brokerage_others_bucket_totals_from_raw_asset_allocation(
+        raw_asset_alloc: dict | list | None,
+    ) -> dict[str, Decimal]:
+        if not isinstance(raw_asset_alloc, dict):
+            return {}
+
+        bucket_totals: dict[str, Decimal] = {}
+        for label, payload in raw_asset_alloc.items():
+            amount = _safe_decimal(
+                payload.get("value")
+                if isinstance(payload, dict)
+                else payload
+            )
+            if amount is None:
+                continue
+            key = _normalize_alloc_label(label)
+            bucket = _BROKERAGE_OTHERS_LABEL_TO_BUCKET.get(key)
+            if not bucket:
+                continue
+            bucket_totals[bucket] = amount
+        return bucket_totals
+
+    @staticmethod
+    def _brokerage_cash_total_from_raw_asset_allocation(
+        raw_asset_alloc: dict | list | None,
+    ) -> Decimal | None:
+        if not isinstance(raw_asset_alloc, dict):
+            return None
+
+        for label, payload in raw_asset_alloc.items():
+            key = _normalize_alloc_label(label)
+            if key not in _BROKERAGE_CASH_LABEL_TO_BUCKET:
+                continue
+            amount = _safe_decimal(
+                payload.get("value")
+                if isinstance(payload, dict)
+                else payload
+            )
+            if amount is not None:
+                return amount
+        return None
+
+    def _persisted_rows_for_account_month(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        source_document_id: int | None,
+    ) -> list[dict[str, Any]]:
+        month_start = date(year, month, 1)
+        next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+        base_query = self.db.query(ParsedStatement.parsed_data_json).filter(
+            ParsedStatement.account_id == account.id,
+            ParsedStatement.statement_date >= month_start,
+            ParsedStatement.statement_date < next_month,
+        )
+
+        if source_document_id is not None:
+            row = (
+                base_query
+                .filter(ParsedStatement.raw_document_id == source_document_id)
+                .order_by(ParsedStatement.id.desc())
+                .first()
+            )
+            rows = _rows_from_parsed_payload(row[0], account_number=account.account_number) if row else []
+            if rows:
+                return rows
+
+        row = base_query.order_by(ParsedStatement.id.desc()).first()
+        if not row:
+            return []
+        return _rows_from_parsed_payload(row[0], account_number=account.account_number)
 
     @staticmethod
     def _ubs_asset_allocation_from_portfolio_block(
@@ -2330,43 +2601,35 @@ class DataLoadingService:
                 elif market_value is not None:
                     grouped[etf_code]["market_value"] = prev + market_value
 
+        if not grouped:
+            return 0
+
+        # Replace full snapshot for account/bank/month to avoid stale rows when
+        # parser normalization changes etf_code between reprocesos.
+        self.db.query(EtfComposition).filter(
+            EtfComposition.account_id == account.id,
+            EtfComposition.bank_code == bank_code,
+            EtfComposition.year == year,
+            EtfComposition.month == month,
+        ).delete(synchronize_session=False)
+
         count = 0
         for etf_code, payload in grouped.items():
             instrument = payload["etf_name"]
             market_value = payload["market_value"]
-
-            # UNIQUE: account_id, bank_code, year, month, etf_code
-            existing = (
-                self.db.query(EtfComposition)
-                .filter(
-                    EtfComposition.account_id == account.id,
-                    EtfComposition.bank_code == bank_code,
-                    EtfComposition.year == year,
-                    EtfComposition.month == month,
-                    EtfComposition.etf_code == etf_code,
-                )
-                .first()
+            comp = EtfComposition(
+                account_id=account.id,
+                bank_code=bank_code,
+                report_date=report_date,
+                year=year,
+                month=month,
+                etf_code=etf_code,
+                etf_name=instrument,
+                market_value=market_value,
+                currency=result.currency or account.currency,
+                source_document_id=doc.id,
             )
-
-            if existing:
-                existing.etf_name = instrument
-                existing.market_value = market_value
-                existing.report_date = report_date
-                existing.source_document_id = doc.id
-            else:
-                comp = EtfComposition(
-                    account_id=account.id,
-                    bank_code=bank_code,
-                    report_date=report_date,
-                    year=year,
-                    month=month,
-                    etf_code=etf_code,
-                    etf_name=instrument,
-                    market_value=market_value,
-                    currency=result.currency or account.currency,
-                    source_document_id=doc.id,
-                )
-                self.db.add(comp)
+            self.db.add(comp)
 
             count += 1
 

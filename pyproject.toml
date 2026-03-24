@@ -14,6 +14,7 @@ dependencies = [
     "alembic>=1.13.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
+    "python-dotenv>=1.0.0",
     "pandas>=2.1.0",
     "openpyxl>=3.1.0",
     "pdfplumber>=0.10.0",
@@ -24,6 +25,7 @@ dependencies = [
     "streamlit>=1.29.0",
     "plotly>=5.18.0",
     "aiofiles>=23.2.0",
+    "openai>=1.40.0",
 ]
 
 [project.optional-dependencies]

@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsEtfParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "etf"
-    VERSION = "2.1.0"
+    VERSION = "2.1.1"
     DESCRIPTION = "Parser para cartolas ETF Goldman Sachs – Brokerage Statement (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -141,9 +141,13 @@ class GoldmanSachsEtfParser(BaseParser):
                     mv = s.get("market_value")
                     if not name or mv is None:
                         continue
+                    resolved_name = self._resolve_strategy_instrument_name(
+                        name=name,
+                        full_text=all_text,
+                    )
                     rows.append(ParsedRow(
                         data={
-                            "instrument": name,
+                            "instrument": resolved_name,
                             "market_value": str(mv),
                             "percentage": s.get("percentage", ""),
                             "asset_class": s.get("category", ""),
@@ -261,6 +265,33 @@ class GoldmanSachsEtfParser(BaseParser):
             warnings=warnings,
         )
         return result
+
+    @staticmethod
+    def _resolve_strategy_instrument_name(*, name: str, full_text: str) -> str:
+        """
+        Ajuste aislado GS ETF:
+        algunos estados antiguos emiten "OTHER INVESTMENT GRADE SECURITIES"
+        como label genérico y dejan el nombre ETF real en la línea siguiente.
+        """
+        normalized = str(name or "").strip()
+        if not normalized:
+            return normalized
+
+        if normalized.upper() != "OTHER INVESTMENT GRADE SECURITIES":
+            return normalized
+
+        compact_text = re.sub(r"[^A-Z0-9]", "", str(full_text or "").upper())
+        spdr_aliases = (
+            "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG",
+            "SPDR BLOOMBERG 1-10 YEAR U.S.",
+            "SPDR BLOOMBERG 1-10 YEAR U.S",
+        )
+        for alias in spdr_aliases:
+            compact_alias = re.sub(r"[^A-Z0-9]", "", alias.upper())
+            if compact_alias and compact_alias in compact_text:
+                return alias
+
+        return normalized
 
     @staticmethod
     def _parse_gs_date(date_str: str | None) -> date_type | None:

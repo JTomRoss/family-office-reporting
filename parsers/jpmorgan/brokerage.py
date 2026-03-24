@@ -62,7 +62,7 @@ _ACTIVITY_VALUE_RE = re.compile(r"-?\(?\$?[\d,]+\.\d{2}\)?")
 class JPMorganBrokerageParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "brokerage"
-    VERSION = "2.1.0"
+    VERSION = "2.1.2"
     DESCRIPTION = "Parser para cartolas Brokerage JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -270,6 +270,7 @@ class JPMorganBrokerageParser(BaseParser):
     ) -> None:
         """Extrae actividad mensual actual por subcuenta desde páginas ACCT."""
         activities: list[dict] = []
+        cash_fixed_alloc_by_account = self._extract_cash_fixed_summary_by_account(pages)
         current_account: Optional[str] = None
 
         for text in pages:
@@ -285,6 +286,8 @@ class JPMorganBrokerageParser(BaseParser):
                 continue
 
             acct_data = self._parse_account_activity_page(text, current_account)
+            if acct_data and current_account in cash_fixed_alloc_by_account and "asset_allocation" not in acct_data:
+                acct_data["asset_allocation"] = cash_fixed_alloc_by_account[current_account]
             if acct_data and not any(
                 a["account_number"] == current_account for a in activities
             ):
@@ -292,6 +295,22 @@ class JPMorganBrokerageParser(BaseParser):
 
         if activities:
             result.qualitative_data["account_monthly_activity"] = activities
+
+    def _extract_cash_fixed_summary_by_account(self, pages: list[str]) -> dict[str, dict]:
+        alloc_by_account: dict[str, dict] = {}
+        current_account: Optional[str] = None
+        for text in pages:
+            acct_m = re.search(r"ACCT\.\s+([A-Z0-9]+)", text)
+            if acct_m:
+                current_account = acct_m.group(1)
+            if not current_account:
+                continue
+            if "Cash & Fixed Income Summary" not in text:
+                continue
+            alloc = self._extract_cash_fixed_income_summary(text)
+            if alloc:
+                alloc_by_account[current_account] = alloc
+        return alloc_by_account
 
     def _parse_account_activity_page(
         self, text: str, account_number: str
@@ -321,6 +340,9 @@ class JPMorganBrokerageParser(BaseParser):
         if with_accrual_m:
             val = _parse_usd(with_accrual_m.group(2))
             data["ending_value_with_accrual"] = str(val) if val is not None else None
+        cash_fixed_alloc = self._extract_cash_fixed_income_summary(search_text)
+        if cash_fixed_alloc:
+            data["asset_allocation"] = cash_fixed_alloc
 
         activity_text = text[activity_pos:] if activity_pos > 0 else text
 
@@ -392,6 +414,45 @@ class JPMorganBrokerageParser(BaseParser):
         if interpretation_notes:
             data["interpretation_notes"] = interpretation_notes
         return data
+
+    @staticmethod
+    def _extract_cash_fixed_income_summary(text: str) -> Optional[dict[str, dict[str, object]]]:
+        """
+        Extrae el bloque por categoria desde "Cash & Fixed Income Summary".
+        """
+        if "Cash & Fixed Income Summary" not in text:
+            return None
+
+        alloc: dict[str, dict[str, object]] = {}
+        pattern = re.compile(
+            r"(?im)^(Cash|Short\s+Term|Non[\-\s]*US\s+Fixed\s+Income)\s+"
+            r"([\d,]+\.\d{2})\s+"
+            r"([\d,]+\.\d{2})\s+"
+            r"(\([\d,]+\.\d{2}\)|[\d,]+\.\d{2})\s+"
+            r"(\d+)%(?:[ \t]+[^\n\r]*)?$"
+        )
+        for match in pattern.finditer(text):
+            raw_label = re.sub(r"\s+", " ", match.group(1)).strip()
+            label_norm = raw_label.lower().replace("-", " ")
+            if label_norm == "short term":
+                label = "Short Term"
+            elif label_norm == "non us fixed income":
+                label = "Non-US Fixed Income"
+            else:
+                label = "Cash"
+
+            beginning = _parse_usd(match.group(2))
+            ending = _parse_usd(match.group(3))
+            change = _parse_usd(match.group(4))
+            alloc[label] = {
+                "beginning": str(beginning) if beginning is not None else None,
+                "ending": str(ending) if ending is not None else None,
+                "change": str(change) if change is not None else None,
+                "allocation_pct": int(match.group(5)),
+                "value": str(ending) if ending is not None else None,
+            }
+
+        return alloc or None
 
     @staticmethod
     def _extract_activity_values(
@@ -469,12 +530,20 @@ class JPMorganBrokerageParser(BaseParser):
             if acct_m:
                 current_account = acct_m.group(1)
 
+            has_holdings_table = (
+                "Price Quantity Value Original Cost" in text
+                or (
+                    "Price Quantity Value" in text
+                    and "Adjusted Cost" in text
+                )
+            )
+
             if "Cash & Fixed Income" in text:
                 current_section = "cash_fixed_income"
-            elif "Equity" in text and "Detail" in text:
+            elif has_holdings_table and re.search(r"\bEquity\b", text):
                 current_section = "equity"
 
-            if "Detail" not in text and "Holdings" not in text:
+            if "Detail" not in text and "Holdings" not in text and not has_holdings_table:
                 continue
 
             for line in text.split("\n"):

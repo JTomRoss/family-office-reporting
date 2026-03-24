@@ -69,7 +69,7 @@ def _parse_date_text(text: str) -> Optional[date]:
 class JPMorganBondsParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "bonds"
-    VERSION = "2.0.0"
+    VERSION = "2.0.1"
     DESCRIPTION = "Parser para cartolas Mandato Bonos JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -163,6 +163,11 @@ class JPMorganBondsParser(BaseParser):
                     "change": str(_parse_usd(m.group(4))),
                 }
             if alloc:
+                self._apply_cash_holdings_override_for_ecoterra_1100(
+                    pages=pages,
+                    result=result,
+                    alloc=alloc,
+                )
                 result.qualitative_data["asset_allocation"] = alloc
 
             # Total Market Value
@@ -204,6 +209,56 @@ class JPMorganBondsParser(BaseParser):
                 result.qualitative_data["diversification"] = div_pcts
 
             break
+
+    @staticmethod
+    def _normalized_label(label: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
+
+    def _extract_total_cash_holdings(self, pages: list[str]) -> Optional[Decimal]:
+        """
+        Extrae `Total Cash Holdings` desde la sección Cash, Deposits & Short Term.
+        """
+        pattern = re.compile(r"Total\s+Cash\s+Holdings\s+([\d,]+\.\d{2})", re.IGNORECASE)
+        for text in pages[:25]:
+            if "Cash Holdings" not in text:
+                continue
+            m = pattern.search(text)
+            if m:
+                return _parse_usd(m.group(1))
+        return None
+
+    def _apply_cash_holdings_override_for_ecoterra_1100(
+        self,
+        *,
+        pages: list[str],
+        result: ParseResult,
+        alloc: dict[str, dict],
+    ) -> None:
+        """
+        Ajuste acotado al motor JPM bonds para Ecoterra Internacional 1100:
+        caja = Total Cash Holdings (sin incluir Short Term Investments).
+        """
+        if str(result.account_number or "").strip() != "1531100":
+            return
+        cash_holdings = self._extract_total_cash_holdings(pages)
+        if cash_holdings is None:
+            return
+
+        cash_key = None
+        for key in alloc.keys():
+            key_norm = self._normalized_label(key)
+            if "cash" in key_norm and "deposit" in key_norm and "shortterm" in key_norm:
+                cash_key = key
+                break
+        if cash_key is None:
+            return
+
+        cash_payload = alloc.get(cash_key) if isinstance(alloc.get(cash_key), dict) else {}
+        beginning_value = _parse_usd(str(cash_payload.get("beginning") or ""))
+        cash_payload["ending"] = str(cash_holdings)
+        if beginning_value is not None:
+            cash_payload["change"] = str(cash_holdings - beginning_value)
+        alloc[cash_key] = cash_payload
 
     def _extract_fixed_income_summary(self, pages: list[str], result: ParseResult) -> None:
         """Extract Fixed Income summary page with maturity breakdown."""

@@ -6,6 +6,17 @@ Ejecutar:
     uvicorn backend.main:app --host 0.0.0.0 --port 8000
 """
 
+from pathlib import Path
+
+# Cargar variables de .env en os.environ (p. ej. OPENAI_API_KEY sin prefijo FO_).
+_project_root = Path(__file__).resolve().parent.parent
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_project_root / ".env")
+except ImportError:
+    pass
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings, ensure_dirs
 from backend.db.init_db import init_database
-from backend.routers import health, documents, accounts, data
+from backend.routers import health, documents, accounts, data, audit
 
 
 @asynccontextmanager
@@ -47,6 +58,7 @@ app.include_router(health.router, prefix=settings.api_prefix)
 app.include_router(documents.router, prefix=settings.api_prefix)
 app.include_router(accounts.router, prefix=settings.api_prefix)
 app.include_router(data.router, prefix=settings.api_prefix)
+app.include_router(audit.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

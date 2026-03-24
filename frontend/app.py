@@ -116,7 +116,7 @@ page = st.sidebar.radio(
         "👤 Detalle",
         "📑 Mandatos",
         "📈 ETF",
-        "📋 Resumen",
+        "📋 Detalle de Cartolas",
         "📁 Carga",
         "⚙️ Operacional",
     ],
@@ -135,7 +135,7 @@ elif page == "📑 Mandatos":
 elif page == "📈 ETF":
     from frontend.pages.etf import render
     render()
-elif page == "📋 Resumen":
+elif page == "📋 Detalle de Cartolas":
     from frontend.pages.summary import render
     render()
 elif page == "📁 Carga":

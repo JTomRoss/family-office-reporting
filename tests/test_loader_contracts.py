@@ -420,6 +420,126 @@ def test_loader_etf_collapses_same_etf_code_rows_without_integrity_error(db_sess
     assert rows[0].market_value == Decimal("12047297.01")
 
 
+def test_loader_reprocess_replaces_etf_snapshot_when_code_changes(db_session):
+    parser = JPMorganEtfParser()
+    acct = _create_account(
+        db_session,
+        account_number="E30994009",
+        bank_code="jpmorgan",
+        account_type="etf",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202410 Telmar JPM NY ETF (4009).pdf",
+        bank_code="jpmorgan",
+    )
+    pv = _create_parser_version(db_session, parser)
+    loader = DataLoadingService(db_session)
+
+    old_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("etf-reprocess-old"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2024, 10, 31),
+        period_start=date(2024, 10, 1),
+        period_end=date(2024, 10, 31),
+        opening_balance=Decimal("1000000"),
+        closing_balance=Decimal("1000100"),
+        currency="USD",
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "OTHER INVESTMENT GRADE SECURITIES",
+                    "market_value": "100.00",
+                    "account_number": acct.account_number,
+                },
+                row_number=1,
+                confidence=1.0,
+            ),
+        ],
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "1000000",
+                    "ending_value": "1000100",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "1000100",
+                    "ending_value_without_accrual": "1000100",
+                    "net_contributions": "0",
+                    "utilidad": "100",
+                }
+            ],
+        },
+    )
+    loader.load_parse_result(result=old_result, raw_document=doc, parser_version_id=pv.id)
+
+    new_result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("etf-reprocess-new"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2024, 10, 31),
+        period_start=date(2024, 10, 1),
+        period_end=date(2024, 10, 31),
+        opening_balance=Decimal("1000000"),
+        closing_balance=Decimal("1000100"),
+        currency="USD",
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG",
+                    "market_value": "100.00",
+                    "account_number": acct.account_number,
+                },
+                row_number=1,
+                confidence=1.0,
+            ),
+        ],
+        qualitative_data={
+            "accounts": [
+                {
+                    "account_number": acct.account_number,
+                    "beginning_value": "1000000",
+                    "ending_value": "1000100",
+                }
+            ],
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "1000100",
+                    "ending_value_without_accrual": "1000100",
+                    "net_contributions": "0",
+                    "utilidad": "100",
+                }
+            ],
+        },
+    )
+    loader.load_parse_result(result=new_result, raw_document=doc, parser_version_id=pv.id)
+
+    rows = (
+        db_session.query(EtfComposition)
+        .filter(
+            EtfComposition.account_id == acct.id,
+            EtfComposition.year == 2024,
+            EtfComposition.month == 10,
+        )
+        .all()
+    )
+    assert len(rows) == 1
+    assert rows[0].etf_name == "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG"
+    assert rows[0].market_value == Decimal("100.00")
+
+
 def test_loader_jpm_etf_parser_isolates_subaccounts_to_etf_type(db_session):
     acct_b = _create_account(
         db_session,
@@ -749,8 +869,211 @@ def test_loader_jpm_brokerage_normalizes_cash_from_holdings_when_allocation_miss
         )
         .one()
     )
-    assert normalized.asset_allocation_json is None
+    assert json.loads(normalized.asset_allocation_json or "{}") == {
+        "Caja": {"value": "459.62"},
+        "RF IG Short": {"value": "999.99"},
+    }
     assert normalized.cash_value == Decimal("459.62")
+
+
+def test_loader_jpm_brokerage_falls_back_to_asset_allocation_total_when_closing_missing(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="E74997009",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20260228-jpm-brokerage-missing-closing.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-brokerage-missing-closing"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2026, 2, 28),
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        opening_balance=None,
+        closing_balance=None,
+        currency="USD",
+        qualitative_data={},
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "US DOLLAR JPM DEPOSIT SWEEP",
+                    "market_value": "9.84",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=1,
+                confidence=0.9,
+            )
+        ],
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2026, MonthlyClosing.month == 2)
+        .one()
+    )
+    assert mc.net_value == Decimal("9.84")
+    assert json.loads(mc.asset_allocation_json or "{}") == {"Caja": {"value": "9.84"}}
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 2,
+        )
+        .one()
+    )
+    assert normalized.ending_value_with_accrual == Decimal("9.84")
+    assert normalized.cash_value == Decimal("9.84")
+
+
+def test_loader_jpm_brokerage_bucketizes_asset_allocation_from_holdings(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="B99719999",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20260228-jpm-brokerage-bucketized.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-brokerage-bucketized"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2026, 2, 28),
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 2, 28),
+        opening_balance=Decimal("150.00"),
+        closing_balance=Decimal("150.00"),
+        currency="USD",
+            qualitative_data={
+                "accounts": [
+                    {
+                        "account_number": acct.account_number,
+                        "beginning_value": "150.00",
+                        "ending_value": "150.00",
+                    }
+                ],
+                "asset_allocation": {
+                    "Cash": {"ending": "10.00", "value": "10.00"},
+                    "Short Term": {"ending": "20.00", "value": "20.00"},
+                    "Non-US Fixed Income": {"ending": "50.00", "value": "50.00"},
+                },
+                "account_monthly_activity": [
+                    {
+                        "account_number": acct.account_number,
+                    "ending_value_with_accrual": "150.00",
+                    "ending_value_without_accrual": "150.00",
+                    "net_contributions": "0",
+                    "utilidad": "0",
+                    "asset_allocation": {
+                        "Cash": {"ending": "10.00", "value": "10.00"},
+                        "Short Term": {"ending": "20.00", "value": "20.00"},
+                        "Non-US Fixed Income": {"ending": "50.00", "value": "50.00"},
+                    },
+                }
+            ],
+        },
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "IWDA",
+                    "market_value": "70.00",
+                    "account_number": acct.account_number,
+                    "section": "equity",
+                },
+                row_number=1,
+                confidence=0.9,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "VDCA",
+                    "market_value": "3.00",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=2,
+                confidence=0.9,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "SOME NON PARSED BOND NAME",
+                    "market_value": "67.00",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=3,
+                confidence=0.9,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "US DOLLAR JPM DEPOSIT SWEEP",
+                    "market_value": "10.00",
+                    "account_number": acct.account_number,
+                    "section": "cash_fixed_income",
+                },
+                row_number=4,
+                confidence=0.9,
+            ),
+        ],
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2026, MonthlyClosing.month == 2)
+        .one()
+    )
+    alloc = json.loads(mc.asset_allocation_json or "{}")
+    assert alloc == {
+        "Caja": {"value": "10.00"},
+        "RF IG Short": {"value": "20.00"},
+        "Non US RF": {"value": "50.00"},
+        "RV DM": {"value": "70.00"},
+    }
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 2,
+        )
+        .one()
+    )
+    assert json.loads(normalized.asset_allocation_json or "{}") == alloc
+    assert normalized.cash_value == Decimal("10.00")
 
 
 def test_loader_refresh_backfills_jpm_cash_from_persisted_holdings(db_session):
@@ -828,6 +1151,116 @@ def test_loader_refresh_backfills_jpm_cash_from_persisted_holdings(db_session):
         .one()
     )
     assert normalized.cash_value == Decimal("15920368.36")
+
+
+def test_loader_refresh_backfills_jpm_brokerage_asset_allocation_from_persisted_holdings(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="B99719998",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="20260331-jpm-brokerage-refresh-buckets.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganBrokerageParser()
+    pv = _create_parser_version(db_session, parser)
+
+    db_session.add(
+        MonthlyClosing(
+            account_id=acct.id,
+            closing_date=date(2026, 3, 31),
+            year=2026,
+            month=3,
+            total_assets=Decimal("150.00"),
+            net_value=Decimal("150.00"),
+            currency="USD",
+            income=Decimal("0"),
+            change_in_value=Decimal("0"),
+            asset_allocation_json=json.dumps(
+                {
+                    "Cash": {"value": "10.00"},
+                    "Short Term": {"value": "50.00"},
+                    "Non-US Fixed Income": {"value": "20.00"},
+                }
+            ),
+            source_document_id=doc.id,
+        )
+    )
+    db_session.add(
+        ParsedStatement(
+            raw_document_id=doc.id,
+            account_id=acct.id,
+            statement_date=date(2026, 3, 31),
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            closing_balance=Decimal("150.00"),
+            currency="USD",
+            parser_version_id=pv.id,
+            parsed_data_json=json.dumps(
+                {
+                    "rows": [
+                        {
+                            "instrument": "IWDA",
+                            "market_value": "70.00",
+                            "account_number": acct.account_number,
+                            "section": "equity",
+                        },
+                        {
+                            "instrument": "VDCA",
+                            "market_value": "50.00",
+                            "account_number": acct.account_number,
+                            "section": "cash_fixed_income",
+                        },
+                        {
+                            "instrument": "NON US FIXED INCOME",
+                            "market_value": "20.00",
+                            "account_number": acct.account_number,
+                            "section": "cash_fixed_income",
+                        },
+                        {
+                            "instrument": "US DOLLAR JPM DEPOSIT SWEEP",
+                            "market_value": "10.00",
+                            "account_number": acct.account_number,
+                            "section": "cash_fixed_income",
+                        },
+                    ]
+                }
+            ),
+        )
+    )
+    db_session.commit()
+
+    loader = DataLoadingService(db_session)
+    loader._refresh_normalized_activity_from_monthly_closings(account=acct, year=2026)
+    db_session.commit()
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2026,
+            MonthlyMetricNormalized.month == 3,
+        )
+        .one()
+    )
+    alloc = json.loads(normalized.asset_allocation_json or "{}")
+    assert alloc == {
+        "Caja": {"value": "10.00"},
+        "RF IG Short": {"value": "50.00"},
+        "Non US RF": {"value": "20.00"},
+        "RV DM": {"value": "70.00"},
+    }
+    assert normalized.cash_value == Decimal("10.00")
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2026, MonthlyClosing.month == 3)
+        .one()
+    )
+    assert json.loads(mc.asset_allocation_json or "{}") == alloc
 
 
 def test_loader_ubs_history_backfills_prior_months(db_session):
@@ -2041,7 +2474,6 @@ def test_loader_jpmorgan_bonds_uses_portfolio_activity_when_monthly_block_missin
     )
     assert mc.change_in_value == Decimal("-17260955.84")
     assert mc.income == Decimal("-89788.21")
-
     norm = (
         db_session.query(MonthlyMetricNormalized)
         .filter(
@@ -2053,6 +2485,57 @@ def test_loader_jpmorgan_bonds_uses_portfolio_activity_when_monthly_block_missin
     )
     assert norm.movements_net == mc.change_in_value
     assert norm.profit_period == mc.income
+
+
+def test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100():
+    parser = JPMorganBondsParser()
+    pages = [
+        "\n".join(
+            [
+                "Statement of Account",
+                "Account Summary",
+                "Asset Allocation",
+                "Cash, Deposits & Short Term 1,314,748.12 1,217,852.19 -96,895.93",
+                "Fixed Income 27,303,939.83 12,629,041.68 -14,674,898.15",
+                "Portfolio Activity",
+                "Beginning Market Value 30,796,534.06 30,143,562.64",
+                "Ending Market Value 13,445,790.01 13,445,790.00",
+            ]
+        ),
+        "\n".join(
+            [
+                "Cash, Deposits & Short Term",
+                "Cash Holdings 615,750.66 4.54%",
+                "Short Term Investments 639,286.42 4.72%",
+                "Total Cash Holdings 615,750.66 4.54%",
+            ]
+        ),
+    ]
+
+    result_target = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("cash-holdings-1531100"),
+        bank_code="jpmorgan",
+        account_number="1531100",
+    )
+    parser._extract_account_summary(pages, result_target)
+    alloc_target = result_target.qualitative_data.get("asset_allocation", {})
+    assert alloc_target.get("Cash, Deposits & Short Term", {}).get("ending") == "615750.66"
+    assert alloc_target.get("Cash, Deposits & Short Term", {}).get("change") == "-698997.46"
+
+    result_other = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("cash-holdings-other"),
+        bank_code="jpmorgan",
+        account_number="1530900",
+    )
+    parser._extract_account_summary(pages, result_other)
+    alloc_other = result_other.qualitative_data.get("asset_allocation", {})
+    assert alloc_other.get("Cash, Deposits & Short Term", {}).get("ending") == "1217852.19"
 
 
 def test_loader_loads_alternatives_into_normalized_with_synthetic_bank(db_session):

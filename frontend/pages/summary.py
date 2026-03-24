@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from frontend import api_client
+from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
 from frontend.components.filters import BANK_DISPLAY_NAMES
 from frontend.components.number_format import fmt_number, fmt_percent
@@ -128,6 +129,25 @@ def _compute_ytd_from_monthly(monthly_returns: list[float | None]) -> list[float
     return ytd_values
 
 
+def _month_label(fecha_key: str) -> str:
+    year = int(fecha_key[:4])
+    month = int(fecha_key[5:7])
+    return f"{MONTHS[month - 1]} {str(year)[-2:]}"
+
+
+def _rolling_month_keys(end_key: str, size: int = 12) -> list[str]:
+    year = int(end_key[:4])
+    month = int(end_key[5:7])
+    keys: list[str] = []
+    for _ in range(size):
+        keys.append(f"{year}-{month:02d}")
+        month -= 1
+        if month == 0:
+            year -= 1
+            month = 12
+    return list(reversed(keys))
+
+
 def _summarize_visible_scope(detail_rows: list[dict], *, max_groups: int = 3) -> str | None:
     grouped: dict[tuple[str, str], set[str]] = {}
     for row in detail_rows:
@@ -160,12 +180,14 @@ def _summary_seed_rows(
     bank_codes: list[str] | None = None,
     entity_names: list[str] | None = None,
     account_types: list[str] | None = None,
+    person_names: list[str] | None = None,
 ) -> list[dict]:
     payload = {
         "years": [selected_year] if selected_year else [],
         "bank_codes": bank_codes or [],
         "entity_names": entity_names or [],
         "account_types": account_types or [],
+        "person_names": person_names or [],
     }
     try:
         return api_client.post("/data/summary", json=payload).get("rows", [])
@@ -204,7 +226,7 @@ def _sanitize_multiselect_state(key: str, valid_options: list[str]) -> list[str]
 
 
 def render():
-    st.title("Resumen")
+    st.title("Detalle de Cartolas")
     st.markdown("---")
 
     try:
@@ -213,12 +235,14 @@ def render():
         opts = {
             "bank_codes": [],
             "entity_names": [],
+            "person_names": [],
             "account_types": [],
             "years": [],
         }
 
     bank_options_all = sorted(opts.get("bank_codes", []))
     entity_options_all = sorted(opts.get("entity_names", []))
+    person_options_all = sorted(opts.get("person_names", []))
     account_type_options_all = sorted(opts.get("account_types", []))
     year_options = [int(y) for y in opts.get("years", []) if y is not None]
     fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
@@ -228,6 +252,7 @@ def render():
     raw_selected_consolidated = st.session_state.get("summary_consolidated", "")
     raw_selected_entities = list(st.session_state.get("summary_entity_names", []))
     raw_selected_banks = list(st.session_state.get("summary_bank_codes", []))
+    raw_selected_people = list(st.session_state.get("summary_person_names", []))
     raw_selected_types = list(st.session_state.get("summary_account_types", []))
     current_fecha = st.session_state.get("summary_fecha")
     if current_fecha not in fecha_options and fecha_options:
@@ -236,25 +261,36 @@ def render():
     selected_year_seed = int(current_fecha[:4]) if current_fecha else None
     preset_entities_seed = list(CONSOLIDATED_PRESETS.get(raw_selected_consolidated, []))
     effective_entities_seed = sorted(set(raw_selected_entities) | set(preset_entities_seed))
+    effective_people_seed = [] if preset_entities_seed else raw_selected_people
 
     bank_seed_rows = _summary_seed_rows(
         selected_year=selected_year_seed,
         entity_names=effective_entities_seed,
         account_types=raw_selected_types,
+        person_names=effective_people_seed,
     )
     entity_seed_rows = _summary_seed_rows(
         selected_year=selected_year_seed,
         bank_codes=raw_selected_banks,
+        account_types=raw_selected_types,
+        person_names=effective_people_seed,
+    )
+    person_seed_rows = _summary_seed_rows(
+        selected_year=selected_year_seed,
+        bank_codes=raw_selected_banks,
+        entity_names=effective_entities_seed,
         account_types=raw_selected_types,
     )
     type_seed_rows = _summary_seed_rows(
         selected_year=selected_year_seed,
         bank_codes=raw_selected_banks,
         entity_names=effective_entities_seed,
+        person_names=effective_people_seed,
     )
 
     bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
     entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
+    person_options = _distinct_values(person_seed_rows, "nombre") or person_options_all
     account_type_options = _distinct_account_type_values(type_seed_rows)
     if not account_type_options:
         if set(raw_selected_banks) == {"alternativos"}:
@@ -264,10 +300,11 @@ def render():
 
     _sanitize_multiselect_state("summary_bank_codes", bank_options)
     _sanitize_multiselect_state("summary_entity_names", entity_options)
+    _sanitize_multiselect_state("summary_person_names", person_options)
     _sanitize_multiselect_state("summary_account_types", account_type_options)
 
     st.markdown("### Filtros")
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
 
     with c1:
         selected_banks = st.multiselect(
@@ -290,13 +327,19 @@ def render():
             key="summary_consolidated",
         )
     with c4:
+        selected_people = st.multiselect(
+            "Nombre",
+            options=person_options,
+            key="summary_person_names",
+        )
+    with c5:
         selected_types = st.multiselect(
             "Tipo de cuenta",
             options=account_type_options,
             format_func=_fmt_account_type,
             key="summary_account_types",
         )
-    with c5:
+    with c6:
         if fecha_options:
             if "summary_fecha" not in st.session_state or st.session_state["summary_fecha"] not in fecha_options:
                 st.session_state["summary_fecha"] = fecha_options[0]
@@ -311,6 +354,7 @@ def render():
 
     preset_entities = list(CONSOLIDATED_PRESETS.get(selected_consolidated, []))
     selected_entities_effective = sorted(set(selected_entities) | set(preset_entities))
+    effective_people = [] if preset_entities else selected_people
     if selected_consolidated and preset_entities:
         st.caption(f"Consolidado activo: {', '.join(preset_entities)}")
 
@@ -325,6 +369,7 @@ def render():
                 "years": [selected_year] if selected_year else [],
                 "bank_codes": selected_banks,
                 "entity_names": selected_entities_effective,
+                "person_names": effective_people,
                 "account_types": selected_types,
             },
         )
@@ -335,6 +380,38 @@ def render():
     detail_rows = data.get("rows", [])
     consolidated_rows = data.get("consolidated_rows", [])
     chart_data = data.get("chart_data", [])
+    rolling_data = data
+    if selected_year:
+        try:
+            rolling_data = api_client.post(
+                "/data/summary",
+                json={
+                    "years": [selected_year - 1, selected_year],
+                    "bank_codes": selected_banks,
+                    "entity_names": selected_entities_effective,
+                    "person_names": effective_people,
+                    "account_types": selected_types,
+                },
+            )
+        except Exception:
+            rolling_data = data
+    rolling_consolidated_rows = rolling_data.get("consolidated_rows", [])
+    rolling_chart_data = rolling_data.get("chart_data", chart_data)
+    range_data = data
+    try:
+        range_data = api_client.post(
+            "/data/summary",
+            json={
+                "years": [],
+                "bank_codes": selected_banks,
+                "entity_names": selected_entities_effective,
+                "person_names": effective_people,
+                "account_types": selected_types,
+            },
+        )
+    except Exception:
+        range_data = data
+    range_consolidated_rows = range_data.get("consolidated_rows", consolidated_rows)
     visible_scope_summary = _summarize_visible_scope(detail_rows)
 
     render_health_warning(
@@ -342,6 +419,7 @@ def render():
             "years": [selected_year] if selected_year else [],
             "bank_codes": selected_banks,
             "entity_names": selected_entities_effective,
+            "person_names": effective_people,
             "account_types": selected_types,
         },
         label="Resumen",
@@ -355,29 +433,30 @@ def render():
 
     st.subheader("Evolucion 12 meses")
 
-    if selected_year is None and chart_data:
-        selected_year = max(int(str(r.get("fecha", ""))[:4]) for r in chart_data if r.get("fecha"))
-    if selected_year is None:
-        selected_year = 0
+    if selected_fecha:
+        end_key = selected_fecha
+    else:
+        chart_dates = [str(r.get("fecha")) for r in rolling_chart_data if r.get("fecha")]
+        end_key = max(chart_dates) if chart_dates else None
 
-    month_keys = [f"{selected_year}-{m:02d}" for m in range(1, 13)] if selected_year else []
-    chart_map = {str(row.get("fecha")): row for row in chart_data if row.get("fecha")}
+    month_keys = _rolling_month_keys(end_key, 12) if end_key else []
+    chart_map = {str(row.get("fecha")): row for row in rolling_chart_data if row.get("fecha")}
+    x_labels = [_month_label(key) for key in month_keys] if month_keys else MONTHS
 
-    chart_ev: list[float] = []
-    chart_util: list[float] = []
+    chart_ev: list[float | None] = []
+    chart_util: list[float | None] = []
     chart_ret_monthly: list[float | None] = []
     for key in month_keys:
         row = chart_map.get(key, {})
-        chart_ev.append(_to_float(row.get("ending_value")) or 0.0)
-        chart_util.append(_to_float(row.get("utilidad")) or 0.0)
+        chart_ev.append(_to_float(row.get("ending_value")))
+        chart_util.append(_to_float(row.get("utilidad")))
         chart_ret_monthly.append(_to_float(row.get("rent_pct")))
-    chart_ret_ytd = _compute_ytd_from_monthly(chart_ret_monthly)
+    chart_ret_accumulated = _compute_ytd_from_monthly(chart_ret_monthly)
 
     if not month_keys:
-        month_keys = MONTHS
-        chart_ev = [0.0] * 12
-        chart_util = [0.0] * 12
-        chart_ret_ytd = [None] * 12
+        chart_ev = [None] * 12
+        chart_util = [None] * 12
+        chart_ret_accumulated = [None] * 12
 
     col_ch1, col_ch2, col_ch3 = st.columns(3)
 
@@ -385,7 +464,7 @@ def render():
         fig = go.Figure()
         fig.add_trace(
             go.Bar(
-                x=MONTHS,
+                x=x_labels,
                 y=chart_ev,
                 name="Total Assets",
                 marker_color="#4F81BD",
@@ -402,7 +481,7 @@ def render():
         fig = go.Figure()
         fig.add_trace(
             go.Bar(
-                x=MONTHS,
+                x=x_labels,
                 y=chart_util,
                 name="Utilidad",
                 marker_color="#22A06B",
@@ -416,22 +495,54 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
     with col_ch3:
+        axis_ranges = aligned_dual_return_axes(chart_ret_monthly, chart_ret_accumulated)
         fig = go.Figure()
         fig.add_trace(
+            go.Bar(
+                x=x_labels,
+                y=chart_ret_monthly,
+                name="Rentabilidad mensual",
+                marker_color="#AFC8E2",
+                opacity=0.95,
+                yaxis="y",
+            )
+        )
+        fig.add_trace(
             go.Scatter(
-                x=MONTHS,
-                y=chart_ret_ytd,
+                x=x_labels,
+                y=chart_ret_accumulated,
                 mode="lines+markers",
-                name="Rentabilidad YTD",
+                name="Rentabilidad acumulada",
                 line=dict(color="#E67E22", width=2),
+                yaxis="y2",
             )
         )
         fig.update_layout(
-            title="Rentabilidad YTD (%)",
+            title="Rentabilidad acumulada (%)",
             height=300,
             margin=dict(l=20, r=20, t=40, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=0.95, xanchor="left", x=0),
+            yaxis=dict(
+                title="% mensual",
+                tickformat=",.2f",
+                range=axis_ranges["primary_range"],
+                showgrid=False,
+                zeroline=True,
+                zerolinecolor="#9EA7B3",
+            ),
+            yaxis2=dict(
+                title="% acumulada",
+                tickformat=",.2f",
+                range=axis_ranges["secondary_range"],
+                dtick=2,
+                overlaying="y",
+                side="right",
+                showgrid=True,
+                gridcolor="#D6DCE5",
+                zeroline=False,
+            ),
         )
-        fig.update_yaxes(tickformat=",.2f")
+        fig.update_xaxes(showgrid=False)
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -440,13 +551,19 @@ def render():
 
     with col_table1:
         st.subheader("Tabla Resumen")
-        if consolidated_rows:
+        if rolling_consolidated_rows and month_keys:
+            rolling_map = {
+                str(row.get("fecha")): row
+                for row in rolling_consolidated_rows
+                if row.get("fecha")
+            }
             table_data = []
-            for row in consolidated_rows:
-                is_prev = row.get("is_prev_year", False)
+            for key in reversed(month_keys):
+                row = rolling_map.get(key, {})
+                is_prev = bool(row.get("is_prev_year", False))
                 table_data.append(
                     {
-                        "Fecha": _fecha_label(row["fecha"]),
+                        "Fecha": _fecha_label(key),
                         "Ending Value": _fmt_num(row.get("ending_value")),
                         "Caja": _fmt_num(row.get("caja")),
                         "Movimientos": _fmt_num(row.get("movimientos")),
@@ -465,7 +582,7 @@ def render():
         ym_available = sorted(
             {
                 row["fecha"]
-                for row in consolidated_rows
+                for row in range_consolidated_rows
                 if not row.get("is_prev_year", False) and row.get("fecha")
             }
         )
@@ -473,19 +590,23 @@ def render():
         if not ym_options:
             st.info("Sin datos para rango personalizado.")
         else:
+            default_start = f"{selected_year}-01" if selected_year else ym_options[0]
+            start_index = ym_options.index(default_start) if default_start in ym_options else 0
+            default_end = selected_fecha if selected_fecha in ym_options else ym_options[-1]
+            end_index = ym_options.index(default_end) if default_end in ym_options else len(ym_options) - 1
             rc1, rc2 = st.columns(2)
             with rc1:
                 ym_start = st.selectbox(
                     "Desde",
                     options=ym_options,
-                    index=0,
+                    index=start_index,
                     key="summary_range_start",
                 )
             with rc2:
                 ym_end = st.selectbox(
                     "Hasta",
                     options=ym_options,
-                    index=len(ym_options) - 1,
+                    index=end_index,
                     key="summary_range_end",
                 )
 
@@ -494,11 +615,11 @@ def render():
             else:
                 range_rows = [
                     row
-                    for row in consolidated_rows
+                    for row in range_consolidated_rows
                     if ym_start <= row.get("fecha", "") <= ym_end and not row.get("is_prev_year", False)
                 ]
                 prev_month_row = None
-                for row in consolidated_rows:
+                for row in range_consolidated_rows:
                     if row.get("fecha", "") < ym_start:
                         prev_month_row = row
 

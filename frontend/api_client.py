@@ -60,3 +60,25 @@ def health_check() -> dict:
         return get("/health")
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+def run_audit_revision(params: dict) -> Any:
+    """Ejecuta el agente de auditoría Revisión (LLM vs capa normalizada)."""
+    response = _client.post("/data/audit-revision-run", json=params, timeout=120.0)
+    if response.status_code >= 400:
+        try:
+            body = response.json()
+            detail = body.get("detail")
+            if isinstance(detail, list):
+                msg = "; ".join(str(x) for x in detail)
+            else:
+                msg = str(detail) if detail else (response.text or response.reason_phrase)
+        except Exception:
+            msg = response.text or response.reason_phrase
+        raise ValueError(msg) from None
+    return response.json()
+
+
+def get_audit_revision_config() -> dict:
+    """Indica si OPENAI_API_KEY está configurada en el backend (sin ver la clave)."""
+    return get("/data/audit-revision-config")

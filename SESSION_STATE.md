@@ -1,8 +1,56 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-03-17
+Last updated: 2026-03-24
 Owner: JTROSS + Codex
 Branch: master
+
+## 0) Handoff (2026-03-24 - Reclasificacion JPM/BBH y consistencia de duplicados)
+- **Objetivo:** Eliminar inconsistencias banco/cuenta en reportes de mandato cargados como duplicados y dejar el flujo robusto para futuras reclasificaciones desde UI.
+- **Backend cerrado:** `backend/services/document_service.py` ahora, en `reclassify_document`, no solo cambia `bank_code`; tambien resuelve/reconcilia `account_id`, limpia salidas derivadas del documento (`monthly_closings`, `monthly_metrics_normalized`, `etf_compositions`, `parsed_statements`, `reconciliations`) y deja el documento listo para reproceso sin residuos.
+- **Frontend cerrado:** `frontend/pages/upload.py` ahora encadena `POST /documents/{id}/reclassify` + `POST /documents/{id}/process` en el boton de reclasificar duplicados, para evitar documentos estancados en `uploaded`.
+- **Operacion ejecutada:** documentos `1809` y `1813` quedaron reclasificados en `jpmorgan` con `account_id=3` y `status=parsed`, con reproceso exitoso.
+- **Validacion BD:** `JPM_with_BBH_account37 = 0`; `cross_bank_mismatches (raw_documents.bank_code vs accounts.bank_code) = 0`; para `1809/1813` no quedaron filas residuales en `account_id=37`.
+
+## 0) Handoff (2026-03-24 - Revisión solo LLM + reglas de motores)
+- **Cambio:** El agente de **Revisión** pasó a modo **solo LLM**: ya no compara parser/JSON vs BD de forma determinística. El prompt incluye **reglas por banco/tipo** (`audit_llm_rules.py`) alineadas a los motores (UBS portafolio, JPM brokerage/ETF/bonds/custody, GS, BBH YTD, etc.). Comparación contra `monthly_metrics_normalized`; solo lectura; requiere `OPENAI_API_KEY`. UI sin checkbox; resumen con % sobre **filas de hallazgo**.
+- **Archivos:** `audit_llm_rules.py`, `audit_normalized_values.py`, `audit_llm_extractor.py` (JSON), `audit_service.py`, `audit_report_builder.py`, `schemas.py`, `operational.py`, tests.
+
+## 0) Handoff (2026-03-23 - Agente auditoría Revisión)
+- **Objetivo:** Implementar el plan `PLAN_AGENTE_AUDITORIA_REVISION.md`: módulo de auditoría aislado (solo lectura), pestaña Operacional **Revisión**, comparación determinística parser vs `monthly_metrics_normalized`, muestreo, reglas BBH / nota beginning, opción LLM contra PDF (`OPENAI_API_KEY`).
+- **Backend cerrado:** `backend/services/audit/*` (universo, muestreo, determinístico, PDF, LLM, comparador, reglas, prioridad, reporte, orquestador), `backend/routers/audit.py` → `POST /api/v1/data/audit-revision-run`, schemas en `backend/schemas.py`, `openai` en `pyproject.toml`.
+- **Frontend cerrado:** `frontend/pages/operational.py` pestañas Salud BD + Revisión; `frontend/api_client.run_audit_revision` (timeout 120s).
+- **Tests:** `tests/test_audit_revision.py` + suite completa `219 passed, 1 skipped`.
+- **Contexto:** `AGENT_CONTEXT.md` actualizado (Operacional / rutas audit).
+
+## 0) Handoff (2026-03-23 - SPDR/Bloom. 1-10years + official promotion)
+- **Objetivo del bloque:** Integrar formalmente el instrumento `SPDR BLOOMBERG 1-10 YEAR U.S.` / alias GS `SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG` en taxonomía, lectura ETF/Brokerage y visualización ETF/Detalle, manteniendo aislamiento de motores.
+- **Taxonomía cerrada:** `asset_taxonomy.py` mantiene Excel como fuente oficial y agregó canonización de bucket `RF IG -> RF IG Short` para compatibilidad del nuevo registro del Excel sin romper series/buckets existentes.
+- **ETF tablas cerradas:** en `backend/routers/data.py` y `frontend/pages/etf.py` se incorporó `SPDR` en el orden fijo bajo `VDPA` y se muestra como etiqueta de negocio `Bloom. 1-10years` en las dos primeras tablas de ETF (USD y %).
+- **Detalle por activo cerrado:** el nuevo instrumento cae en bucket `RF IG Short` y por lo tanto en etiqueta `IG Fixed income` en `Detalle > Tipo de activos`.
+- **GS ETF histórico cerrado:** `parsers/goldman_sachs/etf.py` (`VERSION = 2.1.1`) resuelve casos legacy donde la línea venía como `OTHER INVESTMENT GRADE SECURITIES` y ahora reemplaza por el alias SPDR/Bloomberg cuando esa línea explícita existe en la misma cartola.
+- **Loader ETF reforzado:** `backend/services/data_loading_service.py` ahora reemplaza snapshot completo de `etf_compositions` por cuenta/banco/mes en reproceso para evitar duplicados históricos cuando cambia el `etf_code`/nombre normalizado.
+- **Reprocesos ejecutados (preview):** sólo cuentas solicitadas: JPM ETF (`4009`, `0007`, `7000`, `5007`), JPM brokerage (`5002`, `0001`), GS ETF (`452-2`). Total reprocesado: `345` documentos, `0` errores.
+- **Validación preview:** `452-2` en `2024-10` quedó con `SSGA SPDR...` (sin duplicado `OTHER ...`), ETF `2024-10` muestra fila SPDR consolidada, y North Harbor brokerage `0001` `2024-10` clasifica en `RF IG Short` (`IG Fixed income`).
+- **Tests corridos:** before `97 passed, 1 skipped`; after cambios `100 passed, 1 skipped` (focalizados: `test_asset_taxonomy`, `test_normalized_reporting_layer`, `test_loader_contracts`, `test_specific_cartola_extraction`).
+- **Promoción oficial ejecutada:** DB preview promovida a oficial con backup `data/db/backups/fo_reporting_official_before_spdr_promotion_20260323_171257.db`; reinicio oficial con `stop.ps1` + espera 2s + `start.ps1`; health checks `8000/8501` OK (`200`).
+
+## 0) Handoff (2026-03-20 - Excel oficial taxonomía + JPM brokerage asset buckets)
+- **Objetivo del bloque:** Reemplazar el diccionario embebido de buckets por el Excel oficial `Documentos/Excel/Diccionario de instrumentos.xlsx`, agregar `Non US RF`, y desglosar `JPMorgan brokerage` por holdings clasificados sin tocar otros motores.
+- **Taxonomía cerrada:** `asset_taxonomy.py` ahora compone la taxonomía desde `Excel` (clasificación, aliases, labels de detalle) + `asset_bucket_dictionary.json` (solo orden/colores). Se mantuvo la API existente (`classify_etf_asset_bucket()`, `asset_bucket_order()`, `asset_bucket_colors()`, etc.). `asset_bucket_dictionary.json` ya no guarda aliases/keyword rules.
+- **Buckets / labels:** se incorporó `Non US RF` al orden visual y colores. La tabla `Detalle > Tipo de activos` ahora recibe `table_label` desde backend y usa la columna del Excel que contiene labels tipo `IG Fixed income` / `Global Equity`; gráficos y el resto de tablas siguen usando los buckets actuales. `PE` / `RE` de Alternativos se mantuvieron sin cambio visual en esa tabla.
+- **JPM brokerage cerrado en loader:** `backend/services/data_loading_service.py` ahora bucketiza `asset_allocation_json` de `jpmorgan/brokerage` desde holdings persistidos + taxonomía centralizada. El refresco `_refresh_normalized_activity_from_monthly_closings()` también rehace ese bucketizado para datos ya cargados, manteniendo SSOT en `monthly_metrics_normalized` con fallback alineado en `monthly_closings`.
+- **Reporting cerrado:** `backend/routers/data.py` extiende `Detalle por Activo` para incluir `JPM brokerage` desde `monthly_metrics_normalized/monthly_closings`, respetando filtros de `account_type`; `ETF` y `Alternativos` siguen funcionando y `frontend/pages/personal.py` solo consume `table_label` para la tabla.
+- **Tests corridos:** focalizados `tests/test_asset_taxonomy.py tests/test_loader_contracts.py tests/test_normalized_reporting_layer.py` -> `56 passed`; suite completa -> `205 passed, 1 skipped`.
+- **Operacion preview:** se reinició solo preview con `stop_preview.ps1` + `start_preview.ps1` (sync preview automática). Luego se aplicó refresh focalizado en DB preview para `16` cuentas `JPM brokerage` (`64` account-years, `506` filas normalizadas tocadas). **Oficial no se tocó**.
+
+## 0) Handoff (2026-03-19 - UI reporting polish + JPM bonds 1100 cash fix)
+- **Objetivo del bloque:** Cerrar ajustes visuales/UX de `Detalle`, `Mandatos`, `ETF`, `Resumen` y corregir lectura de caja en `JPMorgan bonds` para `Ecoterra Internacional 1100` sin afectar otros motores.
+- **Cambios UI cerrados:** se oculto menu nativo de Streamlit; en `Detalle` se reordenaron filtros (`Consolidado` antes de `Nombre`), la tabla 12M paso a `Detalle ultimos 12 meses` con `Monto USD` y orden descendente, se eliminaron botones de toggle para mostrar siempre Banco/Cuenta/Sociedad/Activo, y se agrego separacion vertical entre secciones. En `Resumen` se agrego filtro `Nombre` y se paso graficacion/tabla a ventana rolling de ultimos 12 meses con `Rentabilidad acumulada (%)`. En `ETF` y `Detalle`, el primer grafico ahora muestra mensual + acumulada 12M (sin corte YTD por cambio de ano).
+- **Cambios Mandatos cerrados:** `Movimientos por Banco` usa columnas de ancho fijo; en `Rentabilidad por Banco` las celdas sin dato quedan en blanco (sin `nan%`) y la fila `Total` no arrastra valores en meses faltantes.
+- **Cambio parser aislado (solo JPM bonds 1100):** `parsers/jpmorgan/bonds.py` (`VERSION = 2.0.1`) ajusta `asset_allocation` para que `Cash, Deposits & Short Term` use `Total Cash Holdings` y excluya `Short Term Investments` de caja, solo cuando `account_number == 1531100`. Se agrego regresion `test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100` en `tests/test_loader_contracts.py`.
+- **Persistencia SSOT mantenida:** no se creo logica de reporte en frontend; el parser sigue alimentando carga/normalizacion y reporting consume capa persistida (`monthly_metrics_normalized` con fallback permitido a `monthly_closings`).
+- **Tests corridos:** suite completa `200 passed, 1 skipped`; `tests/test_loader_contracts.py` `24 passed`; `tests/test_normalized_reporting_layer.py` `25 passed`.
+- **Operacion:** preview y oficial reiniciadas con scripts. Reproceso de `JPM 1100` ejecutado en preview y oficial: `33/33` documentos `ok`, `0` fallos.
 
 ## 0) Handoff (2026-03-17 - Alternativos Excel)
 - **Objetivo del bloque:** Integrar el Excel `Alternativos.xlsx` como motor independiente de carga dentro de `Carga > Excel / CSV`, persistiendo solo en `monthly_metrics_normalized` y exponiendolo solo en `Resumen` y `Detalle`.
@@ -224,3 +272,8 @@ Luego trabaja solo en [ruta/feature concreta]."
 - **Decisiones:** Esto es **solo para UBS Suiza** (`bank_code = ubs`). No se generaliza a JPM, GS, BBH ni UBS Miami. En UBS, `ending` nunca se fuerza, `movements` vienen de cartola/tabla trimestral UBS, y `profit` absorbe la diferencia de identidad.
 - **Tests:** Focalizados UBS/reporting: `32 passed, 25 deselected`. Loader UBS nuevo: `5 passed`.
 - **Pendientes:** Reproceso focalizado de cartolas UBS afectadas en la BD local/oficial y validación visual en `Salud BD`, especialmente `Boatview 206-560552-02 2025` y `Mi Investments 206-579943-01`.
+
+## 18) Regla provisional de lectura (2026-03-24)
+- **Scope:** Solo `UBS Miami`.
+- **Regla:** Mientras no exista un reporte mejor/m�s estructurado, la **renta fija emergente** en UBS Miami debe computarse como **High Yield**.
+- **Aislamiento:** No aplicar esta regla a JPM, GS, BBH, UBS Suiza ni otros motores.

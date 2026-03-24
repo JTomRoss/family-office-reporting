@@ -7,8 +7,9 @@ La UI nunca toca modelos SQLAlchemy directamente.
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -221,3 +222,90 @@ class HealthResponse(BaseModel):
     database: str = "connected"
     parsers_loaded: int = 0
     git_hash: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════
+# AUDIT REVISION (Operacional > Revisión)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class AuditRevisionParams(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bank_codes: list[str] = Field(default_factory=list)
+    entity_names: list[str] = Field(default_factory=list)
+    account_types: list[str] = Field(default_factory=list)
+    focus: str = "valor_cierre"
+    year_start: Optional[int] = None
+    year_end: Optional[int] = None
+    month_start: Optional[int] = None
+    month_end: Optional[int] = None
+    sample_pct: int = 25
+    max_docs: int = 50
+    sample_mode: str = "recentes"
+
+    @field_validator("sample_pct")
+    @classmethod
+    def validate_sample_pct(cls, v: int) -> int:
+        allowed = {10, 25, 50, 100}
+        if v not in allowed:
+            raise ValueError(f"sample_pct debe ser uno de {sorted(allowed)}")
+        return v
+
+    @field_validator("sample_mode")
+    @classmethod
+    def validate_sample_mode(cls, v: str) -> str:
+        if v not in ("recentes", "aleatorio"):
+            raise ValueError("sample_mode debe ser 'recentes' o 'aleatorio'")
+        return v
+
+    @field_validator("focus")
+    @classmethod
+    def validate_focus(cls, v: str) -> str:
+        allowed = {
+            "todos",
+            "valor_cierre",
+            "movimientos_netos",
+            "caja",
+            "instrumentos",
+            "aportes",
+            "retiros",
+        }
+        if v not in allowed:
+            raise ValueError(f"focus debe ser uno de {sorted(allowed)}")
+        return v
+
+
+class AuditRevisionSummary(BaseModel):
+    documentos_revisados: int
+    pct_con_diferencias: float
+    pct_ambiguos: float
+    pct_no_auditables: float
+    top_bancos_incidencias: list[dict[str, Any]]
+    top_parsers_incidencias: list[dict[str, Any]]
+
+
+class AuditRevisionHallazgo(BaseModel):
+    sociedad: str
+    banco: str
+    tipo_cuenta: str
+    id_cuenta: str
+    fecha_cartola: date
+    documento_id: int
+    archivo: str
+    elemento_revisado: str
+    monto_agente: Optional[float] = None
+    monto_bd: Optional[float] = None
+    diferencia: float
+    diferencia_pct: Optional[float] = None
+    nivel: str
+    nota: str
+    prioridad: float
+    parser: Optional[str] = None
+
+
+class AuditRevisionResponse(BaseModel):
+    total_candidatos: int
+    revisados: int
+    resumen: AuditRevisionSummary
+    hallazgos: list[AuditRevisionHallazgo]

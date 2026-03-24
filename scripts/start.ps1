@@ -97,7 +97,7 @@ Write-Host "  Backend OK" -ForegroundColor Green
 # ── 4. Levantar frontend ────────────────────────────────────
 Write-Host "[4/5] Iniciando frontend (puerto 8501)..." -ForegroundColor Yellow
 $frontendJob = Start-Process -FilePath $pythonExe `
-    -ArgumentList "-m", "streamlit", "run", "frontend/app.py", "--server.port", "8501", "--server.headless", "true" `
+    -ArgumentList "-m", "streamlit", "run", "frontend/app.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.headless", "true" `
     -WorkingDirectory $projectRoot `
     -WindowStyle Hidden `
     -RedirectStandardOutput $frontendStdOut `
@@ -143,7 +143,15 @@ Write-Host ""
 Write-Host "[5/5] Estado final:" -ForegroundColor Cyan
 Write-Host "  Backend:  http://localhost:8000/api/v1/health" -ForegroundColor White
 Write-Host "  Frontend: http://localhost:8501" -ForegroundColor White
+# Mostrar enlace para otros en la red local (IP del equipo)
+try {
+    $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch "Loopback" -and $_.IPAddress -notmatch "^169\.254" } | Select-Object -First 1).IPAddress
+    if ($ip) {
+        Write-Host "  Enlace para otros en la red: http://${ip}:8501" -ForegroundColor Green
+    }
+} catch { }
 Write-Host ""
 Write-Host "  Para detener: .\scripts\stop.ps1" -ForegroundColor Gray
+Write-Host "  Si alguien de la red no puede entrar: en esta PC, Firewall de Windows debe permitir entrante en puerto 8501." -ForegroundColor Gray
 Write-Host "  Para reiniciar tras cambios: .\scripts\stop.ps1 ; .\scripts\start.ps1" -ForegroundColor Gray
 Write-Host ""

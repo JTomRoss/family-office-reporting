@@ -54,6 +54,33 @@ _BATCH_PREVIEW_PAYLOAD_FIELDS = (
 )
 
 
+def _reset_guided_pdf_form_state() -> None:
+    """Limpia estado de carga guiada para evitar arrastre entre cargas."""
+    keys_to_clear = [
+        "pdf_bank",
+        "pdf_multi_account",
+        "pdf_new_entity",
+        "pdf_new_entity_multi",
+        "pdf_entity_name_new",
+        "pdf_entity_name_sel",
+        "pdf_entity_name_no_master",
+        "pdf_entity_name_new_multi",
+        "pdf_entity_name_sel_multi",
+        "pdf_entity_name_no_master_multi",
+        "pdf_new_id",
+        "pdf_identification_number_new",
+        "pdf_identification_number_sel",
+        "pdf_identification_number_no_master",
+        "pdf_sub_accounts",
+        "autofill_data",
+        "autofill_context",
+    ]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
+    st.session_state["autofill_version"] = int(st.session_state.get("autofill_version", 0)) + 1
+    st.session_state["pdf_upload_nonce"] = int(st.session_state.get("pdf_upload_nonce", 0)) + 1
+
+
 def _fmt_account_type(raw: str) -> str:
     """ETF → 'ETF', brokerage → 'Brokerage', etc."""
     if not raw:
@@ -687,6 +714,25 @@ def render():
                 st.session_state.autofill_data = {}
             if "autofill_version" not in st.session_state:
                 st.session_state.autofill_version = 0
+            if "autofill_context" not in st.session_state:
+                st.session_state.autofill_context = None
+            if "pdf_upload_nonce" not in st.session_state:
+                st.session_state.pdf_upload_nonce = 0
+
+            current_autofill_context = (
+                bool(is_multi_account),
+                (bank_code or "").strip(),
+                (entity_name or "").strip(),
+                (identification_number or "").strip(),
+            )
+            if (
+                st.session_state.get("autofill_context") != current_autofill_context
+                and not auto_fill_clicked
+            ):
+                # Si cambia banco/sociedad/dígito, invalida autofill previo.
+                st.session_state.autofill_data = {}
+                st.session_state.autofill_version += 1
+            st.session_state.autofill_context = current_autofill_context
 
             if not is_multi_account and auto_fill_clicked and identification_number:
                 af = _try_auto_fill_by_id(identification_number, bank_code, entity_name)
@@ -738,7 +784,7 @@ def render():
                 "Arrastra PDFs aquí (uno o varios)",
                 type=["pdf"],
                 accept_multiple_files=True,
-                key="pdf_upload",
+                key=f"pdf_upload_{int(st.session_state.get('pdf_upload_nonce', 0))}",
             )
 
             if uploaded_files:
@@ -761,6 +807,9 @@ def render():
                 if st.button("🚀 Procesar PDFs", type="primary", disabled=bool(missing)):
                     progress_bar = st.progress(0)
                     status_text = st.empty()
+                    upload_errors: list[str] = []
+                    duplicate_detected = False
+                    uploaded_ok = 0
 
                     for idx, file in enumerate(uploaded_files):
                         pct = int((idx / len(uploaded_files)) * 100)
@@ -798,6 +847,7 @@ def render():
                             )
 
                             if result.get("is_duplicate"):
+                                duplicate_detected = True
                                 dup_id = result.get("id")
                                 dup_key = f"dup_action_{file.name}"
                                 existing_meta = result.get("existing_metadata", {})
@@ -836,7 +886,7 @@ def render():
                                         help="Actualiza la clasificación del documento existente con los nuevos datos",
                                     ):
                                         try:
-                                            reclass_result = api_client.post(
+                                            api_client.post(
                                                 f"/documents/{dup_id}/reclassify",
                                                 json={
                                                     "bank_code": bank_code,
@@ -847,9 +897,17 @@ def render():
                                                     "currency": currency,
                                                 },
                                             )
-                                            st.success(f"✅ {file.name}: Reclasificado correctamente")
+                                            process_result = api_client.post(f"/documents/{dup_id}/process")
+                                            process_status = process_result.get("status", "")
+                                            if process_status in ("success", "partial"):
+                                                st.success(f"{file.name}: Reclasificado y reprocesado correctamente")
+                                            else:
+                                                st.warning(
+                                                    f"{file.name}: Reclasificado, pero el reproceso no quedo OK "
+                                                    f"(status={process_status})"
+                                                )
                                         except Exception as re_err:
-                                            st.error(f"❌ Error reclasificando: {re_err}")
+                                            st.error(f"Error reclasificando: {re_err}")
                                 with col_b:
                                     st.button(
                                         "⏭️ Omitir",
@@ -857,6 +915,7 @@ def render():
                                         help="No hacer nada, mantener el documento como está",
                                     )
                             else:
+                                uploaded_ok += 1
                                 proc = result.get("process_result", {})
                                 proc_status = proc.get("status", "")
                                 loading = proc.get("loading_stats", {})
@@ -879,12 +938,17 @@ def render():
                                     st.success(f"✅ {file.name}: Cargado (ID: {result.get('id')})")
 
                         except Exception as e:
+                            upload_errors.append(f"{file.name}: {e}")
                             st.error(f"❌ {file.name}: {e}")
                         finally:
                             Path(tmp_path).unlink(missing_ok=True)
 
                     progress_bar.progress(100)
                     status_text.text("✅ Procesamiento completado")
+                    if uploaded_ok > 0 and not duplicate_detected and not upload_errors:
+                        _reset_guided_pdf_form_state()
+                        st.success("Formulario reiniciado para la siguiente carga.")
+                        st.rerun()
 
     # ═══════════════════════════════════════════════════════════════
     # TAB 2: Carga Excel/CSV
@@ -1336,5 +1400,6 @@ def render():
             )
         except Exception as exc:
             st.info(f"No se pudo construir la matriz de cobertura: {exc}")
+
 
 

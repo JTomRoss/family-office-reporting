@@ -18,7 +18,17 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from backend.config import RAW_DIR, PROJECT_ROOT
-from backend.db.models import RawDocument, ParserVersion, ValidationLog, Account
+from backend.db.models import (
+    Account,
+    EtfComposition,
+    MonthlyClosing,
+    MonthlyMetricNormalized,
+    ParsedStatement,
+    ParserVersion,
+    RawDocument,
+    Reconciliation,
+    ValidationLog,
+)
 from backend.services.cache_service import CacheService
 from parsers.registry import get_registry
 
@@ -544,20 +554,36 @@ class DocumentService:
     def reclassify_document(self, document_id: int, metadata: dict) -> dict | None:
         """
         Reclasifica un documento existente con nueva metadata.
-        Actualiza bank_code y resetea status para reprocesamiento.
+        Actualiza bank_code/account_id, limpia derivados del documento
+        y resetea status para reprocesamiento.
         """
         doc = self.db.query(RawDocument).filter(RawDocument.id == document_id).first()
         if not doc:
             return None
 
         old_bank = doc.bank_code
+        old_account_id = doc.account_id
         new_bank = metadata.get("bank_code")
 
-        # Actualizar campos disponibles en RawDocument
+        # Actualizar banco del documento.
         if new_bank:
             doc.bank_code = new_bank
 
-        # Resetear a uploaded para que se pueda reprocesar
+        # Resolver cuenta destino para evitar inconsistencias banco/cuenta.
+        target_account = self._resolve_reclassify_account(doc=doc, metadata=metadata)
+        has_account_hints = any(
+            metadata.get(k)
+            for k in ("account_id", "account_number", "identification_number", "entity_name", "account_type")
+        )
+        if target_account is not None:
+            doc.account_id = target_account.id
+        elif new_bank or has_account_hints:
+            doc.account_id = None
+
+        # Limpiar salidas derivadas del documento para evitar residuos.
+        self._purge_document_outputs(raw_document_id=document_id)
+
+        # Resetear a uploaded para que se pueda reprocesar.
         doc.status = "uploaded"
         doc.error_message = None
         doc.processed_at = None
@@ -568,7 +594,7 @@ class DocumentService:
         self._log_validation(
             "load", "info",
             f"Documento reclasificado: {doc.filename} "
-            f"(bank: {old_bank}→{new_bank}, id={document_id})",
+            f"(bank: {old_bank}->{doc.bank_code}, account_id: {old_account_id}->{doc.account_id}, id={document_id})",
             raw_document_id=document_id,
         )
 
@@ -577,8 +603,119 @@ class DocumentService:
             "id": document_id,
             "filename": doc.filename,
             "bank_code": doc.bank_code,
+            "account_id": doc.account_id,
             "new_status": doc.status,
         }
+
+    def _resolve_reclassify_account(
+        self,
+        *,
+        doc: RawDocument,
+        metadata: dict,
+    ) -> Account | None:
+        """Resuelve cuenta destino de reclasificacion usando metadata + contexto del documento."""
+        account_id = metadata.get("account_id")
+        if account_id is not None:
+            return self.db.query(Account).filter(Account.id == account_id).first()
+
+        current_account = None
+        if doc.account_id is not None:
+            current_account = self.db.query(Account).filter(Account.id == doc.account_id).first()
+
+        bank_code = (metadata.get("bank_code") or doc.bank_code or "").strip() or None
+        account_number = (
+            metadata.get("account_number")
+            or getattr(current_account, "account_number", None)
+            or ""
+        ).strip() or None
+        identification_number = (
+            metadata.get("identification_number")
+            or getattr(current_account, "identification_number", None)
+            or ""
+        ).strip() or None
+        entity_name = (
+            metadata.get("entity_name")
+            or getattr(current_account, "entity_name", None)
+            or ""
+        ).strip() or None
+        account_type = (
+            metadata.get("account_type")
+            or getattr(current_account, "account_type", None)
+            or ""
+        ).strip() or None
+
+        if account_number:
+            q = self.db.query(Account).filter(Account.account_number == account_number)
+            if bank_code:
+                q = q.filter(Account.bank_code == bank_code)
+            if account_type:
+                q = q.filter(Account.account_type == account_type)
+            if entity_name:
+                q = q.filter(Account.entity_name == entity_name)
+            match = q.first()
+            if match:
+                return match
+
+        if identification_number:
+            q = self.db.query(Account).filter(Account.identification_number == identification_number)
+            if bank_code:
+                q = q.filter(Account.bank_code == bank_code)
+            if entity_name:
+                q = q.filter(Account.entity_name == entity_name)
+            if account_type:
+                q = q.filter(Account.account_type == account_type)
+            matches = q.order_by(Account.is_active.desc(), Account.id.asc()).all()
+            if len(matches) == 1:
+                return matches[0]
+
+        if bank_code and entity_name and account_type:
+            matches = (
+                self.db.query(Account)
+                .filter(
+                    Account.bank_code == bank_code,
+                    Account.entity_name == entity_name,
+                    Account.account_type == account_type,
+                    Account.is_active == True,
+                )
+                .order_by(Account.id.asc())
+                .all()
+            )
+            if len(matches) == 1:
+                return matches[0]
+
+        return None
+
+    def _purge_document_outputs(self, raw_document_id: int) -> None:
+        """
+        Elimina salidas derivadas del documento para evitar residuos al reclasificar.
+        No hace commit; el caller controla la transaccion.
+        """
+        closing_ids = [
+            row[0]
+            for row in (
+                self.db.query(MonthlyClosing.id)
+                .filter(MonthlyClosing.source_document_id == raw_document_id)
+                .all()
+            )
+        ]
+
+        if closing_ids:
+            self.db.query(Reconciliation).filter(
+                Reconciliation.monthly_closing_id.in_(closing_ids)
+            ).delete(synchronize_session=False)
+
+        self.db.query(MonthlyClosing).filter(
+            MonthlyClosing.source_document_id == raw_document_id
+        ).delete(synchronize_session=False)
+        self.db.query(MonthlyMetricNormalized).filter(
+            MonthlyMetricNormalized.source_document_id == raw_document_id
+        ).delete(synchronize_session=False)
+        self.db.query(EtfComposition).filter(
+            EtfComposition.source_document_id == raw_document_id
+        ).delete(synchronize_session=False)
+        self.db.query(ParsedStatement).filter(
+            ParsedStatement.raw_document_id == raw_document_id
+        ).delete(synchronize_session=False)
 
     def _ensure_parser_version(self, parser) -> ParserVersion:
         """Registra o recupera la versión del parser."""
