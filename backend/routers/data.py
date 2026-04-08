@@ -5,6 +5,7 @@ Consulta tablas de reporting pobladas por DataLoadingService.
 """
 
 import json
+import logging
 import re
 from typing import Optional
 from dataclasses import dataclass
@@ -37,6 +38,8 @@ from backend.services.normalized_reporting_payload import (
     personal_breakdown_from_canonical,
     to_decimal,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -536,6 +539,12 @@ def _reconcile_mandates_asset_breakdown_to_target(
         return breakdown
 
     if residual > 0:
+        if target > 0 and residual / target > 0.01:
+            logger.warning(
+                "Mandate breakdown residual > 1%%: %.2f assigned to Equities (target=%.2f)",
+                residual,
+                target,
+            )
         breakdown["Equities"] = breakdown.get("Equities", 0.0) + residual
         return breakdown
 
