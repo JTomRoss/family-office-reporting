@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
@@ -19,6 +20,8 @@ from mandate_taxonomy import (
     MANDATE_CATEGORY_US_EQUITIES,
     classify_mandate_asset_label,
 )
+
+logger = logging.getLogger(__name__)
 
 CANONICAL_ASSET_ORDER = (
     "Cash, Deposits & Money Market",
@@ -266,6 +269,12 @@ def canonical_breakdown_from_payload(
         amount_raw, unit = _extract_amount_and_unit(raw_payload)
         amount = _convert_amount_by_unit(value=amount_raw, unit=unit, ending_value=ending_value)
         if amount is None or amount <= 0:
+            if amount is not None and amount < Decimal("-1"):
+                logger.warning(
+                    "Negative amount discarded from canonical breakdown: label=%r amount=%s",
+                    raw_label,
+                    amount,
+                )
             continue
 
         if is_mandate:
