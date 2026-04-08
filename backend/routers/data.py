@@ -168,31 +168,49 @@ def _apply_account_filters(query, filters: FilterParams):
 
 
 def _get_filter_options(db: Session) -> dict:
-    """Obtiene opciones de filtro disponibles basándose en los MonthlyClosings existentes."""
-    # Años disponibles con datos
-    years = [
-        row[0]
-        for row in db.query(MonthlyClosing.year).distinct().order_by(MonthlyClosing.year).all()
-    ]
+    """Obtiene opciones de filtro disponibles basándose en MonthlyClosing y MonthlyMetricNormalized."""
+    # Años disponibles con datos (MonthlyClosing + MonthlyMetricNormalized para Alternativos)
+    closing_years = {
+        row[0] for row in db.query(MonthlyClosing.year).distinct().all()
+    }
+    normalized_years = {
+        row[0] for row in db.query(MonthlyMetricNormalized.year).distinct().all()
+    }
+    years = sorted(closing_years | normalized_years)
+
     # Bancos con datos
-    bank_codes = [
+    closing_bank_codes = {
         row[0]
-        for row in (
-            db.query(Account.bank_code)
-            .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
-            .distinct()
-            .all()
-        )
-    ]
-    entity_names = [
+        for row in db.query(Account.bank_code)
+        .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
+        .distinct()
+        .all()
+    }
+    normalized_bank_codes = {
         row[0]
-        for row in (
-            db.query(Account.entity_name)
-            .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
-            .distinct()
-            .all()
-        )
-    ]
+        for row in db.query(Account.bank_code)
+        .join(MonthlyMetricNormalized, MonthlyMetricNormalized.account_id == Account.id)
+        .distinct()
+        .all()
+    }
+    bank_codes = sorted(closing_bank_codes | normalized_bank_codes)
+
+    closing_entity_names = {
+        row[0]
+        for row in db.query(Account.entity_name)
+        .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
+        .distinct()
+        .all()
+    }
+    normalized_entity_names = {
+        row[0]
+        for row in db.query(Account.entity_name)
+        .join(MonthlyMetricNormalized, MonthlyMetricNormalized.account_id == Account.id)
+        .distinct()
+        .all()
+    }
+    entity_names = list(closing_entity_names | normalized_entity_names)
+
     account_types = [
         row[0]
         for row in (
@@ -212,23 +230,32 @@ def _get_filter_options(db: Session) -> dict:
         )
         .first()
     ]
-    person_names = [
+    closing_person_names = {
         row[0]
-        for row in (
-            db.query(Account.person_name)
-            .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
-            .filter(Account.person_name.isnot(None))
-            .distinct()
-            .all()
-        )
+        for row in db.query(Account.person_name)
+        .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
+        .filter(Account.person_name.isnot(None))
+        .distinct()
+        .all()
         if row[0]
-    ]
+    }
+    normalized_person_names = {
+        row[0]
+        for row in db.query(Account.person_name)
+        .join(MonthlyMetricNormalized, MonthlyMetricNormalized.account_id == Account.id)
+        .filter(Account.person_name.isnot(None))
+        .distinct()
+        .all()
+        if row[0]
+    }
+    person_names = sorted(closing_person_names | normalized_person_names)
+
     return {
         "years": years,
         "months": list(range(1, 13)),
         "bank_codes": bank_codes,
         "entity_names": entity_names,
-        "person_names": sorted(person_names),
+        "person_names": person_names,
         "account_types": sorted(set(account_types) | set(alternatives_asset_classes)),
         "currencies": [],
     }
