@@ -128,7 +128,8 @@ class JPMorganBondsParser(BaseParser):
                 year = int(m.group(5))
                 if start_month and end_month:
                     try:
-                        result.period_start = date(year, start_month, start_day)
+                        start_year = year - 1 if start_month > end_month else year
+                        result.period_start = date(start_year, start_month, start_day)
                         result.period_end = date(year, end_month, end_day)
                         result.statement_date = result.period_end
                     except ValueError:
