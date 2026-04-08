@@ -1,11 +1,43 @@
 # DEEP_CONTEXT — Family Office Reporting System
 
 > **Propósito**: Este archivo es el SSOT de contexto para cualquier agente AI que trabaje en este proyecto. Léelo COMPLETO antes de hacer cualquier cambio.
-> **Última actualización**: 2026-03-13 (normalized SSOT + Salud BD + OCR GS + hardening UBS)
+> **Última actualización**: 2026-03-30 (SSOT Mandato/ETF v2 + super tabla backfill sin PDF)
 
 ---
 
-## 0. CIERRE TÉCNICO RECIENTE (2026-03-12 / 2026-03-13)
+## 0. CIERRE TÉCNICO RECIENTE (2026-03-30)
+
+### Objetivo del bloque
+- Pasar desde un fix rápido de Mandato a una implementación SSOT robusta: todo el reporting mensual debe consumirse desde `monthly_metrics_normalized`, sin reinterpretaciones runtime ni lectura de PDFs para reporting.
+
+### Cambios estructurales consolidados
+- Nuevo diccionario aislado para reportes de mandato: `mandate_report_dictionary.json` + `mandate_taxonomy.py`.
+- Nuevo módulo de normalización ETF por instrumento: `etf_instrument_dictionary.py`.
+- Nuevo helper SSOT de payload persistido: `backend/services/normalized_reporting_payload.py`.
+- Enriquecimiento persistido en `monthly_metrics_normalized.asset_allocation_json` con bloques:
+  - `__canonical_breakdown`
+  - `__derived_breakdown`
+  - `__instrument_breakdown`
+  - `__fi_metrics`
+
+### Reglas cerradas en esta iteración
+- `monthly_metrics_normalized` se mantiene como capa canónica única para reporting mensual.
+- `monthly_closings` queda como histórico/fallback permitido.
+- Frontend sigue siendo solo presentación (sin lógica financiera nueva).
+- Se mantiene aislamiento estricto de motores PDF por banco y tipo de cuenta, incluyendo `report_mandato` por banco.
+- No se requiere reprocesar PDFs para este ajuste: se agregó backfill directo sobre la super tabla normalizada.
+
+### Backfill y validación
+- Script nuevo: `scripts/backfill_super_tabla_normalized.py`.
+- Ejecución registrada: `SSOT backfill OK (no PDF parsing). account-year refreshed: 188`.
+- Pruebas de regresión focalizadas: `tests/test_loader_contracts.py tests/test_normalized_reporting_layer.py` -> `60 passed`.
+- Validación de cuadratura Mandato 2025-12:
+  - breakdown total (incluyendo ETF) `1,056,307,443.41`
+  - `banks_by_month` `888,859,633.05`
+  - `etf_totals_by_month` `167,447,810.36`
+  - suma `Mandato + ETF` `1,056,307,443.41`.
+
+## 0.1 CIERRE TÉCNICO RECIENTE (2026-03-12 / 2026-03-13)
 
 ### Arquitectura de reporting consolidada
 - `monthly_metrics_normalized` quedó como la **capa canónica mensual** para reporting.

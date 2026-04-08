@@ -19,8 +19,8 @@ from asset_taxonomy import asset_bucket_colors, default_chart_color_sequence
 from frontend import api_client
 from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
-from frontend.components.filters import BANK_DISPLAY_NAMES
-from frontend.components.number_format import fmt_currency, fmt_number
+from frontend.components.filters import BANK_DISPLAY_NAMES, use_apply_filters
+from frontend.components.number_format import fmt_currency, fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
 
 
@@ -30,8 +30,8 @@ ACCOUNT_TYPE_DISPLAY = {
     "etf": "ETF",
     "brokerage": "Brokerage",
     "mandato": "Mandato",
-    "pe": "Private Equity (PE)",
-    "re": "Real Estate (RE)",
+    "pe": "Private Equity",
+    "re": "Real Estate",
     "current": "Current",
     "checking": "Checking",
     "savings": "Savings",
@@ -68,6 +68,12 @@ CONSOLIDATED_PRESETS = {
         "Ecoterra Internacional",
         "Armel Holdings",
     ],
+}
+
+ASSET_SUBTOTAL_LABELS = {
+    "Fixed income (subtotal)",
+    "Equities (subtotal)",
+    "Alternativos (subtotal)",
 }
 
 
@@ -182,6 +188,12 @@ def _fmt_or_blank(value, *, decimals: int = 1) -> str:
     return fmt_number(value, decimals=decimals)
 
 
+def _fmt_pct_or_blank(value, *, decimals: int = 1) -> str:
+    if value is None:
+        return ""
+    return fmt_percent(value, decimals=decimals)
+
+
 def _default_detail_payload() -> dict:
     return {
         "selected_fecha": None,
@@ -198,6 +210,10 @@ def _default_detail_payload() -> dict:
             "bank": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "account": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "account_grouped": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account_level_1": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account_level_2": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account_level_3": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
+            "account_level_4": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "society": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": True},
             "asset": {"table_rows": [], "composition": [], "history_months": [], "history_series": [], "total_monto_usd": 0.0, "show_activity_columns": False},
         },
@@ -207,6 +223,8 @@ def _default_detail_payload() -> dict:
 def _display_detail_label(view_key: str, label: str) -> str:
     if view_key == "bank":
         return _fmt_bank(label)
+    if view_key == "asset" and str(label or "").strip() == "Other investments":
+        return "Otras inversiones"
     return label
 
 
@@ -239,24 +257,81 @@ def _render_detail_table(
 ) -> None:
     processed_rows = rows
     if view_key == "asset" and rows:
+        def _normalize_asset_label(label: str) -> str:
+            key = str(label or "").strip().lower()
+            if key in {"cash", "caja"}:
+                return "Cash"
+            if key == "ig fixed income":
+                return "IG Fixed income"
+            if key == "hy fixed income":
+                return "HY Fixed income"
+            if key in {"us equities", "us equity"}:
+                return "US equities"
+            if key in {"non-us equities", "non us equities", "non-us equity", "non us equity"}:
+                return "Non US Equities"
+            if key in {"pe", "private equity"}:
+                return "Private Equtiy"
+            if key in {"re", "real estate"}:
+                return "Real Esteate"
+            if key in {"other investments", "other investment"}:
+                return "Otras inversiones"
+            return str(label or "").strip()
+
         aggregated: dict[str, dict[str, float]] = {}
-        order: list[str] = []
         for row in rows:
-            display_label = str(row.get("table_label") or row.get("label") or "")
+            display_label = _normalize_asset_label(str(row.get("table_label") or row.get("label") or ""))
             if display_label not in aggregated:
                 aggregated[display_label] = {
                     "monto_usd": 0.0,
                     "movimientos_mes": 0.0,
                     "caja_disponible": 0.0,
                 }
-                order.append(display_label)
             aggregated[display_label]["monto_usd"] += _to_float(row.get("monto_usd")) or 0.0
             aggregated[display_label]["movimientos_mes"] += _to_float(row.get("movimientos_mes")) or 0.0
             aggregated[display_label]["caja_disponible"] += _to_float(row.get("caja_disponible")) or 0.0
 
+        fixed_income_subtotal = (aggregated.get("IG Fixed income", {}).get("monto_usd", 0.0) +
+                                 aggregated.get("HY Fixed income", {}).get("monto_usd", 0.0))
+        equities_subtotal = (aggregated.get("US equities", {}).get("monto_usd", 0.0) +
+                             aggregated.get("Non US Equities", {}).get("monto_usd", 0.0))
+        alternatives_subtotal = (aggregated.get("Private Equtiy", {}).get("monto_usd", 0.0) +
+                                 aggregated.get("Real Esteate", {}).get("monto_usd", 0.0) +
+                                 aggregated.get("Otras inversiones", {}).get("monto_usd", 0.0))
+
+        ordered_asset_rows = [
+            ("Cash", False),
+            ("Fixed income (subtotal)", True),
+            ("IG Fixed income", False),
+            ("HY Fixed income", False),
+            ("Equities (subtotal)", True),
+            ("US equities", False),
+            ("Non US Equities", False),
+            ("Alternativos (subtotal)", True),
+            ("Private Equtiy", False),
+            ("Real Esteate", False),
+            ("Otras inversiones", False),
+        ]
+
         processed_rows = []
-        for label in order:
-            values = aggregated[label]
+        for label, is_subtotal in ordered_asset_rows:
+            if is_subtotal:
+                amount = (
+                    fixed_income_subtotal
+                    if label == "Fixed income (subtotal)"
+                    else equities_subtotal
+                    if label == "Equities (subtotal)"
+                    else alternatives_subtotal
+                )
+                values = {
+                    "monto_usd": amount,
+                    "movimientos_mes": 0.0,
+                    "caja_disponible": 0.0,
+                }
+            else:
+                values = aggregated.get(
+                    label,
+                    {"monto_usd": 0.0, "movimientos_mes": 0.0, "caja_disponible": 0.0},
+                )
             pct_total = round((values["monto_usd"] / total_monto_usd) * 100, 2) if total_monto_usd > 0 else None
             processed_rows.append(
                 {
@@ -266,6 +341,7 @@ def _render_detail_table(
                     "movimientos_mes": values["movimientos_mes"],
                     "caja_disponible": values["caja_disponible"],
                     "pct_total": pct_total,
+                    "is_subtotal": is_subtotal,
                 }
             )
 
@@ -280,7 +356,7 @@ def _render_detail_table(
             {
                 title_col: _display_detail_label(view_key, raw_label),
                 "Monto USD": _fmt_or_blank(row.get("monto_usd")),
-                "%": _fmt_or_blank(row.get("pct_total"), decimals=2),
+                "%": _fmt_pct_or_blank(row.get("pct_total"), decimals=1),
             }
         )
         if show_activity_columns:
@@ -291,7 +367,7 @@ def _render_detail_table(
         total_row = {
             title_col: "Total",
             "Monto USD": _fmt_or_blank(total_monto_usd),
-            "%": _fmt_or_blank(100.0 if total_monto_usd > 0 else None, decimals=2),
+            "%": _fmt_pct_or_blank(100.0 if abs(total_monto_usd) > 1e-9 else None, decimals=1),
         }
         if show_activity_columns:
             total_row["Mov mes"] = _fmt_or_blank(total_mov)
@@ -310,6 +386,8 @@ def _render_detail_table(
         ),
         label_col=title_col,
         bold_row_labels={"Total"},
+        shaded_row_labels=ASSET_SUBTOTAL_LABELS if view_key == "asset" else None,
+        shaded_row_css={"background-color": "#F1F4F8", "color": "#2D3440", "font-weight": "700"} if view_key == "asset" else None,
     )
 
 
@@ -340,10 +418,22 @@ def _detail_chart_color(
         if normalized.endswith("-ALT-RE"):
             return taxonomy_colors.get("RE") or taxonomy_colors.get("Real Estate") or "#6AA56A"
     if view_key == "asset":
+        if normalized == "Cash":
+            return taxonomy_colors.get("Caja") or "#D5DEE9"
+        if normalized == "IG Fixed income":
+            return taxonomy_colors.get("RF IG Short") or "#2D6FB7"
+        if normalized == "HY Fixed income":
+            return taxonomy_colors.get("HY") or "#8AB8EB"
+        if normalized == "US equities":
+            return taxonomy_colors.get("RV DM") or "#B53639"
+        if normalized == "Non-US equities":
+            return taxonomy_colors.get("RV EM") or "#D85759"
         if normalized == "PE":
             return taxonomy_colors.get("PE") or taxonomy_colors.get("Alternativos") or "#2E7D5A"
         if normalized == "RE":
             return taxonomy_colors.get("RE") or taxonomy_colors.get("Real Estate") or "#6AA56A"
+        if normalized in {"Other investments", "Otras inversiones"}:
+            return taxonomy_colors.get("Alternativos") or "#A3AAB5"
 
     return color_map.get(normalized) or fallback_color_map.get(normalized)
 
@@ -482,61 +572,26 @@ def render():
     bank_options_all = sorted(opts.get("bank_codes", []))
     entity_options_all = sorted(opts.get("entity_names", []))
     person_options_all = sorted(opts.get("person_names", []))
-    account_type_options_all = sorted(opts.get("account_types", []))
+    # Keep filter labels business-facing: PE/RE pseudo-types stay visible, internal
+    # alternatives account type ("investment") stays hidden in Detalle.
+    account_type_options_all = sorted(
+        account_type
+        for account_type in opts.get("account_types", [])
+        if str(account_type or "").strip().lower() != "investment"
+    )
     year_options = [int(y) for y in opts.get("years", []) if y is not None]
     fecha_options = sorted(opts.get("available_fechas", []), reverse=True)
     if not fecha_options:
         fecha_options = _build_fecha_options(year_options)
 
-    raw_selected_consolidated = st.session_state.get("detalle_consolidated", "")
-    raw_selected_entities = list(st.session_state.get("detalle_sociedad", []))
-    raw_selected_banks = list(st.session_state.get("detalle_banco", []))
-    raw_selected_people = list(st.session_state.get("detalle_nombre", []))
-    raw_selected_types = list(st.session_state.get("detalle_account_types", []))
     current_fecha = st.session_state.get("detalle_fecha")
     if current_fecha not in fecha_options and fecha_options:
         current_fecha = fecha_options[0]
         st.session_state["detalle_fecha"] = current_fecha
-
-    selected_year_seed = int(current_fecha[:4]) if current_fecha else None
-    selected_month_seed = int(current_fecha[5:7]) if current_fecha else None
-    preset_entities_seed = list(CONSOLIDATED_PRESETS.get(raw_selected_consolidated, []))
-    effective_entities_seed = sorted(set(raw_selected_entities) | set(preset_entities_seed))
-    effective_people_seed = [] if preset_entities_seed else raw_selected_people
-
-    bank_seed_rows = _seed_detail_rows(
-        selected_year=selected_year_seed,
-        selected_month=selected_month_seed,
-        entity_names=effective_entities_seed,
-        account_types=raw_selected_types,
-        person_names=effective_people_seed,
-    )
-    entity_seed_rows = _seed_detail_rows(
-        selected_year=selected_year_seed,
-        selected_month=selected_month_seed,
-        bank_codes=raw_selected_banks,
-        account_types=raw_selected_types,
-        person_names=effective_people_seed,
-    )
-    type_seed_rows = _seed_detail_rows(
-        selected_year=selected_year_seed,
-        selected_month=selected_month_seed,
-        bank_codes=raw_selected_banks,
-        entity_names=effective_entities_seed,
-        person_names=effective_people_seed,
-    )
-    person_seed_rows = _seed_detail_rows(
-        selected_year=selected_year_seed,
-        selected_month=selected_month_seed,
-        bank_codes=raw_selected_banks,
-        entity_names=effective_entities_seed,
-        account_types=raw_selected_types,
-    )
-
-    bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
-    entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
-    person_options = _distinct_values(person_seed_rows, "nombre") or person_options_all
-    account_type_options = _distinct_account_type_values(type_seed_rows) or account_type_options_all
+    bank_options = bank_options_all
+    entity_options = entity_options_all
+    person_options = person_options_all
+    account_type_options = account_type_options_all
 
     _sanitize_multiselect_state("detalle_banco", bank_options)
     _sanitize_multiselect_state("detalle_sociedad", entity_options)
@@ -592,22 +647,40 @@ def render():
             key="detalle_nombre",
         )
 
-    preset_entities = list(CONSOLIDATED_PRESETS.get(selected_consolidated, []))
-    selected_entities_effective = sorted(set(selected_entities) | set(preset_entities))
-    effective_people = [] if preset_entities else selected_people
-    if selected_consolidated and preset_entities:
+    applied_filters, _ = use_apply_filters(
+        state_key="detalle_filters_applied",
+        current_filters={
+            "bank_codes": list(selected_banks),
+            "entity_names": list(selected_entities),
+            "account_types": list(selected_types),
+            "fecha": selected_fecha,
+            "consolidated": selected_consolidated,
+            "person_names": list(selected_people),
+        },
+    )
+    applied_banks = list(applied_filters.get("bank_codes", []))
+    applied_entities = list(applied_filters.get("entity_names", []))
+    applied_types = list(applied_filters.get("account_types", []))
+    applied_fecha = applied_filters.get("fecha")
+    applied_consolidated = applied_filters.get("consolidated", "")
+    applied_people = list(applied_filters.get("person_names", []))
+
+    preset_entities = list(CONSOLIDATED_PRESETS.get(applied_consolidated, []))
+    selected_entities_effective = sorted(set(applied_entities) | set(preset_entities))
+    effective_people = [] if preset_entities else applied_people
+    if applied_consolidated and preset_entities:
         st.caption(f"Consolidado activo: {', '.join(preset_entities)}")
 
-    selected_year = int(selected_fecha[:4]) if selected_fecha else None
-    selected_month = int(selected_fecha[5:7]) if selected_fecha else None
-    has_scope_filter = bool(selected_banks or selected_entities_effective or selected_types or effective_people)
+    selected_year = int(applied_fecha[:4]) if applied_fecha else None
+    selected_month = int(applied_fecha[5:7]) if applied_fecha else None
+    has_scope_filter = bool(applied_banks or selected_entities_effective or applied_types or effective_people)
 
     data = _default_detail_payload()
     if has_scope_filter:
         payload = {
-            "bank_codes": selected_banks,
+            "bank_codes": applied_banks,
             "entity_names": selected_entities_effective,
-            "account_types": selected_types,
+            "account_types": applied_types,
             "person_names": effective_people,
             "years": [selected_year] if selected_year else [],
             "months": [selected_month] if selected_month else [],
@@ -621,9 +694,9 @@ def render():
             {
                 "years": [selected_year] if selected_year else [],
                 "months": [selected_month] if selected_month else [],
-                "bank_codes": selected_banks,
+                "bank_codes": applied_banks,
                 "entity_names": selected_entities_effective,
-                "account_types": selected_types,
+                "account_types": applied_types,
                 "person_names": effective_people,
             },
             label="Detalle",
@@ -703,26 +776,20 @@ def render():
         _render_movements_table(returns_rows, height=360)
 
     detail_views = data.get("detail_views", {})
+
+    _render_detail_section(
+        section_title="Detalle por Activo",
+        view_key="asset",
+        label_title="Activo",
+        payload=detail_views.get("asset", {}),
+    )
+
+    st.markdown("<div style='height:2rem;'></div>", unsafe_allow_html=True)
     _render_detail_section(
         section_title="Detalle por Banco",
         view_key="bank",
         label_title="Banco",
         payload=detail_views.get("bank", {}),
-    )
-
-    st.markdown("<div style='height:2rem;'></div>", unsafe_allow_html=True)
-    st.markdown("#### Detalle por Cuenta")
-    st.session_state.setdefault("detalle_account_grouped", True)
-    grouped_accounts = st.toggle(
-        "Agrupar cuentas por sociedad-banco-tipo",
-        key="detalle_account_grouped",
-    )
-    _render_detail_section(
-        section_title="Detalle por Cuenta",
-        view_key="account",
-        label_title="Cuenta",
-        payload=detail_views.get("account_grouped" if grouped_accounts else "account", {}),
-        show_heading=False,
     )
 
     st.markdown("<div style='height:2rem;'></div>", unsafe_allow_html=True)
@@ -734,9 +801,29 @@ def render():
     )
 
     st.markdown("<div style='height:2rem;'></div>", unsafe_allow_html=True)
+    st.markdown("#### Detalle por Cuenta")
+    account_levels = [
+        "1. Mandato, ETF, Brokerage, Bonos, Alternativos",
+        "2. Tipo de cuenta - Banco",
+        "3. Tipo de cuenta - Banco - Sociedad",
+        "4. Tipo de cuenta - Banco - Sociedad - ID",
+    ]
+    level_to_payload = {
+        account_levels[0]: "account_level_1",
+        account_levels[1]: "account_level_2",
+        account_levels[2]: "account_level_3",
+        account_levels[3]: "account_level_4",
+    }
+    st.session_state.setdefault("detalle_account_level", account_levels[0])
+    selected_account_level = st.selectbox(
+        "Nivel de agrupación",
+        options=account_levels,
+        key="detalle_account_level",
+    )
     _render_detail_section(
-        section_title="Detalle por Activo",
-        view_key="asset",
-        label_title="Activo",
-        payload=detail_views.get("asset", {}),
+        section_title="Detalle por Cuenta",
+        view_key="account",
+        label_title="Cuenta",
+        payload=detail_views.get(level_to_payload[selected_account_level], {}),
+        show_heading=False,
     )

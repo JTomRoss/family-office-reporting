@@ -7,6 +7,9 @@ import streamlit as st
 
 from frontend.components.number_format import fmt_number
 
+_GLOBAL_HEADER_CSS = {"background-color": "#7A838F", "color": "#FFFFFF", "font-weight": "700"}
+_GLOBAL_TOTAL_ROW_CSS = {"background-color": "#7A838F", "color": "#FFFFFF", "font-weight": "700"}
+
 
 def style_table(
     df: pd.DataFrame,
@@ -18,6 +21,11 @@ def style_table(
     label_col: str | None = None,
     fixed_equal_cols: bool = False,
     pinned_row_labels: set[str] | None = None,
+    shaded_row_labels: set[str] | None = None,
+    shaded_row_css: dict[str, str] | None = None,
+    accent_row_labels: set[str] | None = None,
+    accent_row_css: dict[str, str] | None = None,
+    header_css: dict[str, str] | None = None,
 ):
     """
     Retorna un Styler homogéneo para toda la app:
@@ -64,6 +72,25 @@ def style_table(
         idx = display_df.index[display_df[label_col].astype(str).isin(small_row_labels)]
         if len(idx) > 0:
             styler = styler.set_properties(subset=pd.IndexSlice[idx, cols], **{"font-size": "50%"})
+    if shaded_row_labels and label_col and label_col in df.columns:
+        idx = display_df.index[display_df[label_col].astype(str).isin(shaded_row_labels)]
+        if len(idx) > 0:
+            row_css = {"background-color": "#8C95A3", "color": "#FFFFFF"}
+            if shaded_row_css:
+                row_css.update(shaded_row_css)
+            styler = styler.set_properties(subset=pd.IndexSlice[idx, cols], **row_css)
+    if label_col and label_col in df.columns:
+        total_mask = display_df[label_col].astype(str).str.strip().str.lower() == "total"
+        idx = display_df.index[total_mask]
+        if len(idx) > 0:
+            styler = styler.set_properties(subset=pd.IndexSlice[idx, cols], **_GLOBAL_TOTAL_ROW_CSS)
+    if accent_row_labels and label_col and label_col in df.columns:
+        idx = display_df.index[display_df[label_col].astype(str).isin(accent_row_labels)]
+        if len(idx) > 0:
+            row_css = {"background-color": "#7A838F", "color": "#FFFFFF", "font-weight": "700"}
+            if accent_row_css:
+                row_css.update(accent_row_css)
+            styler = styler.set_properties(subset=pd.IndexSlice[idx, cols], **row_css)
 
     table_layout = "fixed" if fixed_equal_cols else "auto"
     styles = [
@@ -89,6 +116,11 @@ def style_table(
     if fixed_equal_cols and cols:
         col_width = f"{100 / len(cols):.3f}%"
         styles.append({"selector": "th, td", "props": [("width", col_width)]})
+    effective_header_css = dict(_GLOBAL_HEADER_CSS)
+    if header_css:
+        effective_header_css.update(header_css)
+    header_props = [(k, v) for k, v in effective_header_css.items()]
+    styles.append({"selector": "thead th", "props": header_props})
 
     return styler.set_table_styles(styles, overwrite=False).format({c: "{}" for c in cols})
 
@@ -104,6 +136,11 @@ def render_table(
     fixed_equal_cols: bool = False,
     use_container_width: bool = True,
     pinned_row_labels: set[str] | None = None,
+    shaded_row_labels: set[str] | None = None,
+    shaded_row_css: dict[str, str] | None = None,
+    accent_row_labels: set[str] | None = None,
+    accent_row_css: dict[str, str] | None = None,
+    header_css: dict[str, str] | None = None,
 ) -> None:
     """Renderiza tabla sin índice (columna izquierda) en toda la app."""
     st.table(
@@ -116,5 +153,10 @@ def render_table(
             label_col=label_col,
             fixed_equal_cols=fixed_equal_cols,
             pinned_row_labels=pinned_row_labels,
+            shaded_row_labels=shaded_row_labels,
+            shaded_row_css=shaded_row_css,
+            accent_row_labels=accent_row_labels,
+            accent_row_css=accent_row_css,
+            header_css=header_css,
         )
     )

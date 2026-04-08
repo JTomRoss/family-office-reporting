@@ -1,279 +1,395 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-03-24
+Last updated: 2026-04-01
 Owner: JTROSS + Codex
 Branch: master
 
-## 0) Handoff (2026-03-24 - Reclasificacion JPM/BBH y consistencia de duplicados)
-- **Objetivo:** Eliminar inconsistencias banco/cuenta en reportes de mandato cargados como duplicados y dejar el flujo robusto para futuras reclasificaciones desde UI.
-- **Backend cerrado:** `backend/services/document_service.py` ahora, en `reclassify_document`, no solo cambia `bank_code`; tambien resuelve/reconcilia `account_id`, limpia salidas derivadas del documento (`monthly_closings`, `monthly_metrics_normalized`, `etf_compositions`, `parsed_statements`, `reconciliations`) y deja el documento listo para reproceso sin residuos.
-- **Frontend cerrado:** `frontend/pages/upload.py` ahora encadena `POST /documents/{id}/reclassify` + `POST /documents/{id}/process` en el boton de reclasificar duplicados, para evitar documentos estancados en `uploaded`.
-- **Operacion ejecutada:** documentos `1809` y `1813` quedaron reclasificados en `jpmorgan` con `account_id=3` y `status=parsed`, con reproceso exitoso.
-- **Validacion BD:** `JPM_with_BBH_account37 = 0`; `cross_bank_mismatches (raw_documents.bank_code vs accounts.bank_code) = 0`; para `1809/1813` no quedaron filas residuales en `account_id=37`.
+## 1) Current Snapshot
+- SSOT monthly reporting layer: `monthly_metrics_normalized`.
+- `monthly_closings` remains historical source and allowed fallback.
+- Frontend remains presentation-only.
+- Mandato parsing/merge contract is hardened:
+  - Cartola provides auditable macro USD totals.
+  - `report_mandato` provides only sub-asset splits and FI metrics.
+  - Merge/normalization is centralized in backend.
 
-## 0) Handoff (2026-03-24 - Revisión solo LLM + reglas de motores)
-- **Cambio:** El agente de **Revisión** pasó a modo **solo LLM**: ya no compara parser/JSON vs BD de forma determinística. El prompt incluye **reglas por banco/tipo** (`audit_llm_rules.py`) alineadas a los motores (UBS portafolio, JPM brokerage/ETF/bonds/custody, GS, BBH YTD, etc.). Comparación contra `monthly_metrics_normalized`; solo lectura; requiere `OPENAI_API_KEY`. UI sin checkbox; resumen con % sobre **filas de hallazgo**.
-- **Archivos:** `audit_llm_rules.py`, `audit_normalized_values.py`, `audit_llm_extractor.py` (JSON), `audit_service.py`, `audit_report_builder.py`, `schemas.py`, `operational.py`, tests.
+## 2) Guardrails To Keep
+- Strict PDF engine isolation by:
+  - bank
+  - account type
+  - mandate report parser per bank (`parsers/*/report_mandato.py`)
+- Do not move financial logic to frontend.
+- Do not create runtime interpreters that bypass normalized persisted data.
+- Reporting tables/charts must read from normalized layer.
+- Keep raw PDFs for reprocess and audit traceability.
 
-## 0) Handoff (2026-03-23 - Agente auditoría Revisión)
-- **Objetivo:** Implementar el plan `PLAN_AGENTE_AUDITORIA_REVISION.md`: módulo de auditoría aislado (solo lectura), pestaña Operacional **Revisión**, comparación determinística parser vs `monthly_metrics_normalized`, muestreo, reglas BBH / nota beginning, opción LLM contra PDF (`OPENAI_API_KEY`).
-- **Backend cerrado:** `backend/services/audit/*` (universo, muestreo, determinístico, PDF, LLM, comparador, reglas, prioridad, reporte, orquestador), `backend/routers/audit.py` → `POST /api/v1/data/audit-revision-run`, schemas en `backend/schemas.py`, `openai` en `pyproject.toml`.
-- **Frontend cerrado:** `frontend/pages/operational.py` pestañas Salud BD + Revisión; `frontend/api_client.run_audit_revision` (timeout 120s).
-- **Tests:** `tests/test_audit_revision.py` + suite completa `219 passed, 1 skipped`.
-- **Contexto:** `AGENT_CONTEXT.md` actualizado (Operacional / rutas audit).
+## 3) Closed Block - 2026-03-31 (JPM donut artifact)
+Goal:
+- Fix `Boatview | jpmorgan | mandato | 1412600 | 2026-02` where parser captured false `Cash 43.00%` from donut text.
 
-## 0) Handoff (2026-03-23 - SPDR/Bloom. 1-10years + official promotion)
-- **Objetivo del bloque:** Integrar formalmente el instrumento `SPDR BLOOMBERG 1-10 YEAR U.S.` / alias GS `SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG` en taxonomía, lectura ETF/Brokerage y visualización ETF/Detalle, manteniendo aislamiento de motores.
-- **Taxonomía cerrada:** `asset_taxonomy.py` mantiene Excel como fuente oficial y agregó canonización de bucket `RF IG -> RF IG Short` para compatibilidad del nuevo registro del Excel sin romper series/buckets existentes.
-- **ETF tablas cerradas:** en `backend/routers/data.py` y `frontend/pages/etf.py` se incorporó `SPDR` en el orden fijo bajo `VDPA` y se muestra como etiqueta de negocio `Bloom. 1-10years` en las dos primeras tablas de ETF (USD y %).
-- **Detalle por activo cerrado:** el nuevo instrumento cae en bucket `RF IG Short` y por lo tanto en etiqueta `IG Fixed income` en `Detalle > Tipo de activos`.
-- **GS ETF histórico cerrado:** `parsers/goldman_sachs/etf.py` (`VERSION = 2.1.1`) resuelve casos legacy donde la línea venía como `OTHER INVESTMENT GRADE SECURITIES` y ahora reemplaza por el alias SPDR/Bloomberg cuando esa línea explícita existe en la misma cartola.
-- **Loader ETF reforzado:** `backend/services/data_loading_service.py` ahora reemplaza snapshot completo de `etf_compositions` por cuenta/banco/mes en reproceso para evitar duplicados históricos cuando cambia el `etf_code`/nombre normalizado.
-- **Reprocesos ejecutados (preview):** sólo cuentas solicitadas: JPM ETF (`4009`, `0007`, `7000`, `5007`), JPM brokerage (`5002`, `0001`), GS ETF (`452-2`). Total reprocesado: `345` documentos, `0` errores.
-- **Validación preview:** `452-2` en `2024-10` quedó con `SSGA SPDR...` (sin duplicado `OTHER ...`), ETF `2024-10` muestra fila SPDR consolidada, y North Harbor brokerage `0001` `2024-10` clasifica en `RF IG Short` (`IG Fixed income`).
-- **Tests corridos:** before `97 passed, 1 skipped`; after cambios `100 passed, 1 skipped` (focalizados: `test_asset_taxonomy`, `test_normalized_reporting_layer`, `test_loader_contracts`, `test_specific_cartola_extraction`).
-- **Promoción oficial ejecutada:** DB preview promovida a oficial con backup `data/db/backups/fo_reporting_official_before_spdr_promotion_20260323_171257.db`; reinicio oficial con `stop.ps1` + espera 2s + `start.ps1`; health checks `8000/8501` OK (`200`).
+Changes:
+- Hardened JPM mandate report parser to prioritize table breakdown and ignore donut artifact.
+- Added regression test for this layout.
+- Reprocessed only required docs for that month/account.
 
-## 0) Handoff (2026-03-20 - Excel oficial taxonomía + JPM brokerage asset buckets)
-- **Objetivo del bloque:** Reemplazar el diccionario embebido de buckets por el Excel oficial `Documentos/Excel/Diccionario de instrumentos.xlsx`, agregar `Non US RF`, y desglosar `JPMorgan brokerage` por holdings clasificados sin tocar otros motores.
-- **Taxonomía cerrada:** `asset_taxonomy.py` ahora compone la taxonomía desde `Excel` (clasificación, aliases, labels de detalle) + `asset_bucket_dictionary.json` (solo orden/colores). Se mantuvo la API existente (`classify_etf_asset_bucket()`, `asset_bucket_order()`, `asset_bucket_colors()`, etc.). `asset_bucket_dictionary.json` ya no guarda aliases/keyword rules.
-- **Buckets / labels:** se incorporó `Non US RF` al orden visual y colores. La tabla `Detalle > Tipo de activos` ahora recibe `table_label` desde backend y usa la columna del Excel que contiene labels tipo `IG Fixed income` / `Global Equity`; gráficos y el resto de tablas siguen usando los buckets actuales. `PE` / `RE` de Alternativos se mantuvieron sin cambio visual en esa tabla.
-- **JPM brokerage cerrado en loader:** `backend/services/data_loading_service.py` ahora bucketiza `asset_allocation_json` de `jpmorgan/brokerage` desde holdings persistidos + taxonomía centralizada. El refresco `_refresh_normalized_activity_from_monthly_closings()` también rehace ese bucketizado para datos ya cargados, manteniendo SSOT en `monthly_metrics_normalized` con fallback alineado en `monthly_closings`.
-- **Reporting cerrado:** `backend/routers/data.py` extiende `Detalle por Activo` para incluir `JPM brokerage` desde `monthly_metrics_normalized/monthly_closings`, respetando filtros de `account_type`; `ETF` y `Alternativos` siguen funcionando y `frontend/pages/personal.py` solo consume `table_label` para la tabla.
-- **Tests corridos:** focalizados `tests/test_asset_taxonomy.py tests/test_loader_contracts.py tests/test_normalized_reporting_layer.py` -> `56 passed`; suite completa -> `205 passed, 1 skipped`.
-- **Operacion preview:** se reinició solo preview con `stop_preview.ps1` + `start_preview.ps1` (sync preview automática). Luego se aplicó refresh focalizado en DB preview para `16` cuentas `JPM brokerage` (`64` account-years, `506` filas normalizadas tocadas). **Oficial no se tocó**.
+Result:
+- Cash in persisted allocation corrected from false percent to cartola-aligned USD.
+- Canonical breakdown reconciled for target account.
 
-## 0) Handoff (2026-03-19 - UI reporting polish + JPM bonds 1100 cash fix)
-- **Objetivo del bloque:** Cerrar ajustes visuales/UX de `Detalle`, `Mandatos`, `ETF`, `Resumen` y corregir lectura de caja en `JPMorgan bonds` para `Ecoterra Internacional 1100` sin afectar otros motores.
-- **Cambios UI cerrados:** se oculto menu nativo de Streamlit; en `Detalle` se reordenaron filtros (`Consolidado` antes de `Nombre`), la tabla 12M paso a `Detalle ultimos 12 meses` con `Monto USD` y orden descendente, se eliminaron botones de toggle para mostrar siempre Banco/Cuenta/Sociedad/Activo, y se agrego separacion vertical entre secciones. En `Resumen` se agrego filtro `Nombre` y se paso graficacion/tabla a ventana rolling de ultimos 12 meses con `Rentabilidad acumulada (%)`. En `ETF` y `Detalle`, el primer grafico ahora muestra mensual + acumulada 12M (sin corte YTD por cambio de ano).
-- **Cambios Mandatos cerrados:** `Movimientos por Banco` usa columnas de ancho fijo; en `Rentabilidad por Banco` las celdas sin dato quedan en blanco (sin `nan%`) y la fila `Total` no arrastra valores en meses faltantes.
-- **Cambio parser aislado (solo JPM bonds 1100):** `parsers/jpmorgan/bonds.py` (`VERSION = 2.0.1`) ajusta `asset_allocation` para que `Cash, Deposits & Short Term` use `Total Cash Holdings` y excluya `Short Term Investments` de caja, solo cuando `account_number == 1531100`. Se agrego regresion `test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100` en `tests/test_loader_contracts.py`.
-- **Persistencia SSOT mantenida:** no se creo logica de reporte en frontend; el parser sigue alimentando carga/normalizacion y reporting consume capa persistida (`monthly_metrics_normalized` con fallback permitido a `monthly_closings`).
-- **Tests corridos:** suite completa `200 passed, 1 skipped`; `tests/test_loader_contracts.py` `24 passed`; `tests/test_normalized_reporting_layer.py` `25 passed`.
-- **Operacion:** preview y oficial reiniciadas con scripts. Reproceso de `JPM 1100` ejecutado en preview y oficial: `33/33` documentos `ok`, `0` fallos.
+## 4) Closed Block - 2026-03-31 (Mandato contract hardening + repairs)
+Goal:
+- Enforce mandate source contract globally and repair contaminated monthly rows without broad reprocess.
 
-## 0) Handoff (2026-03-17 - Alternativos Excel)
-- **Objetivo del bloque:** Integrar el Excel `Alternativos.xlsx` como motor independiente de carga dentro de `Carga > Excel / CSV`, persistiendo solo en `monthly_metrics_normalized` y exponiendolo solo en `Resumen` y `Detalle`.
-- **Decision estructural:** `Alternativos` se trata como una cartola adicional con parser propio (`parsers/excel/alternatives.py`). Para reporting se materializa como banco sintetico `alternativos` / `Alternativos`, con subcuentas `investment` agregadas por `sociedad + clase de activo + estrategia + moneda`.
-- **Reglas de parseo cerradas:** se excluyen `Ecoterra` y `El Faro`; si existe columna `EUR` seguida por la misma posicion en `USD`, se toma solo `USD`; la hoja `Movimientos` se invierte a signo de contribucion al activo (capital call/subscripcion positivo para reporting, distribucion/retiro negativo).
-- **Persistencia / reporting:** `backend/services/data_loading_service.py` ahora crea/actualiza cuentas sinteticas `alternativos`, limpia y recarga sus filas en `monthly_metrics_normalized`, y no crea `monthly_closings`. `backend/routers/data.py` extiende `Summary` y `Personal` para incluir filas `normalized-only` sin cierre historico, manteniendo `monthly_closings` como fallback permitido.
-- **UI cerrada:** `frontend/pages/upload.py` agrega `excel_alternatives` en `Excel / CSV`, envia `bank_code=alternativos`, muestra mensaje explicativo y confirma filas normalizadas + subcuentas creadas/actualizadas. El filtro de documentos tambien reconoce `excel_alternatives`.
-- **Etiquetas / visual ordenado:** las subcuentas de `Alternativos` preservan `detail_label = sociedad | clase | estrategia | moneda` como metadata, pero `Detalle por Cuenta` agrupa visualmente solo como `Sociedad-ALT-PE` o `Sociedad-ALT-RE`.
-- **Normalizacion adicional cerrada:** el parser canoniza nombres de sociedad para que los consolidadores de la app cierren con el resto de bancos: `Ect Intl -> Ecoterra Internacional`, `Ect RE -> Ecoterra RE`, `Ect RE II -> Ecoterra RE II`, `Ect RE III -> Ecoterra RE III`.
-- **Presentacion cerrada:** `Detalle por Activo` ya muestra `PE` y `RE`; `Resumen` y `Detalle` exponen filtros pseudo `pe` / `re` (`Private Equity (PE)` y `Real Estate (RE)`), y `ALT` / `PE` / `RE` usan tonos verdes en los graficos vinculados a Alternativos.
-- **IDs / cuentas:** el `identification_number` de cada cuenta sintetica de `Alternativos` usa el `NEMO` sin espacios, truncado a 5 caracteres. El banco sintetico sigue siendo `Alternativos`; las subcuentas continúan agregadas por `sociedad + clase + estrategia + moneda`.
-- **Presets de consolidado alineados:** `Mi Investments` incluye `Boatview`, `Telmar`, `White Alaska`, `Ecoterra RE`, `Ecoterra RE II`, `Ecoterra RE III`. `Mi Inv + Ect. Int` y `Mi Inv + Ect. Int+ Armel` ahora heredan tambien esas tres sociedades RE, ademas de `Ecoterra Internacional` y, cuando corresponde, `Armel Holdings`.
-- **Validacion numerica cerrada:** tras reprocesar `Alternativos.xlsx`, `Detalle` / `Resumen` para `2025-12` muestran `Alternativos = 149.612.606,14` bajo el scope `Boatview + Telmar + White Alaska + Ecoterra Internacional + Ecoterra RE + Ecoterra RE II + Ecoterra RE III`. El valor `128.884.707,18` era solo el subconjunto sin las tres sociedades RE.
-- **Tests corridos:** `.\.venv\Scripts\python.exe -m pytest tests/test_excel_alternatives_parser.py tests/test_loader_contracts.py tests/test_normalized_reporting_layer.py tests/test_asset_taxonomy.py -q` -> `49 passed`.
-- **Validacion operativa:** parser corrido contra `Documentos/Excel/Alternativos.xlsx` -> `success`, `2185` filas. Reproceso real del documento `Alternativos.xlsx` ya cargado: `2185` filas normalizadas, sin errores. Reinicio real con `./scripts/stop.ps1` + espera 2s + `./scripts/start.ps1`; backend `200` en `http://localhost:8000/api/v1/health`; frontend `200` en `http://localhost:8501`.
-- **Pendiente inmediato recomendado:** QA visual final de `Resumen` y `Detalle` con presets `Mi Investments` y `Mi Inv + Ect. Int+ Armel`, y luego respaldo formal del estado ya consolidado.
+Code changes:
+- Hardened mandate report parsers:
+  - `parsers/jpmorgan/report_mandato.py` -> `1.2.0`
+  - `parsers/bbh/report_mandato.py` -> `1.2.0`
+  - `parsers/ubs/report_mandato.py` -> `1.2.0`
+  - `parsers/ubs_miami/report_mandato.py` -> `1.2.0`
+- Contract now:
+  - No report-level macros (`Cash`, `Fixed Income`, `Equities`) in report parser output.
+  - Keep sub-splits (`IG/HY`, `US/Non-US`, `Global Equity`) + FI metrics only.
+- Added parser contract regressions:
+  - `tests/test_mandate_report_parser_contracts.py`
+  - Updated `tests/test_jpm_report_mandato_parser.py`
 
-## 0) Handoff (2026-03-17)
-- **Estado general:** La app principal esta operativa y el criterio arquitectonico se mantiene: `monthly_metrics_normalized` es la unica SSOT mensual de reporting; `monthly_closings` queda como historico/fallback permitido; frontend sigue siendo presentacion solamente.
-- **Respaldo formal vigente:** branch `master`, commit `2ffd74b9013e478f1c7fa902a166bcda984f44a9`, tag `20260316_170000_reporting_visual_checkpoint_20260316`, snapshot `data/snapshots/20260316_170000_reporting_visual_checkpoint_20260316`, snapshot hash `87982dfbf14a7479b0ea6085714cdf0ab657ddb2a3f36bfc9748db15f28141bd`. Restore exacto: `python scripts/restore.py --tag 20260316_170000_reporting_visual_checkpoint_20260316`.
-- **Cambios recientes de reporting / UI ya cerrados:**
-  - Navegacion principal: `Detalle`, `Mandatos`, `ETF`, `Resumen`, `Carga`, `Operacional`; en `Operacional` quedo solo `Salud BD`.
-  - `Detalle` consume payload backend-driven (`returns_panel` + `detail_views`) y ya no hace calculos financieros arriba.
-  - `Detalle` ahora tiene filtros dependientes, tabla de movimientos 12M, secciones por `Banco`, `Cuenta`, `Sociedad` y `Activo`, y se elimino el warning amarillo de Streamlit por `Session State`.
-  - `Detalle`: `Mi Investments` ahora incluye `Boatview`, `Telmar`, `White Alaska`, `Ecoterra RE`, `Ecoterra RE II` y `Ecoterra RE III`.
-  - `Detalle por Cuenta` usa abreviacion `sociedad-banco-cuenta-id` y la columna visible es `Mov mes`.
-  - `Detalle por Activo` existe debajo de `Detalle por Sociedad` y por ahora usa solo composicion ETF.
-  - `Mandatos` tiene filtro global `Con Caja / Sin Caja`, ETF queda siempre `Sin Personal`, la tabla principal muestra `Monto` sin caja + `Caja` + `Monto total`, y el grafico `% por tipo de activo` incluye `Portafolio ETF` y linea horizontal al `60%`.
-  - `ETF` ya dejo consistente el primer grafico con la tabla final para `Sin Caja`, invirtio ejes del primer grafico (mensual izquierda / YTD derecha) y usa el desglose de activos centralizado para `% por tipo de activo en cada banco`.
-  - `Salud BD` anota `YTD BBH incluye prior adjustments` cuando el desfase de `movements_ytd` cuadra con `prior_period_adjustments`; esto es solo nota de auditoria, no mutacion de data.
-- **Cambios recientes de parser/loader ya cerrados:**
-  - JPM old `brokerage/etf`: la derivacion de caja desde holdings cash-like quedo aislada en `backend/services/data_loading_service.py` solo para poblar/backfillear `cash_value`.
-  - UBS Suiza `Boatview brokerage 206-560552-01`: se corrigio el parser para meses `2025-05`, `2025-08`, `2025-11` con `Liquidity` mal concatenado y luego se revisaron todas las cartolas cargadas de esa cuenta sin encontrar mas casos del mismo patron.
-  - Goldman Sachs mandatos antiguos: el parser ahora consolida `sub_portfolio_overviews` cuando falta el overview top-level, cerrando faltantes visibles en `Salud BD` para `097-4` y `214-9`.
-- **Taxonomia de activos vigente:**
-  - Archivo canonico: `asset_bucket_dictionary.json`
-  - Helper de carga: `asset_taxonomy.py`
-  - Buckets: `RV DM`, `RV EM`, `RF IG Short`, `RF IG Long`, `HY`, `Alternativos`, `Real Estate`, `Caja`
-  - Mapping explicito: `IWDA -> RV DM`, `IEMA -> RV EM`, `VDCA -> RF IG Short`, `VDPA -> RF IG Long`, `IHYA -> HY`, `ALT -> Alternativos`, `ALT RE -> Real Estate`, aliases de money market / deposits / cash / caja -> `Caja`
-  - Regla: no duplicar este diccionario en paginas ni routers; se reutiliza desde el archivo central.
-- **Tests mas recientes corridos en este bloque:** `.\.venv\Scripts\python.exe -m pytest tests/test_normalized_reporting_layer.py -q` -> `22 passed`.
-- **Estado operativo actual:** backend health OK en `http://localhost:8000/api/v1/health`; frontend principal OK en `http://localhost:8501`.
-- **Pendiente inmediato recomendado:** QA visual puntual de `Detalle` (alineaciones finas tabla/graficos) y decidir si la taxonomia central de activos debe extenderse luego a mandatos/brokerage a nivel de datos persistidos, o mantenerse temporalmente ETF-only.
+Operations executed:
+- App restarted using official scripts.
+- Surgical reprocess:
+  - GS `451-9`: docs `1764` (cartola) + `1786` (report)
+  - BBH `7085`: docs `1763` (cartola) + `1801` (report)
+  - UBS/UBS Miami Feb-2026 cleanup:
+    - `1774` (UBS cartola)
+    - `1771` (UBS Miami cartola)
+    - `1834` (UBS Miami report)
 
-## 0) Handoff (2026-03-16)
-- **Objetivo del bloque:** Revisar por quÃ© la app todavÃ­a podÃ­a mostrar `54.185` en `Boatview UBS Suiza 206-560552-02 2025-01` si la tabla canÃ³nica ya estaba en `0`.
-- **Hallazgo:** No habÃ­a una lectura residual de `parsed_data_json`, `parsed closing` ni `total agregado` saltÃ¡ndose `monthly_metrics_normalized` en reporting. `Summary`, `Mandates`, `Personal` y `Salud BD` ya devolvÃ­an `0` para el mandato `206-560552-02`. El `54.185` visible venÃ­a de una cuenta hermana real del mismo `Boatview + UBS`: `206-560552-01` (`brokerage`), que la UI estaba agregando por banco/sociedad sin desglosar cuentas.
-- **Cambios aplicados:** `backend/routers/data.py`: `Personal` ahora expone `id/account_number` por fila en `entities_table`. `frontend/pages/personal.py`: `Detalle por Banco` muestra columna `Cuentas visibles` para desambiguar agregados multi-cuenta. `frontend/pages/summary.py`: aviso cuando el consolidado combina varias cuentas visibles del mismo `Banco + Sociedad`. `tests/test_normalized_reporting_layer.py`: regresiÃ³n `test_personal_exposes_sibling_accounts_separately_when_one_normalized_value_is_zero`.
-- **Tests corridos:** `tests/test_normalized_reporting_layer.py -q -k "personal_exposes_sibling_accounts_separately_when_one_normalized_value_is_zero or summary_prefers_normalized_monthly_metrics or summary_zeroes_negative_ubs_return" -p no:cacheprovider` â†’ `3 passed`.
-- **Estado operativo:** App principal levantada y verificada OK en `http://localhost:8501`; backend health OK en `http://localhost:8000/api/v1/health`.
-- **Pendiente inmediato:** ValidaciÃ³n visual del usuario en `Resumen` y `Detalle`, confirmando que el `54.185` solo aparezca cuando corresponda a `206-560552-01` y no al mandato `206-560552-02`.
+Validation:
+- Tests run and passing:
+  - parser contract + operational + targeted loader coverage.
+- Reconciled mandate rows (Feb-2026):
+  - `Boatview | GS | 451-9` -> gap resolved.
+  - `Boatview | BBH | 7085` -> gap resolved.
+  - `Boatview | UBS | 206-560552-02` -> macros persisted as USD, no percent macro carryover.
+  - `Boatview | UBS Miami | 3J 00432 P1` -> macros persisted as USD, no percent macro carryover.
 
-## 0.1) Cleanup pass (2026-03-16)
-- **Objetivo:** Reordenar reporting para que vuelva a apoyarse primero en la capa normalizada, sin tocar reglas especiales de loaders/parsers por banco.
-- **Cambios aplicados:** `backend/routers/data.py`: `cash_value` normalizado ahora prevalece sobre `asset_allocation_json` historico y otros fallbacks; `asset_allocation_json` normalizado ahora prevalece en `Mandates` y en `/data/asset-allocation-report`; el fallback a `ParsedStatement` para caja JPM se mantiene solo como ultimo recurso. `frontend/pages/mandates.py`: el KPI usa `*_ytd` ya entregado por backend en vez de recomputarlo en frontend, y el pin visual de `Total` queda delegado al renderer comun. `scripts/start.ps1`: ahora escribe logs runtime y muestra `stdout/stderr` cuando el proceso no responde.
-- **Decisiones:** No se tocaron reglas UBS/JPM/GS especificas del loader. No se elimino por completo el fallback raw de caja porque en la BD local todavia hay muchos `cash_value = NULL` en `JPM brokerage/ETF`; quitarlo de golpe podia mover demasiados casos reales. Se degradÃ³ a ultimo recurso, pero no se mantiene por delante de la capa normalizada.
-- **Tests:** Suite completa `166 passed, 1 skipped`. Reinicio real con `./scripts/start.ps1` verificado OK; backend `200`, frontend `200`.
-- **Pendiente:** Si se quiere cerrar totalmente la desviacion arquitectonica de caja, primero hay que completar/backfillear `cash_value` normalizado en las filas donde hoy sigue nulo.
+## 5) Known Residuals
+- Important user decision (2026-03-31):
+  - Do not touch or delete GS/JPM cartolas with duplicate alternatives exposures.
+  - Reason: they are still needed for historical traceability.
+- Remaining small residuals are now operational/rounding scale (plus accrual pockets), not PE duplication blocks.
 
-## 0.2) JPM cash normalization closure (2026-03-16)
-- **Objetivo:** Sacar la ultima interpretacion raw de caja fuera de reporting y moverla a la normalizacion JPM antigua, manteniendo el principio SSOT en `monthly_metrics_normalized`.
-- **Cambios aplicados:** `backend/services/data_loading_service.py`: nueva derivacion loader-side de `cash_value` para `jpmorgan brokerage/etf` cuando falta `asset_allocation_json` pero existen holdings cash-like persistidos (`deposit sweep`, `liquidity sweep`, `LI-LIQ`, `prime MM`, `pending sales`, etc.). Esa derivacion corre tanto en carga nueva como en `_refresh_normalized_activity_from_monthly_closings`. `backend/routers/data.py`: se elimino el fallback de caja que leia `ParsedStatement` directamente desde reporting; `Summary`/`Personal` vuelven a consumir solo normalized + fallback historico permitido. Tests nuevos en `tests/test_loader_contracts.py` y `tests/test_summary_returns.py`.
-- **Decisiones:** La interpretacion de caja queda aislada en loader/backfill JPM, no en endpoints. Si una cartola antigua no trae ni `asset_allocation` ni holdings cash-like parseados, `cash_value` sigue `NULL` y eso se trata como falta de dato de origen, no como permiso para reinterpretar raw desde reporting.
-- **BD local:** Se backfillearon `91` grupos cuenta/año JPM (`brokerage` + `etf`) con la rutina normalizada. Los `cash_value = NULL` bajaron de `729` a `13`. Los `13` remanentes corresponden a meses donde el `ParsedStatement` no trae filas de holdings o solo trae instrumentos de renta fija, sin una linea de caja pura identificable.
-- **Tests:** Focalizados `4 passed`; suite completa `169 passed, 1 skipped`.
-- **Pendiente:** Si se quiere cerrar los `13` remanentes, el ajuste debe ir al parser JPM especifico de esas cartolas antiguas o a un reproceso focalizado, nunca a reporting.
+## 6) Closed Block - 2026-03-31 (ETF EM + JPM bonds short-term + GS non-us alias)
+Goal:
+- Resolve residuals caused by missing `Emerging Market Equities` / `NON-US EQUITY` classification and by JPM bonds `1531100` short-term handling.
 
-## 1) Current Product Status
-- App promoted to official main environment.
-- Main endpoints for `Summary`, `Mandates`, `ETF`, `Personal` are functional with real DB queries.
-- Preview/staging local flow is available (`8100/8601`) with separate DB.
-- `monthly_metrics_normalized` is the canonical monthly reporting layer and is already used by reporting endpoints.
-- Reporting endpoints are expected to be read-only over persisted monthly data; identity/YTD stay as controls, not data completion rules.
-- Mandate asset-allocation normalization (Cash / Fixed Income / Equities) is implemented.
-- `Salud BD` is active in main UI and includes identity, missing-components, and YTD control surfaces.
-- Raw PDFs are still stored and remain operationally necessary for reprocesos, parser hardening, and audit traceability.
+Code changes:
+- `asset_taxonomy.py`
+  - Added compatibility aliases:
+    - `EMERGING MARKET EQUITIES`
+    - `EMERGING MARKETS EQUITIES`
+    - `NON-US EQUITY`
+    - `NON US EQUITY`
+    - `TOTAL NON-US EQUITY`
+  - All mapped to `RV EM`.
+- `backend/services/data_loading_service.py`
+  - Reworked `_canonical_from_etf_instruments` to map ETF buckets directly into canonical 7 categories, avoiding synthetic `Global Equities` fallback that dropped EM amounts in practice.
+  - Added `self.db.flush()` before ETF-triggered normalized refresh inside `_upsert_etf_compositions` (session uses `autoflush=False`).
+- `parsers/jpmorgan/bonds.py` (`2.0.2`)
+  - For account `1531100`, kept cash override from `Total Cash Holdings`.
+  - Added extraction of `Short Term Investments` and sum into `Fixed Income`.
+- Tests:
+  - Updated/added targeted regressions in:
+    - `tests/test_loader_contracts.py`
+    - `tests/test_normalized_reporting_layer.py`
 
-## 2) Current Known Priorities
-1. Visual QA of the current `Detalle`, `Mandatos` and `ETF` layouts after the latest reporting polish.
-2. Decide if the centralized asset taxonomy should next populate normalized monthly data for non-ETF accounts, or remain ETF-only until parser/loader work is ready.
-3. Keep `Salud BD` as audit-only and continue closing real parser/loader gaps instead of adjusting reporting.
-4. Define later the archive/retention strategy for raw PDFs once data is stable and approved.
+Operations executed:
+- App restarted with official scripts.
+- Surgical reprocess (only affected docs):
+  - JPM ETF: `1732` (`5001`), `1761` (`7000`), `1750` (`4009`), `1735` (`0007`)
+  - JPM bonds: `404` (`1531100`)
+  - GS ETF: `1766` (`452-2`)
 
-## 3) Operational Rules (quick)
-- Restart main app after backend/frontend code changes:
-  - `./scripts/stop.ps1`
-  - wait 2 seconds
-  - `./scripts/start.ps1`
-- For visual validation before main promotion, use preview scripts.
+Validation:
+- Emerging exposures now included in canonical `Non US Equities` for:
+  - `U28375001`, `B75667000`, `E30994009`, `E31070007`, `452-2`
+- `1531100` now reconciles exactly:
+  - `cash + fixed income = ending value`
+- Consolidated filter (`Mi Inv + Ect. Int + Armel`, `2026-02`) residual reduced to the known GS mandato account plus minor small residuals.
 
-## 4) What to Load in New Chat
-Minimum context load:
-1. `AGENT_CONTEXT.md`
-2. `SESSION_STATE.md`
-3. `git status --short`
-4. Only files directly related to requested task
+## 7) Closed Block - 2026-03-31 (Historical dedupe vs Alternativos for Telmar)
+Goal:
+- Remove duplicated alternatives exposure from reporting totals (all history), without deleting historical cartolas.
 
-Optional deep load:
-- `DEEP_CONTEXT.md` only if historical decisions are needed.
+Scope:
+- `Telmar | goldman_sachs | mandato | 097-4`
+- `Telmar | jpmorgan | brokerage | B43459001`
 
-## 5) Active Worktree Snapshot Guidance
-Worktree may contain WIP changes in backend/frontend/parsers/tests.
-Do not assume a clean tree.
-Do not revert unrelated changes.
+Code changes:
+- `backend/services/data_loading_service.py`
+  - Added stable account-scoped reporting exclusion rules.
+  - Exclusions persist in `monthly_metrics_normalized.asset_allocation_json` under `__reporting_value_exclusion`.
+  - Fallback extraction for GS `097-4` from `parsed_statements.rows` (`WEST STREET CAPITAL PARTNERS VII OFFSHORE, L.P.`) when allocation labels are absent.
+  - Fallback extraction for JPM `B43459001` as residual vs ending (without accrual) when `Alternative Assets` label is not explicit.
+- `backend/routers/data.py`
+  - Added centralized reader of `__reporting_value_exclusion`.
+  - `_resolve_ending_with_accrual` / `_resolve_ending_without_accrual` now subtract exclusion once, so all reporting tables stay aligned.
+- Tests:
+  - `tests/test_loader_contracts.py`
+  - `tests/test_normalized_reporting_layer.py`
 
-## 6) Current Architecture / Reporting Decisions
-- Single source of truth for monthly reporting: `monthly_metrics_normalized`.
-- `monthly_closings` remains historical source + fallback, but if normalized data exists it must drive reporting.
-- `backend/routers/data.py` should not recreate a second/third interpreter of monthly data from raw JSON or YTD.
-- `Salud BD` must alert on persisted data inconsistencies; it should not silently mutate values to make identity pass.
-- Tables/graphs in reporting should consume normalized monthly values; parser logic and loader logic live below the API layer.
+Operations executed:
+- App restarted using official scripts.
+- Historical backfill (all years available) by refreshing normalized rows for target accounts.
 
-## 7) High-Signal Change Digest (what is already in code)
-- Normalized layer hardening:
-  - `monthly_metrics_normalized` now carries explicit monthly fields needed by reporting, including YTD controls and asset allocation JSON.
-  - Reporting endpoints were refactored away from helper-based reinterpretation of movements/profit/YTD and toward persisted monthly values.
-- `Salud BD` / UI:
-  - Added the `Nota` field/filter for identity issues where statement beginning value mismatches previous ending value but audited ending value prevails.
-  - `YTD BBH incluye prior adjustments` note exists for BBH movement-YTD mismatches explained by prior-period adjustments in the statement.
-  - UI displays `ubs` as `ubs_suiza` in health tables.
-  - `Personal` page no longer auto-loads broad data without scope filters.
-  - `Operacional` UI now keeps only the `Salud BD` subtab.
-- ETF / society fixes:
-  - Added `Con Personal / Sin Personal` behavior around `Raíces LP`.
-  - ETF total return row is computed in backend from aggregated values instead of ad hoc UI recomputation.
-  - ETF asset breakdown now uses the centralized taxonomy file and bank-level percentage payload from backend.
-  - `Raíces LP` coverage was relinked/reprocessed so reporting starts from historical documents again.
-- Detail / mandates visual layer:
-  - `Detalle` consumes backend-prepared `returns_panel` and `detail_views`, including `Detalle por Activo` from ETF composition only.
-  - `Detalle por Cuenta` uses abbreviated labels `sociedad-banco-cuenta-id`.
-  - `Mandatos` has a global `Con Caja / Sin Caja` mode and keeps ETF permanently `Sin Personal`.
-- Goldman Sachs:
-  - OCR fallback exists for garbled PDFs, including period/overview tolerance for OCR spacing issues.
-  - Legacy mandate statements can consolidate `sub_portfolio_overviews` when a top-level overview is missing.
-- JPMorgan:
-  - `ETF`: blank monthly `Income & Distributions` / `Change In Investment Value` fields no longer inherit YTD as monthly.
-  - `Custody`: `Net Security Contributions` is included in movements where applicable.
-- UBS Miami:
-  - `Change in value of accrued interest` regex was hardened for multiline labels.
-- UBS Suiza:
-  - Multi-portfolio statements use the portfolio selected by account suffix (`-01`, `-02`) instead of summed totals.
-  - Negative ending values are valid and now parsed/persisted.
-  - In UBS-only reporting views, monthly return shows `0%` when current or previous position is negative.
-  - A focused UBS audit/reproceso later found `33` persisted portfolio mismatches and corrected them with final verification `remaining = 0`.
-  - From `2026-03-15`, UBS-only identity policy is stricter: auditable `ending value` always prevails over a mismatching next-month `beginning value`; quarterly tables may refine prior-month `movements`; `profit` must absorb any continuity gap via identity recomputation. This is intentionally isolated to UBS Suiza and must not bleed into other banks.
+Backfill result:
+- `goldman_sachs | mandato | 097-4`: years `2020..2026`, rows `74`, rows_with_exclusion `12` (from `2025-03` to `2026-02`).
+- `jpmorgan | brokerage | B43459001`: years `2020..2026`, rows `63`, rows_with_exclusion `39` (from `2020-12` to `2026-02`).
 
-## 8) Session Log Template
-Use this short format when closing a work block:
+Validation:
+- User control set (`Mi Inv + Ect. Int + Armel`, `2026-02`) gap reduced to `28,588.31` (previous PE duplication removed).
+- Duplicate PE blocks specifically removed from totals:
+  - GS `097-4`: `3,304,758.00` (2026-02) via exclusion metadata.
+  - JPM `B43459001`: `19,314.00` (2026-02) via exclusion metadata.
+
+## 8) Closed Block - 2026-04-01 (JPM mandato OCR + sibling spread, UBS Suiza historical refresh)
+Goal:
+- Repair historical mandate sub-asset reporting where JPM complementario was not read and JPM portfolio-level reports were landing on only one subaccount.
+- Reprocess UBS Suiza mandate reports so the persisted reporting layer reflects the central `Global Equity -> 2/3 US + 1/3 Non-US` rule.
+
+Code changes:
+- `parsers/jpmorgan/report_mandato.py` (`1.3.0`)
+  - Added isolated OCR fallback for JPM complementario.
+  - Extracts `HG/HY` + blended FI metrics from `Portfolio Positioning / Duration / Yield`.
+  - `Investment Review` now contributes only `US Equities` / `Non US Equities` (no FI split from that layout).
+- `backend/services/data_loading_service.py`
+  - `pdf_report` loader can now apply JPM portfolio-level mandate reports (`account_number = Varios`) to sibling mandato accounts that share the same cartola source document in the target month.
+  - Added JPM safeguard so a one-sided `Investment Review` IG input does not overwrite an existing `HG/HY` split already persisted from complementario.
+- Tests:
+  - `tests/test_jpm_report_mandato_parser.py`
+  - `tests/test_data_loading_operational.py`
+
+Operations executed:
+- Targeted tests passed for JPM parser + mandate report loading.
+- Historical reprocess executed for all `pdf_report` docs in:
+  - `jpmorgan` (`15` docs)
+  - `ubs` (`13` docs)
+- App restarted with official scripts after code changes.
+
+Validation:
+- JPM `2026-02`:
+  - `Complementario` now parses `HG 43% / HY 12%`.
+  - `Investment Review` now parses `US 31.24% / Non-US 11.76%`.
+  - Sibling mandate accounts share the report enrichments correctly:
+    - `1412600` carries FI split.
+    - `1483400` carries equity split (plus its FI sleeve).
+- Aggregated JPM canonical amounts for `Boatview | 2026-02` now reconcile to:
+  - Cash `9,481,775.70`
+  - IG FI `145,071,643.2233`
+  - HY FI `40,485,109.7367`
+  - US Eq `106,884,978.1695`
+  - Non-US Eq `40,235,830.4505`
+- UBS Suiza `2026-02` now persists:
+  - US Eq `18,418,874.8226`
+  - Non-US Eq `20,071,327.1774`
+  - This reflects the mandated `2/3 - 1/3` split of `Global Equity`.
+
+Known source exception:
+- `raw_document 1845` (`2025 09 JPM Complementario - Reporte Mandato.pdf`) is an Outlook email wrapper with no portfolio table attached in the PDF itself.
+- Result: no extractable allocation exists for that source file, so September 2025 cannot be repaired from that document alone.
+
+## 9) Closed Block - 2026-04-01 (JPM Jan/Feb 2025 mandate refresh + UBS Suiza graph-noise fix)
+Goal:
+- Repair two residual reporting gaps detected in validation:
+  - `Boatview | jpmorgan | mandato | 2025-01 / 2025-02`
+  - `Telmar | ubs | mandato | 2023-10 / 2023-11`
+
+Code changes:
+- `parsers/ubs/custody.py` (`2.3.2`)
+  - Hardened `Total assets` extraction so chart-axis ticks (`10`, `0`, `-10`) never contaminate
+    `Equities` or `Net assets`.
+  - Added compressed-row handling for layouts like `Liquidity 54085 151 54236 100.00`,
+    preserving the explicit `Total` column instead of concatenating the three tokens.
+- `tests/test_specific_cartola_extraction.py`
+  - Added regression coverage for:
+    - `202310/202311 Telmar UBS SW Mandato (0402 60P).pdf`
+    - existing Boatview `Portfolio01` compressed-liquidity layouts (`202505/202508/202511`)
+
+Operations executed:
+- Targeted UBS parser regressions passed.
+- Reprocessed only affected cartolas:
+  - JPM mandato docs `71` and `72`
+  - UBS mandato docs `1605` and `1606`
+
+Validation:
+- JPM `Boatview` `2025-01` / `2025-02`:
+  - `1412600` now persists audited cartola macros in USD again:
+    - `2025-01`: cash `7,918,584.26`, fixed income `133,726,722.86`
+    - `2025-02`: cash `4,548,158.22`, fixed income `135,969,165.12`
+  - mandate detail totals now reconcile to ending totals with only rounding residuals:
+    - `2025-01` diff `-0.06`
+    - `2025-02` diff `-0.05`
+- UBS Suiza `Telmar` `2023-10` / `2023-11`:
+  - ending values corrected from false `-10` to:
+    - `68,433,704`
+    - `72,201,365`
+  - asset allocation corrected to:
+    - `2023-10`: cash `990,349`, FI `43,964,829`, equities `23,478,819`
+    - `2023-11`: cash `919,933`, FI `45,557,933`, equities `25,731,409`
+
+## 10) Closed Block - 2026-04-01 (Frontend UX: apply filters + upload timeout)
+Goal:
+- Reduce unnecessary reruns/heavy API calls in UI filters.
+- Avoid false red `timed out` errors during single-PDF upload when backend finishes successfully.
+
+Code changes:
+- `frontend/components/filters.py`
+  - Added `use_apply_filters(...)` helper to separate draft widget state from applied filter state.
+- `frontend/pages/personal.py`
+- `frontend/pages/summary.py`
+- `frontend/pages/mandates.py`
+- `frontend/pages/etf.py`
+  - Top filters now require explicit `Aplicar` before hitting heavy backend endpoints.
+  - `Detalle` / `Detalle de Cartolas` no longer recompute cascading seed rows on every widget change; they use full filter options and applied state.
+- `frontend/pages/upload.py`
+  - `Documentos en el sistema` now stays empty until a filter/search is applied with `Buscar`.
+- `frontend/api_client.py`
+  - Increased file upload timeout from `30s` to `300s`.
+
+Validation / diagnosis:
+- The earlier false timeout in UI was frontend-only; backend had completed processing.
+- The bad source in that moment was an Outlook wrapper export, not the attached report itself.
+
+## 11) Closed Block - 2026-04-01 (Upload tab batch selection + JPM complementario OCR tightening)
+Goal:
+- Stop `Documentos cargados` from rerunning the whole page on every checkbox toggle.
+- Reduce wasted OCR work for the image-based JPM complementario layout and recover the real `HG/HY` split from the correct Sep-2025 PDF.
+
+Code changes:
+- `frontend/pages/upload.py`
+  - Wrapped the `Documentos en el sistema` selection grid inside a Streamlit form.
+  - Checkbox changes are now draft-only; deletion happens only when the form button is pressed.
+  - Added `Limpiar selección`.
+  - Reset editor state when the visible document scope changes, so stale selections do not leak across searches.
+- `parsers/jpmorgan/report_mandato.py` (`1.3.1`)
+  - Complementario OCR now uses a single focused crop around `Portfolio Positioning / Duration / Yield`.
+  - Switched from two broader paragraph OCR passes to one grouped-line OCR pass.
+  - Added OCR normalization helpers for noisy tokens (`47c`, `125`, `4609`, `6550`, etc.).
+- `tests/test_jpm_report_mandato_parser.py`
+  - Added regression coverage for noisy OCR output from the real complementario layout.
+
+Validation:
+- The newly uploaded correct file remains `raw_document 1861` (`2025 09 JPM Complementario - Reporte Mandato.pdf`) and is no longer the Outlook wrapper.
+- Direct parse now resolves:
+  - statement date `2025-09-30`
+  - `Investment Grade Fixed Income` `47%`
+  - `High Yield Fixed Income` `12%`
+  - blended duration `3.80`
+- Main cause of slowness remains OCR model warm-up on image-only PDFs, but the parser now does a smaller/faster single pass instead of the prior broader retries.
+
+## 12) Next-Chat Continuity Prompt
+Use this starter:
+
+`Contextualizate solo con AGENT_CONTEXT.md + SESSION_STATE.md + git status --short + archivos relevantes.`
+`Mantener monthly_metrics_normalized como SSOT mensual, monthly_closings solo historico/fallback, frontend solo presentacion y aislamiento estricto de motores por banco/tipo (incluyendo report_mandato por banco).`
+
+## 13) Session Log Template
 - Date:
 - Goal:
 - Files changed:
-- Decisions made:
-- Tests run + result:
-- Pending next actions:
+- Decisions:
+- Tests:
+- Data operations:
+- Pending:
 
-## 9) Cierre de bloque (2026-03-10)
-- **Objetivo:** Que al eliminar documentos seleccionados (tab Documentos) se muestre mensaje en verde ("Su selección ha sido eliminada") y que los errores del DELETE no se traguen.
-- **Cambios:** `frontend/pages/upload.py`: obtener IDs desde la columna "ID" de `edited_df` (tabla que ve el usuario) en lugar de por índice con `df_docs`; mostrar `st.success("✅ Su selección ha sido eliminada.")` cuando `deleted > 0`; mostrar `st.error` por cada DELETE fallido; `st.warning` si había selección pero no se eliminó ninguno.
-- **Decisiones:** Usar la misma tabla que el usuario edita (`edited_df`) para leer los IDs a eliminar, evitando desalineación entre índices y filas (causa de que no pasara nada al pulsar "Eliminar seleccionados").
-- **Tests:** No se añadieron tests nuevos; suite existente. Regresión visual en tab Documentos.
-- **Pendientes:** Validar en entorno del usuario que el mensaje en verde y el flujo de eliminación se ven correctamente tras reinicio del frontend.
+## 14) Closed Block - 2026-04-01 (GS historical PE + legacy overview + Boatview cash)
+Goal:
+- Repair Goldman Sachs historical reporting mismatches detected in bank-by-bank validation:
+  - `Telmar` legacy months with doubled totals
+  - historical PE duplication not flowing to all reporting tables
+  - `Boatview` mandato months with stale cash instead of the audited `38M` umbrella
 
-## 10) Cierre de bloque (2026-03-10)
-- **Objetivo:** Auditoría read-only de salud BD + alertas de identidad/YTD + corregir carga mensual JPMorgan bonds sin usar YTD para forzar datos.
-- **Cambios:** `backend/routers/data.py`: nuevo endpoint `/data/health-report` read-only con controles de identidad mensual, faltantes y diferencias YTD. `frontend/pages/operational.py`: nueva pestaña `Salud BD`. `frontend/pages/summary.py`, `mandates.py`, `etf.py`, `personal.py`: alertas visibles cuando los filtros activos muestran inconsistencias. `frontend/components/data_health.py`: helper compartido. `backend/services/data_loading_service.py`: fallback para `parsers.jpmorgan.bonds` y `parsers.jpmorgan.custody` usando `portfolio_activity` cuando falta `account_monthly_activity`; controles YTD pasan a warning-only (sin sobrescribir movimientos/utilidad).
-- **Decisiones:** La identidad mensual `valor_final - movimientos - utilidad = valor_final_anterior` queda como control obligatorio. YTD se usa solo como control; no se usa para completar ni corregir datos mensuales. No se tocó UBS Suiza.
-- **Tests:** `135 passed, 1 skipped` con `.venv`.
-- **Pendientes:** Validar en preview la nueva pestaña `Salud BD` y las alertas en tablas. Siguiente paso sugerido: revisar y corregir, por separado, los faltantes históricos de `JPMorgan mandato` (principalmente 2020-2021) sin mezclarlo con `bonds` ni con otros bancos.
+Code changes:
+- `parsers/goldman_sachs/custody.py` (`2.1.2`)
+  - Primary account overview is now detected dynamically across the first pages instead of assuming page 3.
+  - Legacy GS wraps that insert `Special Messages` before `Overview` now parse correctly.
+  - Sub-portfolio overview detection now requires exact `Statement Detail` footer markers, preventing the main overview page from being summed as if it were another sleeve.
+- `tests/test_specific_cartola_extraction.py`
+  - Added/updated GS regression coverage for:
+    - legacy Telmar wrap no longer double-counting the main overview
+    - Boatview Jan-2026 cash umbrella
 
-## 11) Cierre de bloque (2026-03-11)
-- **Objetivo:** Corregir interpretación mensual de `JPMorgan brokerage` en casos caja-only / layout inconsistente, evitando tomar YTD como mensual y evitando duplicar utilidad cuando `Change In Investment Value` replica caja.
-- **Cambios:** `parsers/jpmorgan/brokerage.py`: nueva extracción por línea de `Portfolio Activity` con soporte a filas que traen solo YTD; si la fila mensual viene en blanco, se interpreta como `0` y se conserva YTD solo como control. `Change In Investment Value` se excluye de `utilidad` cuando duplica `Net Contributions/Withdrawals` en valor absoluto. `backend/services/data_loading_service.py`: `account_ytd` deja de rellenar `income` / `change_investment` mensuales para `parsers.jpmorgan.brokerage`; además se registran notas de heurística en `validation_logs`. Tests nuevos/ajustados en `tests/test_specific_cartola_extraction.py` y `tests/test_loader_contracts.py`.
-- **Casos cubiertos:** `Armel Canada` (`5000`), `La Guardia` (`1008`), `Mi Investments` (`1000`) y `Ecoterra RE` (`2008`) bajo el patrón `brokerage` con caja predominante o filas mensuales vacías.
-- **Decisiones:** En `brokerage`, los valores YTD se conservan solo como referencia/control. La utilidad mensual se interpreta como `Income & Distributions` mensual + `delta accruals`, y solo suma `Change In Investment Value` si no duplica caja. Si el mensual viene en blanco pero el YTD sí aparece, mensual = `0`.
-- **Tests:** Suite base previa `135 passed, 1 skipped`. Tests focalizados posteriores: `25 passed, 1 skipped`.
-- **Pendientes:** Reprocesar en preview los documentos históricos afectados para que la BD de prueba refleje la nueva lógica. Revisar después en `Salud BD` si quedan meses históricos faltantes en `Ecoterra Internacional` bonds (`0900`, `1100`) y si requieren reproceso adicional o solo auditoría.
+Data operations:
+- Reprocessed GS mandato cartolas:
+  - Boatview `2025-01..2026-02`: docs `183,184,185,186,187,188,189,178,179,180,181,182,1765,1764`
+  - Telmar legacy fixes: docs `1889` (`2017-11`), `1881` (`2018-02`)
+- Refreshed normalized layer for `Telmar | goldman_sachs | mandato | 097-4` across all years `2015..2026`
+  so reporting exclusions apply consistently in every table.
 
-## 12) Cierre de bloque (2026-03-11)
-- **Objetivo:** Corregir `JPMorgan brokerage` cuando `Net Contributions/Withdrawals` viene con signo `-` o partido en varias líneas, y ajustar `Armel Canada 2025-05` para conservar `Change In Investment Value` dentro de utilidad.
-- **Cambios:** `parsers/jpmorgan/brokerage.py`: `_ACTIVITY_VALUE_RE` ahora acepta montos negativos con signo; la extracción de `Portfolio Activity` dejó de depender de una sola línea y ahora toma el bloque entre labels, permitiendo leer movimientos que `pdfplumber` separa en línea siguiente. También se eliminó la exclusión automática de `Change In Investment Value` en utilidad cuando coincide en magnitud con `Net Contributions/Withdrawals`, porque puede reflejar transferencias de securities y no duplicación espuria. `tests/test_specific_cartola_extraction.py`: nuevas regresiones para signo negativo, bloque partido y utilidad con transferencias. Preview reprocesada para `Armel Canada` (`2025-04/05/07`), `La Guardia` (`2025-03`), `Mi Investments` (`2025-05/10`) y `Ecoterra RE` (`2025-03/04/05/07/10`).
-- **Decisiones:** La causa raíz no era `Salud BD`; los `parsed_statements` ya venían mal desde el parser. El problema era de extracción textual del bloque `Portfolio Activity` en JPMorgan brokerage. Para estos casos, los movimientos correctos quedaron cargados desde la cartola, sin usar YTD para rellenar mensual.
-- **Tests:** `141 passed, 1 skipped` con `.venv`; tests focalizados de `test_specific_cartola_extraction.py`: `17 passed, 1 skipped`.
-- **Pendientes:** En preview quedan 2 incumplimientos de identidad de `JPMorgan brokerage 2025`, pero ya no son los casos corregidos aquí: `Los Misioneros Int.` (`E92755009`, 2025-07) y `Rengiroa` (`E99087000`, 2025-12`).
+Validation:
+- Tests passing:
+  - `tests/test_specific_cartola_extraction.py` -> `46 passed, 1 skipped`
+  - `tests/test_normalized_reporting_layer.py` -> `33 passed`
+- GS outcomes:
+  - `Telmar 2017-11` ending corrected from inflated `201,210,470.06` to audited `100,605,235.03`
+  - `Telmar 2018-02` ending corrected from inflated `200,890,757.00` to audited `100,445,378.50`
+  - `Boatview GS mandato` cash umbrella restored historically in 2025-05..2026-02:
+    - `2025-05` `39,368,559.03`
+    - `2025-06` `38,411,537.73`
+    - `2025-07` `37,556,740.62`
+    - `2025-08` `37,690,021.58`
+    - `2025-09` `37,836,162.16`
+    - `2025-10` `37,887,058.28`
+    - `2025-11` `38,008,474.80`
+    - `2025-12` `38,078,891.58`
+    - `2026-01` `38,057,935.83`
+    - `2026-02` `38,193,992.65`
 
-## 13) Cierre de bloque (2026-03-11)
-- **Objetivo:** Hacer que `Salud BD` no marque como faltante un `movements=None` cuando la identidad mensual demuestra que el movimiento implícito es `0`.
-- **Cambios:** `backend/routers/data.py`: nueva interpretación read-only `_resolve_audit_movements()` para auditoría; si falta `movements` pero `ending_value - previous_ending - profit` da aproximadamente `0`, la auditoría trata movimientos como `0.0` solo para el reporte, sin mutar BD. `tests/test_normalized_reporting_layer.py`: dos regresiones nuevas, una para “None pero implícitamente 0” y otra para “None con movimiento no-cero sigue faltante”.
-- **Operación preview:** se reinició preview con scripts (`stop_preview.ps1` + `start_preview.ps1`), lo que resincronizó la DB preview desde la oficial; después se reprocesaron todas las cartolas `JPMorgan brokerage 2025` de `Armel Canada`, `La Guardia`, `Mi Investments` y `Ecoterra RE` para restaurar el estado corregido.
-- **Resultado en preview:** filtro `JPMorgan + 2025 + brokerage` queda con `identity_mismatch_count = 0` y `missing_components_count = 0`. Persisten solo alertas YTD (`36` movimientos, `36` utilidad).
-- **Tests:** suite completa `143 passed, 1 skipped`.
+## 15) Closed Block - 2026-04-01 (GS Other Investments + removal of bad PE residual fallback)
+Goal:
+- Fix regression introduced by the prior GS Telmar exclusion fallback, where non-PE legacy
+  categories (`Other Investments`, `Hedge Funds`, `Miscellaneous`) were being removed as if
+  they were duplicated PE.
 
-## 14) Cierre de bloque (2026-03-12)
-- **Objetivo:** Corregir la familia `JPMorgan bonds` (`Ecoterra Internacional 0900/1100` y `North Harbor 4700`) donde `Salud BD` mostraba `None` en movimientos/utilidad y `Ecoterra 0900` abril-2025 empezó a caer con incumplimiento de identidad.
-- **Cambios:** `backend/services/document_service.py`: el ruteo de `pdf_cartola` JPMorgan ahora reconoce filenames tipo `BO` / `bond` / `bono` como `parsers.jpmorgan.bonds`, y el fallback por `statements-XXXX` ya puede inferir `account_type = bonds` desde el maestro de cuentas. No se cambió el parser `bonds`; el problema principal era de selección de motor y de estado cargado en preview. Preview reiniciada con scripts (`stop_preview.ps1` + `start_preview.ps1`) y luego reprocesadas las 36 cartolas `bonds 2025` de `1530900`, `1531100` y `1584700`.
-- **Decisiones:** La línea `Portfolio Activity` sí era legible en estos PDFs. En `0900`, desde abril el autodetect estaba mandando archivos `BO` a `parsers.jpmorgan.custody`, lo que alteró la interpretación mensual; además, varios `None` visibles en preview eran arrastre de datos antiguos resincronizados desde la DB oficial y no de una imposibilidad actual de lectura del PDF. La corrección fue forzar el ruteo correcto a `bonds` y reprocesar.
-- **Resultado en preview:** `1530900` abril-diciembre quedó nuevamente bajo `parsers.jpmorgan.bonds`; las tres cuentas objetivo (`1530900`, `1531100`, `1584700`) quedaron sin `change_in_value` / `income` nulos en `monthly_closings 2025`. La identidad mensual de esas tres cuentas quedó cuadrando con diferencias de redondeo de centavos (`<= 0.04`).
-- **Tests:** suite completa `143 passed, 1 skipped`.
-- **Pendientes:** Si el usuario sigue viendo filas faltantes al filtrar `JPMorgan + 2025`, revisar los otros `NULL` restantes fuera de este subgrupo `bonds`, porque todavía existen casos en otras cuentas JPMorgan no tocadas en este bloque.
+Code changes:
+- `mandate_taxonomy.py`
+  - Added mandate category `other_investments`.
+- `mandate_report_dictionary.json`
+  - `private_equity` rules now match only explicit PE labels.
+  - `other_investments` now matches `Other Investments`, `Asset Allocation Investments`,
+    `Miscellaneous`, `Hedge Funds`.
+- `backend/services/data_loading_service.py`
+  - Mandato normalization with `macro_only=True` now preserves:
+    - `Private Equity`
+    - `Real Estate`
+    - `Other Investments`
+  - `Other Investments` dedupes umbrella/sub-lines:
+    - keep `Other Investments` umbrella when present
+    - otherwise sum its component rows
+    - add `Hedge Funds` as part of `Other Investments`
+  - Removed the bad GS residual fallback that was excluding `ending - allocation_total`
+    as if it were PE.
+- `backend/services/normalized_reporting_payload.py`
+  - Added canonical category `Other Investments`.
+  - `Alternativos` derived subtotal now includes `PE + RE + Other Investments`.
+- `backend/routers/data.py`
+  - Added personal/detail bucket `Other investments`.
+- `frontend/pages/personal.py`
+  - `Detalle por Activo` now renders `Otras inversiones` below `Real Estate`.
 
-## 15) Cierre de bloque (2026-03-12 / 2026-03-13)
-- **Objetivo:** Consolidar la refactorización de reporting para que la app consuma la capa normalizada, corregir tablas/controles visibles en `Salud BD`, y cerrar edge cases grandes en GS, JPM y UBS.
-- **Cambios:** `backend/db/models.py` + migración Alembic: columnas YTD y `asset_allocation_json` para `monthly_metrics_normalized`. `backend/services/data_loading_service.py`: carga completa de normalized layer, persistencia explícita de UBS, priorización de portafolio seleccionado, y refresco consistente hacia reporting. `backend/routers/data.py`: endpoints de reporting/health más lectores y menos interpretativos; nota/filtro para beginning vs prev ending mismatch; filtros ETF `Con Personal / Sin Personal`; `Raíces LP` incluido en sociedades; total ETF calculado en backend. `frontend/pages/etf.py`, `personal.py`, `operational.py`: filtro personal, columnas dinámicas, guardas de scope y mejoras de `Salud BD`. `parsers/goldman_sachs/_gs_common.py`: OCR fallback. `parsers/jpmorgan/etf.py` / `custody.py`: fixes de YTD blank y movimientos con securities contributions. `parsers/ubs_miami/custody.py`: regex multiline. `parsers/ubs/custody.py`: soporte a negativos, layouts adicionales, selección obligatoria de portafolio por sufijo y retorno `0%` en vistas UBS negativas. Tests extendidos en `tests/test_loader_contracts.py`, `tests/test_normalized_reporting_layer.py`, `tests/test_specific_cartola_extraction.py`, `tests/test_summary_returns.py`.
-- **Casos/sociedades cubiertos:** `Raíces LP`, `Boatview JPM mandato 3400`, `Boatview UBS Suiza 206-560552-02`, `Telmar UBS Suiza 206-560402-02`, `Armel Canada UBS Suiza 206-579852-01`, `Mi Investments UBS Suiza 206-579943-01`, varios JPM ETF/brokerage y GS `Telmar` con OCR.
-- **Decisiones:** `monthly_metrics_normalized` queda como SSOT mensual para reporting. No deben existir más interpretadores paralelos en UI/endpoints a partir de identidad o YTD. `monthly_closings` se mantiene como base histórica/fallback y `raw_documents`/PDFs se conservan porque todavía se requieren para reprocesos y auditoría.
-- **Resultado:** Reproceso focalizado de `UBS Suiza` auditó `238` filas, encontró `33` discrepancias entre BD y `selected_portfolio`, reprocesó esas `33` y terminó con verificación `remaining = 0`.
-- **Tests:** regresiones UBS/reporting `44 passed, 1 skipped`; suite completa posterior `150 passed, 1 skipped`.
-- **Pendientes:** Validación visual del usuario en app oficial, especialmente `Salud BD` para `UBS Suiza`; luego decidir respaldo oficial y, más adelante, estrategia de archivado de PDFs.
+Data operations:
+- Reprocessed full historical GS Telmar mandato series (`61` cartolas for account `097-4`).
+- Reprocessed Boatview GS mandato `2025-01..2026-02` to keep GS state consistent after the new normalization.
 
-## 16) Next Action Template (for user prompting Codex)
-"Contextualizate solo con AGENT_CONTEXT.md + SESSION_STATE.md + git status.
-Luego trabaja solo en [ruta/feature concreta]."
-
-## 16.1) Current Prompt Starter
-"Contextualizate solo con `AGENT_CONTEXT.md` + `SESSION_STATE.md` + `git status --short` + archivos relevantes. Mantén intactas las reglas: `monthly_metrics_normalized` como unica SSOT mensual de reporting, `monthly_closings` solo como historico/fallback permitido, frontend solo presentacion, sin interpretadores nuevos de datos arriba. Ademas reutiliza la taxonomia central de activos en `asset_bucket_dictionary.json` / `asset_taxonomy.py` y no la dupliques localmente. Luego trabaja solo en [tarea concreta]."
-
-## 17) Cierre de bloque (2026-03-15)
-- **Objetivo:** Aislar en `UBS Suiza` la regla de continuidad donde el `ending value` auditado del mes anterior prevalece sobre el `beginning value` de la cartola siguiente, dejando `profit` como variable de ajuste y aprovechando movimientos de tablas trimestrales solo dentro del motor UBS.
-- **Cambios:** `backend/services/data_loading_service.py`: el backfill trimestral UBS ahora puede refinar `change_in_value` de meses previos no cierre de trimestre aun si ya existe cartola directa, sin tocar `net_value` auditado; `income`/`profit` UBS se recalcula por identidad contra el `prev ending` auditado en todos los meses donde hay `movements` y mes previo disponible. `tests/test_loader_contracts.py`: nuevas regresiones para continuidad con mismatch `beginning vs prev ending` y para refinamiento trimestral de `movements` sobre meses directos no trimestrales.
-- **Decisiones:** Esto es **solo para UBS Suiza** (`bank_code = ubs`). No se generaliza a JPM, GS, BBH ni UBS Miami. En UBS, `ending` nunca se fuerza, `movements` vienen de cartola/tabla trimestral UBS, y `profit` absorbe la diferencia de identidad.
-- **Tests:** Focalizados UBS/reporting: `32 passed, 25 deselected`. Loader UBS nuevo: `5 passed`.
-- **Pendientes:** Reproceso focalizado de cartolas UBS afectadas en la BD local/oficial y validación visual en `Salud BD`, especialmente `Boatview 206-560552-02 2025` y `Mi Investments 206-579943-01`.
-
-## 18) Regla provisional de lectura (2026-03-24)
-- **Scope:** Solo `UBS Miami`.
-- **Regla:** Mientras no exista un reporte mejor/m�s estructurado, la **renta fija emergente** en UBS Miami debe computarse como **High Yield**.
-- **Aislamiento:** No aplicar esta regla a JPM, GS, BBH, UBS Suiza ni otros motores.
+Validation:
+- Regression tests passed:
+  - `tests/test_loader_contracts.py` targeted GS/OI coverage
+  - `tests/test_specific_cartola_extraction.py`
+  - `tests/test_normalized_reporting_layer.py`
+- GS Telmar examples after fix:
+  - `2016-01`: `Other Investments = 2,726,214.37`, exclusion `None`
+  - `2017-01`: `Other Investments = 11,188,162.09`, exclusion `None`
+  - `2018-01`: `PE = 793,729.00`, `Other Investments = 5,022,621.63`, exclusion `793,729.00`
+  - `2018-03`: `PE = 800,662.00`, `Other Investments = 4,788,112.69`, exclusion `800,662.00`
+  - `2019-11`: `PE = 2,873,723.00`, `Other Investments = 41,903.09`, exclusion `2,873,723.00`
+  - `2023-05`: `PE = 4,599,378.00`, `Other Investments = 18,295.30`, exclusion `4,599,378.00`
+  - `2024-06`: `PE = 4,584,038.00`, `Other Investments = 8,442.89`, exclusion `4,584,038.00`

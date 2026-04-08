@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from asset_taxonomy import asset_bucket_detail_label, asset_bucket_order, classify_etf_asset_bucket
 from calculations.profit import monthly_return_pct, ytd_return_pct
 from calculations.reconciliation import reconcile_monthly
+from etf_instrument_dictionary import CASH_INSTRUMENTS, INSTRUMENT_ORDER, normalize_etf_instrument
 from backend.db.models import (
     Account,
     DailyPosition,
@@ -28,6 +29,14 @@ from backend.db.models import (
 )
 from backend.db.session import get_db
 from backend.schemas import FilterParams, HealthAuditParams
+from backend.services.normalized_reporting_payload import (
+    decode_asset_allocation_json,
+    extract_canonical_breakdown,
+    extract_instrument_breakdown,
+    mandate_breakdown_from_canonical,
+    personal_breakdown_from_canonical,
+    to_decimal,
+)
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -65,6 +74,32 @@ ACCOUNT_TYPE_ABBREVIATIONS = {
     "bond": "Bonos",
     "bonos": "Bonos",
 }
+MANDATE_ASSET_SPLIT_ORDER = (
+    "Cash, Deposits & Money Market",
+    "Investment Grade Fixed Income",
+    "High Yield Fixed Income",
+    "Fixed Income",
+    "US Equities",
+    "Non US Equities",
+    "Equities",
+)
+MANDATES_ASSET_BREAKDOWN_ORDER = (
+    "Cash, Deposits & Money Market",
+    "Investment Grade Fixed Income",
+    "High Yield Fixed Income",
+    "Equities",
+)
+PERSONAL_ASSET_BREAKDOWN_ORDER = (
+    "Cash",
+    "IG Fixed income",
+    "HY Fixed income",
+    "US equities",
+    "Non-US equities",
+    "PE",
+    "RE",
+    "Other investments",
+)
+REPORTING_VALUE_EXCLUSION_KEY = "__reporting_value_exclusion"
 
 
 @dataclass
@@ -303,6 +338,29 @@ def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
     return max(total, 0.0)
 
 
+def _extract_reporting_value_exclusion_total(asset_alloc_json: str | None) -> float:
+    """Extrae exclusiones de valor de reporting desde payload normalizado."""
+    if not asset_alloc_json:
+        return 0.0
+    try:
+        payload = json.loads(asset_alloc_json)
+    except (TypeError, ValueError):
+        return 0.0
+    if not isinstance(payload, dict):
+        return 0.0
+
+    exclusion = payload.get(REPORTING_VALUE_EXCLUSION_KEY)
+    if not isinstance(exclusion, dict):
+        return 0.0
+
+    raw_total = exclusion.get("applied_total_usd")
+    try:
+        value = float(raw_total)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(value, 0.0)
+
+
 def _extract_asset_allocation_amount(payload) -> Optional[float]:
     if isinstance(payload, dict):
         raw = (
@@ -319,6 +377,184 @@ def _extract_asset_allocation_amount(payload) -> Optional[float]:
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _extract_asset_allocation_unit(payload) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("unit")
+    if raw is None:
+        return None
+    unit = str(raw).strip()
+    return unit or None
+
+
+def _mandate_asset_split_label(
+    *,
+    raw_label: str,
+    bank_code: str,
+) -> str | None:
+    key = re.sub(r"[^a-z0-9]", "", str(raw_label or "").lower())
+    if not key:
+        return None
+
+    if any(token in key for token in ("cash", "deposit", "moneymarket", "liquidity")):
+        return "Cash, Deposits & Money Market"
+
+    is_equity = "equit" in key or "stock" in key
+    is_fixed_income = "fixedincome" in key or "bond" in key
+
+    if is_equity and ("nonus" in key or "international" in key):
+        return "Non US Equities"
+    if is_equity and "us" in key:
+        return "US Equities"
+    if is_equity:
+        return "Equities"
+
+    if "highyield" in key or "noninvestmentgrade" in key:
+        return "High Yield Fixed Income"
+    if bank_code == "ubs_miami" and "emerging" in key and is_fixed_income:
+        # Regla aislada UBS Miami: RF emergente se trata como HY.
+        return "High Yield Fixed Income"
+    if "investmentgrade" in key and is_fixed_income:
+        return "Investment Grade Fixed Income"
+    if is_fixed_income:
+        return "Fixed Income"
+
+    return None
+
+
+def _mandate_asset_split_amount(
+    *,
+    payload: object,
+    total_value_usd: float | None,
+) -> float | None:
+    value = _extract_asset_allocation_amount(payload)
+    if value is None:
+        return None
+
+    unit = (_extract_asset_allocation_unit(payload) or "").strip().lower()
+    if unit == "%":
+        if total_value_usd is None or total_value_usd <= 0:
+            return None
+        return (total_value_usd * value) / 100.0
+    return value
+
+
+def _empty_mandates_asset_breakdown() -> dict[str, float]:
+    return {label: 0.0 for label in MANDATES_ASSET_BREAKDOWN_ORDER}
+
+
+def _etf_bucket_to_mandates_breakdown_label(bucket: str) -> str:
+    normalized = str(bucket or "").strip()
+    if normalized == "Caja":
+        return "Cash, Deposits & Money Market"
+    if normalized == "HY":
+        return "High Yield Fixed Income"
+    if normalized in {"RF IG Short", "RF IG Long", "RF IG", "Non US RF", "RF"}:
+        return "Investment Grade Fixed Income"
+    return "Equities"
+
+
+def _normalize_mandates_asset_breakdown_from_alloc(
+    *,
+    alloc_payload: dict,
+    bank_code: str,
+    total_value_usd: float | None,
+    sin_caja: bool,
+) -> dict[str, float]:
+    extracted: dict[str, float] = {}
+    for raw_label, payload in alloc_payload.items():
+        canonical = _mandate_asset_split_label(
+            raw_label=str(raw_label),
+            bank_code=str(bank_code or "").strip().lower(),
+        )
+        if not canonical:
+            continue
+        amount = _mandate_asset_split_amount(
+            payload=payload,
+            total_value_usd=total_value_usd,
+        )
+        if amount is None or amount <= 0:
+            continue
+        extracted[canonical] = extracted.get(canonical, 0.0) + amount
+
+    breakdown = _empty_mandates_asset_breakdown()
+
+    if not sin_caja:
+        breakdown["Cash, Deposits & Money Market"] = max(
+            extracted.get("Cash, Deposits & Money Market", 0.0),
+            0.0,
+        )
+
+    fixed_income_total = max(extracted.get("Fixed Income", 0.0), 0.0)
+    ig_total = max(extracted.get("Investment Grade Fixed Income", 0.0), 0.0)
+    hy_total = max(extracted.get("High Yield Fixed Income", 0.0), 0.0)
+    if ig_total > 0.0 or hy_total > 0.0:
+        fixed_residual = fixed_income_total - (ig_total + hy_total)
+        if fixed_residual > 1e-6:
+            ig_total += fixed_residual
+    else:
+        ig_total = fixed_income_total
+    breakdown["Investment Grade Fixed Income"] = ig_total
+    breakdown["High Yield Fixed Income"] = hy_total
+
+    equities_total = max(extracted.get("Equities", 0.0), 0.0)
+    us_total = max(extracted.get("US Equities", 0.0), 0.0)
+    non_us_total = max(extracted.get("Non US Equities", 0.0), 0.0)
+    if us_total > 0.0 or non_us_total > 0.0:
+        eq_value = us_total + non_us_total
+        eq_residual = equities_total - eq_value
+        if eq_residual > 1e-6:
+            eq_value += eq_residual
+        breakdown["Equities"] = eq_value
+    else:
+        breakdown["Equities"] = equities_total
+
+    return breakdown
+
+
+def _sum_mandates_asset_breakdown(breakdown: dict[str, float]) -> float:
+    return sum(float(breakdown.get(label, 0.0) or 0.0) for label in MANDATES_ASSET_BREAKDOWN_ORDER)
+
+
+def _reconcile_mandates_asset_breakdown_to_target(
+    *,
+    breakdown: dict[str, float],
+    target_total: float,
+) -> dict[str, float]:
+    for label in MANDATES_ASSET_BREAKDOWN_ORDER:
+        breakdown[label] = max(float(breakdown.get(label, 0.0) or 0.0), 0.0)
+
+    if target_total is None:
+        return breakdown
+
+    target = max(float(target_total or 0.0), 0.0)
+    current = _sum_mandates_asset_breakdown(breakdown)
+    residual = target - current
+    if abs(residual) <= 1e-6:
+        return breakdown
+
+    if residual > 0:
+        breakdown["Equities"] = breakdown.get("Equities", 0.0) + residual
+        return breakdown
+
+    remaining = -residual
+    for label in (
+        "Equities",
+        "Investment Grade Fixed Income",
+        "High Yield Fixed Income",
+        "Cash, Deposits & Money Market",
+    ):
+        available = max(float(breakdown.get(label, 0.0) or 0.0), 0.0)
+        if available <= 0:
+            continue
+        consume = min(available, remaining)
+        breakdown[label] = available - consume
+        remaining -= consume
+        if remaining <= 1e-6:
+            break
+    return breakdown
 
 
 def _is_cash_asset_label(label: str | None) -> bool:
@@ -470,35 +706,59 @@ def _resolve_ending_with_accrual(
     mc: MonthlyClosing,
     norm: Optional[MonthlyMetricNormalized],
 ) -> Optional[float]:
+    base_value: Optional[float]
     if norm:
         v = _to_float(norm.ending_value_with_accrual)
         if v is not None:
-            return v
-    return _to_float(mc.net_value)
+            base_value = v
+        else:
+            base_value = _to_float(mc.net_value)
+    else:
+        base_value = _to_float(mc.net_value)
+
+    if base_value is None:
+        return None
+
+    exclusion = _extract_reporting_value_exclusion_total(
+        _resolve_asset_allocation_json(mc, norm)
+    )
+    return base_value - exclusion
 
 
 def _resolve_ending_without_accrual(
     mc: MonthlyClosing,
     norm: Optional[MonthlyMetricNormalized],
 ) -> Optional[float]:
+    base_value: Optional[float] = None
     if norm:
         v = _to_float(norm.ending_value_without_accrual)
         if v is not None:
-            return v
-        end_w = _to_float(norm.ending_value_with_accrual)
-        accr = _to_float(norm.accrual_ending)
-        if end_w is not None and accr is not None:
-            return end_w - accr
-        if end_w is not None:
-            return end_w
+            base_value = v
+        else:
+            end_w = _to_float(norm.ending_value_with_accrual)
+            accr = _to_float(norm.accrual_ending)
+            if end_w is not None and accr is not None:
+                base_value = end_w - accr
+            elif end_w is not None:
+                base_value = end_w
 
-    end_w = _to_float(mc.net_value)
-    if end_w is None:
+    if base_value is None:
+        end_w = _to_float(mc.net_value)
+        if end_w is None:
+            return None
+        accr = _to_float(mc.accrual)
+        if accr is None:
+            base_value = end_w
+        else:
+            base_value = end_w - accr
+
+    if base_value is None:
         return None
-    accr = _to_float(mc.accrual)
-    if accr is None:
-        return end_w
-    return end_w - accr
+
+    exclusion = _extract_reporting_value_exclusion_total(
+        _resolve_asset_allocation_json(mc, norm)
+    )
+    return base_value - exclusion
 
 
 def _resolve_asset_allocation_json(
@@ -508,6 +768,29 @@ def _resolve_asset_allocation_json(
     if norm and norm.asset_allocation_json:
         return norm.asset_allocation_json
     return mc.asset_allocation_json
+
+
+def _decode_asset_allocation_payload(
+    mc: MonthlyClosing,
+    norm: Optional[MonthlyMetricNormalized],
+) -> dict | list | None:
+    return decode_asset_allocation_json(_resolve_asset_allocation_json(mc, norm))
+
+
+def _resolve_canonical_breakdown_payload(
+    mc: MonthlyClosing,
+    norm: Optional[MonthlyMetricNormalized],
+) -> dict[str, Decimal]:
+    payload = _decode_asset_allocation_payload(mc, norm)
+    return extract_canonical_breakdown(payload)
+
+
+def _resolve_instrument_breakdown_payload(
+    mc: MonthlyClosing,
+    norm: Optional[MonthlyMetricNormalized],
+) -> dict[str, Decimal]:
+    payload = _decode_asset_allocation_payload(mc, norm)
+    return extract_instrument_breakdown(payload)
 
 
 def _resolve_cash_value(
@@ -1351,6 +1634,7 @@ def get_mandates(
 
     banks_by_month: list[dict] = []
     month_totals: dict[str, float] = {}
+    month_cash_totals: dict[str, float] = {}
     month_by_mandate: dict[str, dict[str, float]] = {}
     month_asset_alloc: dict[str, dict[str, float]] = {}
     bank_asset_alloc_by_month: dict[str, dict[str, dict[str, float]]] = {}
@@ -1395,6 +1679,7 @@ def get_mandates(
         })
 
         month_totals[key] = month_totals.get(key, 0.0) + net_value
+        month_cash_totals[key] = month_cash_totals.get(key, 0.0) + cash_value
         month_by_mandate.setdefault(key, {})
         month_by_mandate[key][mandate] = month_by_mandate[key].get(mandate, 0.0) + net_value
 
@@ -1409,32 +1694,35 @@ def get_mandates(
             movements_by_bank[acct.bank_code].get(key, 0.0) + movements
         )
 
-        alloc_json = _resolve_asset_allocation_json(mc, norm)
-        if alloc_json:
-            try:
-                alloc = json.loads(alloc_json)
-            except (TypeError, ValueError):
-                alloc = {}
-            if isinstance(alloc, dict):
-                month_asset_alloc.setdefault(key, {})
-                bank_asset_alloc_by_month.setdefault(key, {})
-                bank_asset_alloc_by_month[key].setdefault(acct.bank_code, {})
-                for asset_name, payload in alloc.items():
-                    if isinstance(payload, dict):
-                        raw = payload.get("value") or payload.get("market_value") or payload.get("amount")
-                    else:
-                        raw = payload
-                    try:
-                        val = float(raw)
-                    except (TypeError, ValueError):
-                        continue
-                    label = str(asset_name).strip() or "Other"
-                    if getattr(filters, "sin_caja", False) and _is_cash_asset_label(label):
-                        continue
-                    month_asset_alloc[key][label] = month_asset_alloc[key].get(label, 0.0) + val
-                    bank_asset_alloc_by_month[key][acct.bank_code][label] = (
-                        bank_asset_alloc_by_month[key][acct.bank_code].get(label, 0.0) + val
-                    )
+        canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+        if canonical_breakdown:
+            normalized_breakdown = mandate_breakdown_from_canonical(
+                canonical_breakdown,
+                include_cash=not bool(getattr(filters, "sin_caja", False)),
+            )
+        else:
+            alloc_payload = _decode_asset_allocation_payload(mc, norm)
+            normalized_breakdown = {}
+            if isinstance(alloc_payload, dict):
+                normalized_breakdown = _normalize_mandates_asset_breakdown_from_alloc(
+                    alloc_payload=alloc_payload,
+                    bank_code=str(acct.bank_code or ""),
+                    total_value_usd=net_value,
+                    sin_caja=bool(getattr(filters, "sin_caja", False)),
+                )
+
+        if normalized_breakdown:
+            month_asset_alloc.setdefault(key, _empty_mandates_asset_breakdown())
+            bank_asset_alloc_by_month.setdefault(key, {})
+            bank_asset_alloc_by_month[key].setdefault(acct.bank_code, _empty_mandates_asset_breakdown())
+            for label in MANDATES_ASSET_BREAKDOWN_ORDER:
+                val = float(normalized_breakdown.get(label, 0.0) or 0.0)
+                if val <= 0:
+                    continue
+                month_asset_alloc[key][label] = month_asset_alloc[key].get(label, 0.0) + val
+                bank_asset_alloc_by_month[key][acct.bank_code][label] = (
+                    bank_asset_alloc_by_month[key][acct.bank_code].get(label, 0.0) + val
+                )
 
     mandate_pcts: list[dict] = []
     for key in sorted(months_seen):
@@ -1448,28 +1736,7 @@ def get_mandates(
             "other": round((by_mandate.get("unknown", 0.0) / total * 100), 4) if total > 0 else 0.0,
         })
 
-    asset_allocation: list[dict] = []
-    for key in sorted(months_seen):
-        row = {"fecha": key}
-        row.update({k: round(v, 2) for k, v in month_asset_alloc.get(key, {}).items()})
-        asset_allocation.append(row)
-
     selected_fecha = requested_fecha if requested_fecha in months_seen else (max(months_seen) if months_seen else None)
-    aa_by_bank: dict[str, dict[str, float]] = {}
-    selected_month_alloc = bank_asset_alloc_by_month.get(selected_fecha or "", {})
-    for bank, vals in selected_month_alloc.items():
-        total = sum(vals.values())
-        aa_by_bank[bank] = {
-            k: round((v / total * 100), 4) if total > 0 else 0.0
-            for k, v in vals.items()
-        }
-    etf_aa = _build_etf_asset_allocation_pct_for_month(
-        db=db,
-        filters=etf_filters,
-        fecha=selected_fecha,
-    )
-    if etf_aa:
-        aa_by_bank["etf_portfolio"] = etf_aa
 
     for bank, months in values_by_bank.items():
         sorted_keys = sorted(months.keys())
@@ -1557,6 +1824,42 @@ def get_mandates(
         etf_totals_by_month[key]["movements"] += mov_val
         etf_totals_by_month[key]["cash_value"] += cash_val
 
+    if not etf_results:
+        legacy_etf_query = (
+            db.query(
+                EtfComposition.year,
+                EtfComposition.month,
+                EtfComposition.etf_name,
+                EtfComposition.market_value_usd,
+                EtfComposition.market_value,
+                Account,
+            )
+            .join(Account, EtfComposition.account_id == Account.id)
+        )
+        if selected_years:
+            legacy_etf_query = legacy_etf_query.filter(EtfComposition.year.in_(selected_years))
+        if etf_filters.bank_codes:
+            legacy_etf_query = legacy_etf_query.filter(Account.bank_code.in_(etf_filters.bank_codes))
+        if etf_filters.entity_names:
+            legacy_etf_query = legacy_etf_query.filter(Account.entity_name.in_(etf_filters.entity_names))
+        if etf_filters.person_names:
+            legacy_etf_query = legacy_etf_query.filter(Account.person_name.in_(etf_filters.person_names))
+        if getattr(etf_filters, "sin_personal", False):
+            legacy_etf_query = legacy_etf_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
+
+        for year, month, etf_name, market_value_usd, market_value, _ in legacy_etf_query.all():
+            key = f"{int(year):04d}-{int(month):02d}"
+            amount = _to_float(market_value_usd)
+            if amount is None:
+                amount = _to_float(market_value) or 0.0
+            if amount <= 0:
+                continue
+            etf_totals_by_month.setdefault(key, {"net_value": 0.0, "movements": 0.0, "cash_value": 0.0})
+            etf_totals_by_month[key]["net_value"] += amount
+            instr = _normalize_instrument(etf_name or "")
+            if instr in CASH_INSTRUMENTS:
+                etf_totals_by_month[key]["cash_value"] += amount
+
     etf_total_returns: dict[str, Optional[float]] = {}
     prev_total: Optional[float] = None
     prev_cash_total: Optional[float] = None
@@ -1595,6 +1898,174 @@ def get_mandates(
         prev_total = curr_val
         prev_cash_total = curr_cash
 
+    etf_asset_alloc_by_month: dict[str, dict[str, float]] = {}
+    for mc, acct, norm in etf_results:
+        key = f"{mc.year:04d}-{mc.month:02d}"
+        canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+        if canonical_breakdown:
+            normalized_breakdown = mandate_breakdown_from_canonical(
+                canonical_breakdown,
+                include_cash=not bool(getattr(filters, "sin_caja", False)),
+            )
+            etf_asset_alloc_by_month.setdefault(key, _empty_mandates_asset_breakdown())
+            for label in MANDATES_ASSET_BREAKDOWN_ORDER:
+                etf_asset_alloc_by_month[key][label] += float(normalized_breakdown.get(label, 0.0) or 0.0)
+            continue
+
+        alloc_payload = _decode_asset_allocation_payload(mc, norm)
+        if isinstance(alloc_payload, dict):
+            normalized_breakdown = _normalize_mandates_asset_breakdown_from_alloc(
+                alloc_payload=alloc_payload,
+                bank_code="",
+                total_value_usd=_resolve_ending_with_accrual(mc, norm),
+                sin_caja=bool(getattr(filters, "sin_caja", False)),
+            )
+            etf_asset_alloc_by_month.setdefault(key, _empty_mandates_asset_breakdown())
+            for label in MANDATES_ASSET_BREAKDOWN_ORDER:
+                etf_asset_alloc_by_month[key][label] += float(normalized_breakdown.get(label, 0.0) or 0.0)
+            continue
+
+        instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+        if not instrument_payload:
+            fallback_rows = (
+                db.query(EtfComposition.etf_name, EtfComposition.market_value_usd, EtfComposition.market_value)
+                .filter(
+                    EtfComposition.account_id == acct.id,
+                    EtfComposition.year == mc.year,
+                    EtfComposition.month == mc.month,
+                )
+                .all()
+            )
+            instrument_payload = {}
+            for etf_name, market_value_usd, market_value in fallback_rows:
+                amount_dec = to_decimal(market_value_usd)
+                if amount_dec is None:
+                    amount_dec = to_decimal(market_value)
+                if amount_dec is None or amount_dec <= 0:
+                    continue
+                instrument_payload[str(etf_name or "")] = instrument_payload.get(str(etf_name or ""), Decimal("0")) + amount_dec
+
+        if not instrument_payload:
+            continue
+
+        etf_asset_alloc_by_month.setdefault(key, _empty_mandates_asset_breakdown())
+        for instrument_name, amount_dec in instrument_payload.items():
+            amount = float(amount_dec or 0.0)
+            if amount <= 0:
+                continue
+            bucket = _etf_asset_bucket_from_instrument(instrument_name)
+            label = _etf_bucket_to_mandates_breakdown_label(bucket)
+            if bool(getattr(filters, "sin_caja", False)) and label == "Cash, Deposits & Money Market":
+                continue
+            etf_asset_alloc_by_month[key][label] += amount
+
+    if not etf_results:
+        legacy_etf_query = (
+            db.query(
+                EtfComposition.year,
+                EtfComposition.month,
+                EtfComposition.etf_name,
+                EtfComposition.market_value_usd,
+                EtfComposition.market_value,
+                Account,
+            )
+            .join(Account, EtfComposition.account_id == Account.id)
+        )
+        if selected_years:
+            legacy_etf_query = legacy_etf_query.filter(EtfComposition.year.in_(selected_years))
+        if etf_filters.bank_codes:
+            legacy_etf_query = legacy_etf_query.filter(Account.bank_code.in_(etf_filters.bank_codes))
+        if etf_filters.entity_names:
+            legacy_etf_query = legacy_etf_query.filter(Account.entity_name.in_(etf_filters.entity_names))
+        if etf_filters.person_names:
+            legacy_etf_query = legacy_etf_query.filter(Account.person_name.in_(etf_filters.person_names))
+        if getattr(etf_filters, "sin_personal", False):
+            legacy_etf_query = legacy_etf_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
+
+        for year, month, etf_name, market_value_usd, market_value, _ in legacy_etf_query.all():
+            amount = _to_float(market_value_usd)
+            if amount is None:
+                amount = _to_float(market_value) or 0.0
+            if amount <= 0:
+                continue
+            key = f"{int(year):04d}-{int(month):02d}"
+            bucket = _etf_asset_bucket_from_instrument(etf_name or "")
+            label = _etf_bucket_to_mandates_breakdown_label(bucket)
+            if getattr(filters, "sin_caja", False) and label == "Cash, Deposits & Money Market":
+                continue
+            etf_asset_alloc_by_month.setdefault(key, _empty_mandates_asset_breakdown())
+            etf_asset_alloc_by_month[key][label] += amount
+
+    for key, breakdown in etf_asset_alloc_by_month.items():
+        month_asset_alloc.setdefault(key, _empty_mandates_asset_breakdown())
+        for label in MANDATES_ASSET_BREAKDOWN_ORDER:
+            month_asset_alloc[key][label] = month_asset_alloc[key].get(label, 0.0) + breakdown.get(label, 0.0)
+
+    asset_month_keys = sorted(set(months_seen) | set(etf_totals_by_month.keys()) | set(etf_asset_alloc_by_month.keys()))
+
+    asset_allocation: list[dict] = []
+    for key in asset_month_keys:
+        breakdown = month_asset_alloc.setdefault(key, _empty_mandates_asset_breakdown())
+        etf_totals_row = etf_totals_by_month.get(key, {})
+        if etf_totals_row:
+            etf_target_total = float(etf_totals_row.get("net_value", 0.0) or 0.0)
+            if getattr(filters, "sin_caja", False):
+                etf_target_total -= float(etf_totals_row.get("cash_value", 0.0) or 0.0)
+        else:
+            etf_target_total = _sum_mandates_asset_breakdown(etf_asset_alloc_by_month.get(key, {}))
+        target_total = month_totals.get(key, 0.0) + etf_target_total
+        if getattr(filters, "sin_caja", False):
+            target_total -= month_cash_totals.get(key, 0.0)
+        _reconcile_mandates_asset_breakdown_to_target(
+            breakdown=breakdown,
+            target_total=target_total,
+        )
+        row = {"fecha": key}
+        row.update({label: round(breakdown.get(label, 0.0), 2) for label in MANDATES_ASSET_BREAKDOWN_ORDER})
+        asset_allocation.append(row)
+
+    aa_by_bank: dict[str, dict[str, float]] = {}
+    selected_month_alloc: dict[str, dict[str, float]] = {}
+    if selected_fecha:
+        for bank, vals in bank_asset_alloc_by_month.get(selected_fecha, {}).items():
+            selected_month_alloc[bank] = {
+                label: float(vals.get(label, 0.0) or 0.0)
+                for label in MANDATES_ASSET_BREAKDOWN_ORDER
+            }
+        etf_selected = etf_asset_alloc_by_month.get(selected_fecha)
+        if etf_selected:
+            selected_month_alloc["etf_portfolio"] = {
+                label: float(etf_selected.get(label, 0.0) or 0.0)
+                for label in MANDATES_ASSET_BREAKDOWN_ORDER
+            }
+
+    for bank, vals in selected_month_alloc.items():
+        breakdown = {
+            label: float(vals.get(label, 0.0) or 0.0)
+            for label in MANDATES_ASSET_BREAKDOWN_ORDER
+        }
+        if bank == "etf_portfolio":
+            etf_totals_row = etf_totals_by_month.get(selected_fecha or "", {})
+            if etf_totals_row:
+                target_total = float(etf_totals_row.get("net_value", 0.0) or 0.0)
+                if getattr(filters, "sin_caja", False):
+                    target_total -= float(etf_totals_row.get("cash_value", 0.0) or 0.0)
+            else:
+                target_total = _sum_mandates_asset_breakdown(breakdown)
+        else:
+            target_total = float(values_by_bank.get(bank, {}).get(selected_fecha or "", 0.0) or 0.0)
+            if getattr(filters, "sin_caja", False):
+                target_total -= float(cash_by_bank.get(bank, {}).get(selected_fecha or "", 0.0) or 0.0)
+        _reconcile_mandates_asset_breakdown_to_target(
+            breakdown=breakdown,
+            target_total=target_total,
+        )
+        total = _sum_mandates_asset_breakdown(breakdown)
+        aa_by_bank[bank] = {
+            label: round((breakdown.get(label, 0.0) / total * 100), 4) if total > 0 else 0.0
+            for label in MANDATES_ASSET_BREAKDOWN_ORDER
+        }
+
     return {
         "mandate_pcts": mandate_pcts,
         "asset_allocation": asset_allocation,
@@ -1621,83 +2092,9 @@ SOCIETY_MAPPING = [
 SOCIETY_COLS = ["Boatview JPM", "Boatview GS", "Telmar",
                 "Armel Holdings", "Ecoterra Internacional", "Raíces LP"]
 
-# Diccionario de consolidación de nombres de instrumentos ETF
-INSTRUMENT_NAME_MAP: dict[str, str] = {
-    # ── IWDA ──
-    "IWDA": "IWDA",
-    "ISHARES CORE MSCI WORLD": "IWDA",
-    "P ISHARES CORE MSCI WORLD": "IWDA",
-    # ── IEMA ──
-    "IEMA": "IEMA",
-    "ISHARES MSCI EM-ACC": "IEMA",
-    "ISHARES MSCI EM ACC": "IEMA",
-    "P ISHARES MSCI EM-ACC": "IEMA",
-    # ── IHYA ──
-    "IHYA": "IHYA",
-    "ISHARES USD HY CORP USD ACC": "IHYA",
-    "ISHARES USD HIGH YIELD CORP BOND": "IHYA",
-    "P ISHARES USD HY CORP USD ACC": "IHYA",
-    # ── VDCA ──
-    "VDCA": "VDCA",
-    "VAND USDCP1-3 USDA": "VDCA",
-    "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF": "VDCA",
-    # ── VDPA ──
-    "VDPA": "VDPA",
-    "VANG USDCPBD USDA": "VDPA",
-    "VANG USDCPBD USDA ACC": "VDPA",
-    "VANGUARD USD CORPORATE BOND UCITS ETF": "VDPA",
-    # ── VUCP (Goldman Sachs) ──
-    "VUCP": "VDPA",
-    "USD CORPORATE BOND UCITS ETF": "VDPA",
-    "USD CORPORATE BOND UCITS ETF (VUCP)": "VDPA",
-    # ── VDCA (including GS name variant) ──
-    "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF": "VDCA",
-    "VANGUARD FUNDS PLC-VANGUARD US CMN CLASS ETF": "VDCA",
-    "VANGUARD FUNDS PLC - VANGUARD CMN CLASS ETF STAMP": "VDCA",
-    # ── SPDR ──
-    "SPDR": "SPDR",
-    "SPDR BLOOMBERG 1-10 YEAR U.S.": "SPDR",
-    "SPDR BLOOMBERG 1-10 YEAR U.S": "SPDR",
-    "SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG": "SPDR",
-    # ── JPM money market variants ──
-    "JPM LI-LIQ LVNAV FD - USD - W -": "Money Market",
-    "P JPM LI-LIQ LVNAV FD - USD - W -": "Money Market",
-    "PROCEEDS FROM PENDING SALES": "Money Market",
-    # ── Goldman Sachs ETF name variants ──
-    "MSCI WORLD INDEX FUND (ISHARES)": "IWDA",
-    "MSCI EMERGING MARKETS INDEX FUND (ISHARES)": "IEMA",
-    "ISHARES III PLC-ISHARES MSCI EMERGING MARKETS ETF": "IEMA",
-    "MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)": "IHYA",
-    "ISHARES II PLC-ISHARES $ HIGH YIELD CORP BOND UCITS ETF": "IHYA",
-}
-
-# Orden fijo de instrumentos
-INSTRUMENT_ORDER = ["IWDA", "IEMA", "VDCA", "VDPA", "SPDR", "IHYA", "Money Market"]
-
-# Instrumentos considerados caja/money market
-CASH_INSTRUMENTS = {"Money Market"}
-
-
 def _normalize_instrument(name: str) -> str:
-    """Normaliza nombre de instrumento según diccionario."""
-    if not name:
-        return "Other"
-    upper = name.strip().upper()
-    upper_compact = re.sub(r"[^A-Z0-9]", "", upper)
-    if upper in INSTRUMENT_NAME_MAP:
-        return INSTRUMENT_NAME_MAP[upper]
-    # JPM: permitir match por ticker o por nombre con variaciones de espacios/símbolos.
-    if "VDPA" in upper_compact:
-        return "VDPA"
-    if "USDCPBD" in upper_compact and "USDA" in upper_compact:
-        return "VDPA"
-    if "SPDR" in upper_compact and "BLOOMBERG" in upper_compact:
-        return "SPDR"
-    # Detección heurística de money market / caja
-    low = name.lower()
-    if any(kw in low for kw in ("sweep", "liquidity", "money market", "cash", "depósito", "deposito", "deposit", "deposits", "li-liq")):
-        return "Money Market"
-    return INSTRUMENT_NAME_MAP.get(upper, name)
+    """Normaliza nombre de instrumento ETF según diccionario compartido."""
+    return normalize_etf_instrument(name)
 
 
 def _copy_filters(filters: FilterParams, **overrides) -> FilterParams:
@@ -1718,9 +2115,84 @@ def _coarse_etf_asset_bucket(bucket: str) -> str:
     return "Equities"
 
 
+def _personal_asset_breakdown_allocations(
+    *,
+    raw_label: str | None,
+    amount: float | None,
+) -> dict[str, float]:
+    value = _to_float(amount) or 0.0
+    if abs(value) <= 1e-9:
+        return {}
+
+    label = str(raw_label or "").strip()
+    key = re.sub(r"[^a-z0-9]", "", label.lower())
+    if not key:
+        return {}
+
+    def _split_global_equity(total: float) -> dict[str, float]:
+        return {
+            "US equities": total * (2.0 / 3.0),
+            "Non-US equities": total * (1.0 / 3.0),
+        }
+
+    if key in {"pe", "alt", "alternativos"} or "privateequity" in key:
+        return {"PE": value}
+    if key in {"re"} or "realestate" in key:
+        return {"RE": value}
+    if any(token in key for token in ("otherinvestment", "assetallocationinvestment", "miscellaneous", "hedgefund", "other investments")):
+        return {"Other investments": value}
+
+    if key == "caja" or _is_cash_asset_label(label):
+        return {"Cash": value}
+
+    if key == "rvem" or (("emerging" in key or "em" in key) and "equit" in key):
+        return {"Non-US equities": value}
+    if "nonus" in key and "equit" in key:
+        return {"Non-US equities": value}
+    if ("usequit" in key or "usequity" in key) and "nonus" not in key:
+        return {"US equities": value}
+    if key in {"rvdm", "globalequity"}:
+        return _split_global_equity(value)
+    if key in {"equity", "equities"} or "equit" in key:
+        return _split_global_equity(value)
+
+    if (
+        key in {"hy", "hyfixedincome"}
+        or "highyield" in key
+        or "noninvestmentgrade" in key
+    ):
+        return {"HY Fixed income": value}
+    if key in {"rfigshort", "rfiglong", "nonusrf", "rf"}:
+        return {"IG Fixed income": value}
+    if "fixedincome" in key or "bond" in key or "investmentgrade" in key:
+        return {"IG Fixed income": value}
+
+    return {}
+
+
+def _add_personal_asset_breakdown_amount(
+    *,
+    month_buckets: dict[str, float],
+    raw_label: str | None,
+    amount: float | None,
+) -> float:
+    allocations = _personal_asset_breakdown_allocations(raw_label=raw_label, amount=amount)
+    if not allocations:
+        return 0.0
+    added_total = 0.0
+    for category, category_amount in allocations.items():
+        if abs(category_amount) <= 1e-9:
+            continue
+        month_buckets[category] = month_buckets.get(category, 0.0) + category_amount
+        added_total += category_amount
+    return added_total
+
+
 def _personal_asset_table_label(bucket: str | None) -> str:
     normalized = str(bucket or "").strip()
-    if normalized in {"PE", "RE"}:
+    if normalized in PERSONAL_ASSET_BREAKDOWN_ORDER:
+        return normalized
+    if normalized in {"PE", "RE", "Other investments"}:
         return normalized
     return asset_bucket_detail_label(normalized)
 
@@ -1835,38 +2307,79 @@ def _build_detailed_etf_asset_pct_by_bank_for_month(
 
     year = int(fecha[:4])
     month = int(fecha[5:7])
-    query = (
-        db.query(
-            Account.bank_code,
-            EtfComposition.etf_name,
-            EtfComposition.market_value_usd,
-            EtfComposition.market_value,
-        )
-        .join(Account, EtfComposition.account_id == Account.id)
-        .filter(
-            EtfComposition.year == year,
-            EtfComposition.month == month,
-        )
-    )
-    if filters.bank_codes:
-        query = query.filter(Account.bank_code.in_(filters.bank_codes))
-    if filters.entity_names:
-        query = query.filter(Account.entity_name.in_(filters.entity_names))
-    if filters.person_names:
-        query = query.filter(Account.person_name.in_(filters.person_names))
-    if getattr(filters, "sin_personal", False):
-        query = query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
+    query = _query_closing_rows(
+        db=db,
+        filters=filters,
+        years={year},
+        account_type="etf",
+    ).filter(MonthlyClosing.month == month)
+    rows = query.all()
 
     by_bank_amounts: dict[str, dict[str, float]] = {}
-    for bank_code, etf_name, market_value_usd, market_value in query.all():
-        bucket = _etf_asset_bucket_from_instrument(etf_name or "")
-        if getattr(filters, "sin_caja", False) and bucket == "Caja":
-            continue
-        amount = _to_float(market_value_usd)
-        if amount is None:
-            amount = _to_float(market_value) or 0.0
-        by_bank_amounts.setdefault(bank_code, {})
-        by_bank_amounts[bank_code][bucket] = by_bank_amounts[bank_code].get(bucket, 0.0) + amount
+    for mc, acct, norm in rows:
+        instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+        if not instrument_payload:
+            fallback_rows = (
+                db.query(EtfComposition.etf_name, EtfComposition.market_value_usd, EtfComposition.market_value)
+                .filter(
+                    EtfComposition.account_id == acct.id,
+                    EtfComposition.year == mc.year,
+                    EtfComposition.month == mc.month,
+                )
+                .all()
+            )
+            instrument_payload = {}
+            for etf_name, market_value_usd, market_value in fallback_rows:
+                amount = to_decimal(market_value_usd)
+                if amount is None:
+                    amount = to_decimal(market_value)
+                if amount is None or amount <= 0:
+                    continue
+                instrument_payload[str(etf_name or "")] = instrument_payload.get(str(etf_name or ""), Decimal("0")) + amount
+
+        for instrument_name, amount_dec in instrument_payload.items():
+            amount = float(amount_dec or 0.0)
+            if amount <= 0:
+                continue
+            bucket = _etf_asset_bucket_from_instrument(instrument_name or "")
+            if getattr(filters, "sin_caja", False) and bucket == "Caja":
+                continue
+            by_bank_amounts.setdefault(acct.bank_code, {})
+            by_bank_amounts[acct.bank_code][bucket] = by_bank_amounts[acct.bank_code].get(bucket, 0.0) + amount
+
+    if not rows:
+        legacy_query = (
+            db.query(
+                Account.bank_code,
+                EtfComposition.etf_name,
+                EtfComposition.market_value_usd,
+                EtfComposition.market_value,
+            )
+            .join(Account, EtfComposition.account_id == Account.id)
+            .filter(
+                EtfComposition.year == year,
+                EtfComposition.month == month,
+            )
+        )
+        if filters.bank_codes:
+            legacy_query = legacy_query.filter(Account.bank_code.in_(filters.bank_codes))
+        if filters.entity_names:
+            legacy_query = legacy_query.filter(Account.entity_name.in_(filters.entity_names))
+        if filters.person_names:
+            legacy_query = legacy_query.filter(Account.person_name.in_(filters.person_names))
+        if getattr(filters, "sin_personal", False):
+            legacy_query = legacy_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
+        for bank_code, etf_name, market_value_usd, market_value in legacy_query.all():
+            amount = _to_float(market_value_usd)
+            if amount is None:
+                amount = _to_float(market_value) or 0.0
+            if amount <= 0:
+                continue
+            bucket = _etf_asset_bucket_from_instrument(etf_name or "")
+            if getattr(filters, "sin_caja", False) and bucket == "Caja":
+                continue
+            by_bank_amounts.setdefault(bank_code, {})
+            by_bank_amounts[bank_code][bucket] = by_bank_amounts[bank_code].get(bucket, 0.0) + amount
 
     pct_by_bank: dict[str, dict[str, float]] = {}
     for bank_code, amounts in by_bank_amounts.items():
@@ -1910,13 +2423,8 @@ def get_etf_dates(db: Session = Depends(get_db)):
         .distinct()
         .all()
     )
-    comp_dates = (
-        db.query(EtfComposition.year, EtfComposition.month)
-        .distinct()
-        .all()
-    )
     all_dates = set()
-    for y, m in mc_dates + norm_dates + comp_dates:
+    for y, m in mc_dates + norm_dates:
         all_dates.add(f"{y}-{m:02d}")
     return {"dates": sorted(all_dates, reverse=True)}
 
@@ -1950,36 +2458,103 @@ def get_etf(
     active_society_cols = [s for s in SOCIETY_COLS if not (sin_personal and s in PERSONAL_ENTITY_NAMES)]
 
     # ── 1-2) Instrumentos × Sociedades (solo filtro fecha) ──────
-    comp_query = (
-        db.query(EtfComposition, Account)
-        .join(Account, EtfComposition.account_id == Account.id)
+    selected_years = {sel_year} if sel_year else None
+    selected_rows_query = _query_closing_rows(
+        db=db,
+        filters=filters,
+        years=selected_years,
+        account_type="etf",
     )
-    if sin_personal:
-        comp_query = comp_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
     if sel_year and sel_month:
-        comp_query = comp_query.filter(
-            EtfComposition.year == sel_year,
-            EtfComposition.month == sel_month,
+        selected_rows_query = selected_rows_query.filter(MonthlyClosing.month == sel_month)
+    selected_rows = selected_rows_query.all()
+    legacy_comp_results: list[tuple[EtfComposition, Account]] = []
+    if not selected_rows:
+        legacy_query = (
+            db.query(EtfComposition, Account)
+            .join(Account, EtfComposition.account_id == Account.id)
         )
-    elif sel_year:
-        comp_query = comp_query.filter(EtfComposition.year == sel_year)
+        if sin_personal:
+            legacy_query = legacy_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
+        if sel_year and sel_month:
+            legacy_query = legacy_query.filter(
+                EtfComposition.year == sel_year,
+                EtfComposition.month == sel_month,
+            )
+        elif sel_year:
+            legacy_query = legacy_query.filter(EtfComposition.year == sel_year)
+        if filters.bank_codes:
+            legacy_query = legacy_query.filter(Account.bank_code.in_(filters.bank_codes))
+        if filters.entity_names:
+            legacy_query = legacy_query.filter(Account.entity_name.in_(filters.entity_names))
+        if getattr(filters, "person_names", None):
+            legacy_query = legacy_query.filter(Account.person_name.in_(filters.person_names))
+        legacy_comp_results = legacy_query.all()
 
-    comp_results = comp_query.all()
+    fallback_instrument_cache: dict[tuple[int, int, int], dict[str, Decimal]] = {}
+
+    def _fallback_instrument_breakdown(account_id: int, year: int, month: int) -> dict[str, Decimal]:
+        cache_key = (account_id, year, month)
+        if cache_key in fallback_instrument_cache:
+            return fallback_instrument_cache[cache_key]
+
+        rows = (
+            db.query(EtfComposition.etf_name, EtfComposition.market_value_usd, EtfComposition.market_value)
+            .filter(
+                EtfComposition.account_id == account_id,
+                EtfComposition.year == year,
+                EtfComposition.month == month,
+            )
+            .all()
+        )
+        grouped: dict[str, Decimal] = {}
+        for etf_name, market_value_usd, market_value in rows:
+            amount = to_decimal(market_value_usd)
+            if amount is None:
+                amount = to_decimal(market_value)
+            if amount is None or amount <= 0:
+                continue
+            grouped[str(etf_name or "")] = grouped.get(str(etf_name or ""), Decimal("0")) + amount
+        fallback_instrument_cache[cache_key] = grouped
+        return grouped
 
     # Pivot: {instrument: {society: monto}}
     instr_society: dict[str, dict[str, float]] = {}
-    for comp, acct in comp_results:
-        instr = _normalize_instrument(comp.etf_name)
-        if sin_caja and instr in CASH_INSTRUMENTS:
-            continue
-        society = _get_society_label(acct.entity_name, comp.bank_code)
-        mv = float(comp.market_value or 0)
-        if instr not in instr_society:
-            instr_society[instr] = {s: 0.0 for s in active_society_cols}
-        if society in instr_society[instr]:
-            instr_society[instr][society] += mv
-        else:
-            instr_society[instr][society] = mv
+    for mc, acct, norm in selected_rows:
+        instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+        if not instrument_payload:
+            instrument_payload = _fallback_instrument_breakdown(acct.id, mc.year, mc.month)
+        for instrument_name, amount_dec in instrument_payload.items():
+            amount = float(amount_dec or 0.0)
+            if amount <= 0:
+                continue
+            instr = _normalize_instrument(instrument_name)
+            if sin_caja and instr in CASH_INSTRUMENTS:
+                continue
+            society = _get_society_label(acct.entity_name, acct.bank_code)
+            if instr not in instr_society:
+                instr_society[instr] = {s: 0.0 for s in active_society_cols}
+            if society in instr_society[instr]:
+                instr_society[instr][society] += amount
+            else:
+                instr_society[instr][society] = amount
+    if not selected_rows and legacy_comp_results:
+        for comp, acct in legacy_comp_results:
+            instr = _normalize_instrument(comp.etf_name)
+            if sin_caja and instr in CASH_INSTRUMENTS:
+                continue
+            society = _get_society_label(acct.entity_name, comp.bank_code)
+            amount = _to_float(comp.market_value_usd)
+            if amount is None:
+                amount = _to_float(comp.market_value) or 0.0
+            if amount <= 0:
+                continue
+            if instr not in instr_society:
+                instr_society[instr] = {s: 0.0 for s in active_society_cols}
+            if society in instr_society[instr]:
+                instr_society[instr][society] += amount
+            else:
+                instr_society[instr][society] = amount
 
     # Montos table (orden fijo)
     instruments_table: dict[str, dict[str, float]] = {}
@@ -2034,14 +2609,33 @@ def get_etf(
     by_society: dict[str, float] = {}
     by_instrument: dict[str, float] = {}
 
-    for comp, acct in comp_results:
-        instr = _normalize_instrument(comp.etf_name)
-        if sin_caja and instr in CASH_INSTRUMENTS:
-            continue
-        society = _get_society_label(acct.entity_name, comp.bank_code)
-        mv = float(comp.market_value or 0)
-        by_society[society] = by_society.get(society, 0) + mv
-        by_instrument[instr] = by_instrument.get(instr, 0) + mv
+    for mc, acct, norm in selected_rows:
+        instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+        if not instrument_payload:
+            instrument_payload = _fallback_instrument_breakdown(acct.id, mc.year, mc.month)
+        society = _get_society_label(acct.entity_name, acct.bank_code)
+        for instrument_name, amount_dec in instrument_payload.items():
+            mv = float(amount_dec or 0.0)
+            if mv <= 0:
+                continue
+            instr = _normalize_instrument(instrument_name)
+            if sin_caja and instr in CASH_INSTRUMENTS:
+                continue
+            by_society[society] = by_society.get(society, 0.0) + mv
+            by_instrument[instr] = by_instrument.get(instr, 0.0) + mv
+    if not selected_rows and legacy_comp_results:
+        for comp, acct in legacy_comp_results:
+            instr = _normalize_instrument(comp.etf_name)
+            if sin_caja and instr in CASH_INSTRUMENTS:
+                continue
+            society = _get_society_label(acct.entity_name, comp.bank_code)
+            mv = _to_float(comp.market_value_usd)
+            if mv is None:
+                mv = _to_float(comp.market_value) or 0.0
+            if mv <= 0:
+                continue
+            by_society[society] = by_society.get(society, 0.0) + mv
+            by_instrument[instr] = by_instrument.get(instr, 0.0) + mv
 
     composition_by_society = [
         {"label": k, "value": round(v, 2)}
@@ -2059,38 +2653,54 @@ def get_etf(
     )
 
     # ── 4) Society montos × meses del año (todos los filtros) ───
-    montos_query = (
-        db.query(EtfComposition, Account)
-        .join(Account, EtfComposition.account_id == Account.id)
+    montos_rows_query = _query_closing_rows(
+        db=db,
+        filters=filters,
+        years={sel_year} if sel_year else None,
+        account_type="etf",
     )
-    if sin_personal:
-        montos_query = montos_query.filter(~Account.entity_name.in_(PERSONAL_ENTITY_NAMES))
-    if sel_year:
-        montos_query = montos_query.filter(EtfComposition.year == sel_year)
-    if filters.bank_codes:
-        montos_query = montos_query.filter(Account.bank_code.in_(filters.bank_codes))
-    if filters.entity_names:
-        montos_query = montos_query.filter(Account.entity_name.in_(filters.entity_names))
-
-    montos_results = montos_query.order_by(EtfComposition.month).all()
+    montos_results = montos_rows_query.order_by(MonthlyClosing.month).all()
 
     # Pivotear: society → {mes: monto}
     society_month_montos: dict[str, dict[int, float]] = {}
     society_month_cash: dict[str, dict[int, float]] = {}
-    for comp, acct in montos_results:
-        instr = _normalize_instrument(comp.etf_name)
-        society = _get_society_label(acct.entity_name, comp.bank_code)
-        mv = float(comp.market_value or 0)
-        if instr in CASH_INSTRUMENTS:
-            society_month_cash.setdefault(society, {})
-            society_month_cash[society][comp.month] = society_month_cash[society].get(comp.month, 0.0) + mv
-            if sin_caja:
+    for mc, acct, norm in montos_results:
+        society = _get_society_label(acct.entity_name, acct.bank_code)
+        instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+        if not instrument_payload:
+            instrument_payload = _fallback_instrument_breakdown(acct.id, mc.year, mc.month)
+        for instrument_name, amount_dec in instrument_payload.items():
+            mv = float(amount_dec or 0.0)
+            if mv <= 0:
                 continue
-        if society not in society_month_montos:
-            society_month_montos[society] = {}
-        society_month_montos[society][comp.month] = (
-            society_month_montos[society].get(comp.month, 0) + mv
-        )
+            instr = _normalize_instrument(instrument_name)
+            if instr in CASH_INSTRUMENTS:
+                society_month_cash.setdefault(society, {})
+                society_month_cash[society][mc.month] = society_month_cash[society].get(mc.month, 0.0) + mv
+                if sin_caja:
+                    continue
+            if society not in society_month_montos:
+                society_month_montos[society] = {}
+            society_month_montos[society][mc.month] = (
+                society_month_montos[society].get(mc.month, 0.0) + mv
+            )
+    if not montos_results and legacy_comp_results:
+        for comp, acct in legacy_comp_results:
+            society = _get_society_label(acct.entity_name, comp.bank_code)
+            mv = _to_float(comp.market_value_usd)
+            if mv is None:
+                mv = _to_float(comp.market_value) or 0.0
+            if mv <= 0:
+                continue
+            instr = _normalize_instrument(comp.etf_name)
+            if instr in CASH_INSTRUMENTS:
+                society_month_cash.setdefault(society, {})
+                society_month_cash[society][comp.month] = society_month_cash[society].get(comp.month, 0.0) + mv
+                if sin_caja:
+                    continue
+            if society not in society_month_montos:
+                society_month_montos[society] = {}
+            society_month_montos[society][comp.month] = society_month_montos[society].get(comp.month, 0.0) + mv
 
     # Construir tabla con orden fijo de sociedades
     society_montos_table = []
@@ -2308,7 +2918,21 @@ def _account_type_display_label(account_type: str | None) -> str:
     raw = str(account_type or "").strip().lower()
     if raw == "etf":
         return "ETF"
+    if raw in {"bonds", "bond", "bonos"}:
+        return "Bonos"
+    if raw == "alternativos":
+        return "Alternativos"
     return raw.replace("_", " ").title() if raw else ""
+
+
+def _account_level_type_bucket(row: dict) -> str:
+    bank_code = str(row.get("banco") or row.get("bank_code") or "").strip().lower()
+    account_type = str(row.get("account_type") or row.get("tipo_cuenta") or "").strip().lower()
+    if bank_code == "alternativos":
+        return "alternativos"
+    if account_type in {"bond", "bonos"}:
+        return "bonds"
+    return account_type
 
 
 def _personal_detail_group_descriptor(
@@ -2352,6 +2976,39 @@ def _personal_detail_group_descriptor(
         label = _compact_account_detail_label(row)
         key = f"{entity_name}::{bank_code}::{account_type}"
         return (key, label)
+    if group_by == "account_level_1":
+        type_bucket = _account_level_type_bucket(row)
+        if not type_bucket:
+            return (None, None)
+        label = _account_type_display_label(type_bucket)
+        return (type_bucket, label)
+    if group_by == "account_level_2":
+        type_bucket = _account_level_type_bucket(row)
+        bank_code = str(row.get("banco") or row.get("bank_code") or "").strip()
+        if not type_bucket or not bank_code:
+            return (None, None)
+        type_label = _account_type_display_label(type_bucket)
+        return (f"{type_bucket}::{bank_code}", f"{type_label} - {bank_code}")
+    if group_by == "account_level_3":
+        type_bucket = _account_level_type_bucket(row)
+        bank_code = str(row.get("banco") or row.get("bank_code") or "").strip()
+        entity_name = str(row.get("sociedad") or row.get("entity_name") or "").strip()
+        if not type_bucket or not bank_code or not entity_name:
+            return (None, None)
+        type_label = _account_type_display_label(type_bucket)
+        return (f"{type_bucket}::{bank_code}::{entity_name}", f"{type_label} - {bank_code} - {entity_name}")
+    if group_by == "account_level_4":
+        type_bucket = _account_level_type_bucket(row)
+        bank_code = str(row.get("banco") or row.get("bank_code") or "").strip()
+        entity_name = str(row.get("sociedad") or row.get("entity_name") or "").strip()
+        account_id = str(row.get("account_number") or row.get("id") or "").strip()
+        if not type_bucket or not bank_code or not entity_name or not account_id:
+            return (None, None)
+        type_label = _account_type_display_label(type_bucket)
+        return (
+            f"{type_bucket}::{bank_code}::{entity_name}::{account_id}",
+            f"{type_label} - {bank_code} - {entity_name} - {account_id}",
+        )
     if group_by == "society":
         society = str(row.get("sociedad") or "").strip()
         return (society or None, society or None)
@@ -2553,6 +3210,29 @@ def _build_personal_asset_detail_view(
         return _empty_detail_view(show_activity_columns=False)
 
     amounts_by_month_bucket: dict[str, dict[str, float]] = {}
+    unclassified_amounts: dict[tuple[str, str, str], float] = {}
+
+    def _append_asset_amount(
+        *,
+        month_key: str,
+        raw_label: str | None,
+        amount: float | None,
+        source: str,
+    ) -> None:
+        parsed_amount = _to_float(amount) or 0.0
+        if abs(parsed_amount) <= 1e-9:
+            return
+        month_buckets = amounts_by_month_bucket.setdefault(month_key, {})
+        added = _add_personal_asset_breakdown_amount(
+            month_buckets=month_buckets,
+            raw_label=raw_label,
+            amount=parsed_amount,
+        )
+        if abs(added) > 1e-9:
+            return
+        issue_key = (month_key, source, str(raw_label or "").strip() or "<empty>")
+        unclassified_amounts[issue_key] = unclassified_amounts.get(issue_key, 0.0) + parsed_amount
+
     selected_types = {
         str(account_type).strip().lower()
         for account_type in (filters.account_types or [])
@@ -2560,81 +3240,259 @@ def _build_personal_asset_detail_view(
     }
     has_type_filter = bool(selected_types)
     include_etf = (not has_type_filter) or ("etf" in selected_types)
-    include_jpm_brokerage = (not has_type_filter) or ("brokerage" in selected_types)
+    include_mandates = (not has_type_filter) or ("mandato" in selected_types)
+    include_brokerage = (not has_type_filter) or ("brokerage" in selected_types)
+    include_bonds = (not has_type_filter) or bool(selected_types & {"bonds", "bond", "bonos"})
     include_alternatives = (not has_type_filter) or bool(selected_types & {"pe", "re"})
 
     if include_etf:
-        query = (
-            db.query(
-                EtfComposition.year,
-                EtfComposition.month,
-                EtfComposition.etf_name,
-                EtfComposition.market_value_usd,
-                EtfComposition.market_value,
-                Account.bank_code,
-                Account.entity_name,
-            )
-            .join(Account, EtfComposition.account_id == Account.id)
-            .filter(
-                EtfComposition.year.in_(years),
-                Account.account_type == "etf",
-            )
+        etf_rows = _query_closing_rows(
+            db=db,
+            filters=filters,
+            years=years,
+            account_type="etf",
         )
-        if filters.bank_codes:
-            query = query.filter(Account.bank_code.in_(filters.bank_codes))
-        if filters.entity_names:
-            query = query.filter(Account.entity_name.in_(filters.entity_names))
-        if getattr(filters, "person_names", None):
-            query = query.filter(Account.person_name.in_(filters.person_names))
-
-        for year, month, etf_name, market_value_usd, market_value, _, _ in query.all():
-            month_key = f"{year}-{month:02d}"
+        for mc, acct, norm in etf_rows.all():
+            month_key = f"{mc.year}-{mc.month:02d}"
             if month_key not in relevant_months:
                 continue
-            bucket = _etf_asset_bucket_from_instrument(etf_name or "")
-            amount = _to_float(market_value_usd)
-            if amount is None:
-                amount = _to_float(market_value) or 0.0
-            amounts_by_month_bucket.setdefault(month_key, {})
-            amounts_by_month_bucket[month_key][bucket] = amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
 
-    if include_jpm_brokerage:
+            canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+            if canonical_breakdown:
+                personal_breakdown = personal_breakdown_from_canonical(canonical_breakdown)
+                for label, amount in personal_breakdown.items():
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label=label,
+                        amount=amount,
+                        source="etf",
+                    )
+                continue
+
+            instrument_payload = _resolve_instrument_breakdown_payload(mc, norm)
+            if not instrument_payload:
+                fallback_rows = (
+                    db.query(EtfComposition.etf_name, EtfComposition.market_value_usd, EtfComposition.market_value)
+                    .filter(
+                        EtfComposition.account_id == acct.id,
+                        EtfComposition.year == mc.year,
+                        EtfComposition.month == mc.month,
+                    )
+                    .all()
+                )
+                instrument_payload = {}
+                for etf_name, market_value_usd, market_value in fallback_rows:
+                    amount = to_decimal(market_value_usd)
+                    if amount is None:
+                        amount = to_decimal(market_value)
+                    if amount is None or abs(amount) <= Decimal("0.0001"):
+                        continue
+                    instrument_payload[str(etf_name or "")] = instrument_payload.get(str(etf_name or ""), Decimal("0")) + amount
+
+            for instrument_name, amount_dec in instrument_payload.items():
+                amount = float(amount_dec or 0.0)
+                if abs(amount) <= 1e-9:
+                    continue
+                bucket = _etf_asset_bucket_from_instrument(instrument_name or "")
+                _append_asset_amount(
+                    month_key=month_key,
+                    raw_label=bucket,
+                    amount=amount,
+                    source="etf",
+                )
+
+    if include_brokerage:
         brokerage_rows = _query_closing_rows(
             db=db,
             filters=filters,
             years=years,
             account_type="brokerage",
         )
-        for mc, acct, norm in brokerage_rows.all():
-            if acct.bank_code != "jpmorgan":
-                continue
+        for mc, _, norm in brokerage_rows.all():
             month_key = f"{mc.year}-{mc.month:02d}"
             if month_key not in relevant_months:
                 continue
-            alloc_json = _resolve_asset_allocation_json(mc, norm)
-            if not alloc_json:
+            canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+            if canonical_breakdown:
+                personal_breakdown = personal_breakdown_from_canonical(canonical_breakdown)
+                for label, amount in personal_breakdown.items():
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label=label,
+                        amount=amount,
+                        source="brokerage",
+                    )
                 continue
-            try:
-                alloc = json.loads(alloc_json)
-            except (TypeError, ValueError):
+
+            alloc_payload = _decode_asset_allocation_payload(mc, norm)
+            if not isinstance(alloc_payload, dict):
                 continue
-            if not isinstance(alloc, dict):
-                continue
-            amounts_by_month_bucket.setdefault(month_key, {})
-            for bucket, payload in alloc.items():
-                amount = _extract_asset_allocation_amount(payload)
-                if amount is None or amount <= 0:
+            for bucket, payload in alloc_payload.items():
+                if str(bucket).startswith("__"):
                     continue
-                bucket_label = str(bucket).strip() or "Other"
-                amounts_by_month_bucket[month_key][bucket_label] = (
-                    amounts_by_month_bucket[month_key].get(bucket_label, 0.0) + amount
+                amount = _extract_asset_allocation_amount(payload)
+                if amount is None or abs(amount) <= 1e-9:
+                    continue
+                _append_asset_amount(
+                    month_key=month_key,
+                    raw_label=str(bucket).strip() or "Other",
+                    amount=amount,
+                    source="brokerage",
                 )
+
+    if include_mandates:
+        mandates_rows = _query_closing_rows(
+            db=db,
+            filters=filters,
+            years=years,
+            account_type="mandato",
+        )
+        for mc, acct, norm in mandates_rows.all():
+            month_key = f"{mc.year}-{mc.month:02d}"
+            if month_key not in relevant_months:
+                continue
+            canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+            if canonical_breakdown:
+                personal_breakdown = personal_breakdown_from_canonical(canonical_breakdown)
+                for label, amount in personal_breakdown.items():
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label=label,
+                        amount=amount,
+                        source="mandato",
+                    )
+                continue
+
+            alloc_payload = _decode_asset_allocation_payload(mc, norm)
+            if not isinstance(alloc_payload, dict):
+                continue
+
+            month_total = _resolve_ending_without_accrual(mc, norm)
+            extracted: dict[str, float] = {}
+            for raw_label, payload in alloc_payload.items():
+                if str(raw_label).startswith("__"):
+                    continue
+                canonical = _mandate_asset_split_label(
+                    raw_label=str(raw_label),
+                    bank_code=str(acct.bank_code or "").strip().lower(),
+                )
+                if not canonical:
+                    continue
+                amount = _mandate_asset_split_amount(payload=payload, total_value_usd=month_total)
+                if amount is None or abs(amount) <= 1e-9:
+                    continue
+                extracted[canonical] = extracted.get(canonical, 0.0) + amount
+
+            if not extracted:
+                continue
+
+            cash_amount = extracted.get("Cash, Deposits & Money Market", 0.0)
+            if abs(cash_amount) > 1e-9:
+                _append_asset_amount(
+                    month_key=month_key,
+                    raw_label="Cash, Deposits & Money Market",
+                    amount=cash_amount,
+                    source="mandato",
+                )
+
+            ig_amount = extracted.get("Investment Grade Fixed Income", 0.0)
+            hy_amount = extracted.get("High Yield Fixed Income", 0.0)
+            fi_amount = extracted.get("Fixed Income", 0.0)
+            if abs(ig_amount) > 1e-9 or abs(hy_amount) > 1e-9:
+                if abs(ig_amount) > 1e-9:
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label="Investment Grade Fixed Income",
+                        amount=ig_amount,
+                        source="mandato",
+                    )
+                if abs(hy_amount) > 1e-9:
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label="High Yield Fixed Income",
+                        amount=hy_amount,
+                        source="mandato",
+                    )
+            elif abs(fi_amount) > 1e-9:
+                _append_asset_amount(
+                    month_key=month_key,
+                    raw_label="Fixed Income",
+                    amount=fi_amount,
+                    source="mandato",
+                )
+
+            us_eq_amount = extracted.get("US Equities", 0.0)
+            non_us_eq_amount = extracted.get("Non US Equities", 0.0)
+            eq_amount = extracted.get("Equities", 0.0)
+            if abs(us_eq_amount) > 1e-9 or abs(non_us_eq_amount) > 1e-9:
+                if abs(us_eq_amount) > 1e-9:
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label="US Equities",
+                        amount=us_eq_amount,
+                        source="mandato",
+                    )
+                if abs(non_us_eq_amount) > 1e-9:
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label="Non US Equities",
+                        amount=non_us_eq_amount,
+                        source="mandato",
+                    )
+            elif abs(eq_amount) > 1e-9:
+                _append_asset_amount(
+                    month_key=month_key,
+                    raw_label="Equities",
+                    amount=eq_amount,
+                    source="mandato",
+                )
+
+    if include_bonds:
+        for bond_account_type in ("bonds", "bond", "bonos"):
+            bonds_rows = _query_closing_rows(
+                db=db,
+                filters=filters,
+                years=years,
+                account_type=bond_account_type,
+            )
+            for mc, _, norm in bonds_rows.all():
+                month_key = f"{mc.year}-{mc.month:02d}"
+                if month_key not in relevant_months:
+                    continue
+                canonical_breakdown = _resolve_canonical_breakdown_payload(mc, norm)
+                if canonical_breakdown:
+                    personal_breakdown = personal_breakdown_from_canonical(canonical_breakdown)
+                    for label, amount in personal_breakdown.items():
+                        _append_asset_amount(
+                            month_key=month_key,
+                            raw_label=label,
+                            amount=amount,
+                            source=bond_account_type,
+                        )
+                    continue
+
+                alloc_payload = _decode_asset_allocation_payload(mc, norm)
+                if not isinstance(alloc_payload, dict):
+                    continue
+                for bucket, payload in alloc_payload.items():
+                    if str(bucket).startswith("__"):
+                        continue
+                    amount = _extract_asset_allocation_amount(payload)
+                    if amount is None or abs(amount) <= 1e-9:
+                        continue
+                    _append_asset_amount(
+                        month_key=month_key,
+                        raw_label=str(bucket).strip() or "Other",
+                        amount=amount,
+                        source=bond_account_type,
+                    )
 
     if include_alternatives:
         alternatives_query = (
             db.query(
                 MonthlyMetricNormalized.year,
                 MonthlyMetricNormalized.month,
+                MonthlyMetricNormalized.ending_value_without_accrual,
                 MonthlyMetricNormalized.ending_value_with_accrual,
                 Account,
             )
@@ -2651,7 +3509,7 @@ def _build_personal_asset_detail_view(
         if getattr(filters, "person_names", None):
             alternatives_query = alternatives_query.filter(Account.person_name.in_(filters.person_names))
 
-        for year, month, ending_value, acct in alternatives_query.all():
+        for year, month, ending_without, ending_with, acct in alternatives_query.all():
             month_key = f"{year}-{month:02d}"
             if month_key not in relevant_months:
                 continue
@@ -2659,22 +3517,20 @@ def _build_personal_asset_detail_view(
             bucket = str(metadata.get("asset_class") or "").strip().upper()
             if bucket not in {"PE", "RE"}:
                 continue
-            amount = _to_float(ending_value) or 0.0
-            amounts_by_month_bucket.setdefault(month_key, {})
-            amounts_by_month_bucket[month_key][bucket] = (
-                amounts_by_month_bucket[month_key].get(bucket, 0.0) + amount
+            target_without = _to_float(ending_without)
+            if target_without is None:
+                target_without = _to_float(ending_with)
+            _append_asset_amount(
+                month_key=month_key,
+                raw_label=bucket,
+                amount=target_without,
+                source="alternativos",
             )
 
     if not amounts_by_month_bucket.get(selected_key):
         return _empty_detail_view(show_activity_columns=False)
 
-    label_order = []
-    for bucket in ASSET_BUCKET_ORDER:
-        label_order.append(bucket)
-        if bucket == "Alternativos":
-            label_order.append("PE")
-        elif bucket == "Real Estate":
-            label_order.append("RE")
+    label_order = list(PERSONAL_ASSET_BREAKDOWN_ORDER)
 
     snapshot_rows = [
         {
@@ -2685,7 +3541,7 @@ def _build_personal_asset_detail_view(
             "caja": None,
         }
         for bucket, amount in amounts_by_month_bucket.get(selected_key, {}).items()
-        if amount > 0
+        if abs(amount) > 1e-9
     ]
     history_rows = [
         {
@@ -2708,6 +3564,20 @@ def _build_personal_asset_detail_view(
     )
     for row in detail_view["table_rows"]:
         row["table_label"] = _personal_asset_table_label(row.get("label"))
+    if unclassified_amounts:
+        detail_view["unclassified"] = [
+            {
+                "fecha": fecha,
+                "source": source,
+                "raw_label": raw_label,
+                "amount_usd": round(amount, 2),
+            }
+            for (fecha, source, raw_label), amount in sorted(
+                unclassified_amounts.items(),
+                key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2]),
+            )
+        ]
+        detail_view["unclassified_total_usd"] = round(sum(unclassified_amounts.values()), 2)
     return detail_view
 
 
@@ -2941,6 +3811,30 @@ def get_personal(
             history_rows=history_rows,
             history_months=history_months,
             group_by="account_compact",
+        ),
+        "account_level_1": _build_personal_detail_view(
+            snapshot_rows=entities_table,
+            history_rows=history_rows,
+            history_months=history_months,
+            group_by="account_level_1",
+        ),
+        "account_level_2": _build_personal_detail_view(
+            snapshot_rows=entities_table,
+            history_rows=history_rows,
+            history_months=history_months,
+            group_by="account_level_2",
+        ),
+        "account_level_3": _build_personal_detail_view(
+            snapshot_rows=entities_table,
+            history_rows=history_rows,
+            history_months=history_months,
+            group_by="account_level_3",
+        ),
+        "account_level_4": _build_personal_detail_view(
+            snapshot_rows=entities_table,
+            history_rows=history_rows,
+            history_months=history_months,
+            group_by="account_level_4",
         ),
         "society": _build_personal_detail_view(
             snapshot_rows=entities_table,

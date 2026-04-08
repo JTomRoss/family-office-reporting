@@ -5,8 +5,6 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-
-from asset_taxonomy import asset_bucket_detail_label
 from backend.db.models import (
     Account,
     EtfComposition,
@@ -18,6 +16,7 @@ from backend.db.models import (
 )
 from backend.routers.data import (
     PERSONAL_ENTITY_NAMES,
+    _personal_asset_breakdown_allocations,
     _build_health_report,
     _etf_asset_bucket_from_instrument,
     get_etf,
@@ -63,6 +62,21 @@ def _mk_parser_version(db_session, *, name: str) -> ParserVersion:
     db_session.add(parser_version)
     db_session.flush()
     return parser_version
+
+
+def test_personal_asset_breakdown_keeps_hy_label_separated_from_ig():
+    assert _personal_asset_breakdown_allocations(
+        raw_label="HY Fixed income",
+        amount=100.0,
+    ) == {"HY Fixed income": 100.0}
+    assert _personal_asset_breakdown_allocations(
+        raw_label="High Yield Fixed Income",
+        amount=50.0,
+    ) == {"HY Fixed income": 50.0}
+    assert _personal_asset_breakdown_allocations(
+        raw_label="IG Fixed income",
+        amount=75.0,
+    ) == {"IG Fixed income": 75.0}
 
 
 def test_summary_prefers_normalized_monthly_metrics(db_session):
@@ -133,6 +147,71 @@ def test_summary_prefers_normalized_monthly_metrics(db_session):
     assert jan["utilidad"] == 25.0
     assert jan["rent_mensual_pct"] == 25.0
     assert jan["rent_mensual_sin_caja_pct"] == 31.25
+
+
+def test_personal_applies_reporting_value_exclusion_from_normalized_payload(db_session):
+    acct = _mk_account(
+        db_session,
+        account_number="B43459001",
+        bank_code="jpmorgan",
+        account_type="brokerage",
+        entity_name="Telmar",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=acct.id,
+                closing_date=date(2026, 2, 28),
+                year=2026,
+                month=2,
+                net_value=Decimal("1873308.28"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=acct.id,
+                closing_date=date(2026, 2, 28),
+                year=2026,
+                month=2,
+                ending_value_with_accrual=Decimal("1873308.28"),
+                ending_value_without_accrual=Decimal("1866957.43"),
+                cash_value=Decimal("0.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.00"),
+                currency="USD",
+                asset_allocation_json=json.dumps(
+                    {
+                        "Alternative Assets": {"value": "19314.00"},
+                        "Cash & Fixed Income": {"value": "1847643.43"},
+                        "__reporting_value_exclusion": {
+                            "applied_total_usd": "19314.00",
+                            "components": [
+                                {
+                                    "rule_id": "test",
+                                    "label": "Alternative Assets",
+                                    "amount_usd": "19314.00",
+                                }
+                            ],
+                        },
+                    }
+                ),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(
+            entity_names=["Telmar"],
+            years=[2026],
+            months=[2],
+            account_types=["brokerage"],
+        ),
+        db_session,
+    )
+
+    assert payload["consolidated_usd"] == 1853994.28
 
 
 def test_summary_zeroes_negative_ubs_return(db_session):
@@ -253,9 +332,11 @@ def test_mandates_prefers_normalized_asset_allocation(db_session):
     payload = get_mandates(FilterParams(years=[2025], fecha="2025-01"), db_session)
 
     by_month = {row["fecha"]: row for row in payload["asset_allocation"]}
-    assert by_month["2025-01"]["Cash"] == 10.0
+    assert by_month["2025-01"]["Cash, Deposits & Money Market"] == 10.0
+    assert by_month["2025-01"]["Investment Grade Fixed Income"] == 0.0
+    assert by_month["2025-01"]["High Yield Fixed Income"] == 0.0
     assert by_month["2025-01"]["Equities"] == 90.0
-    assert payload["aa_by_bank"]["jpmorgan"]["Cash"] == 10.0
+    assert payload["aa_by_bank"]["jpmorgan"]["Cash, Deposits & Money Market"] == 10.0
     assert payload["aa_by_bank"]["jpmorgan"]["Equities"] == 90.0
 
 
@@ -533,8 +614,10 @@ def test_mandates_sin_caja_reprices_returns_and_hides_cash_bucket(db_session):
     by_month = {row["fecha"]: row for row in payload["asset_allocation"]}
     returns_by_bank = {row["bank_code"]: row for row in payload["returns_table"]}
 
-    assert "Cash" not in by_month["2025-01"]
-    assert by_month["2025-01"]["Equities"] == 100.0
+    assert by_month["2025-01"]["Cash, Deposits & Money Market"] == 0.0
+    assert by_month["2025-01"]["Investment Grade Fixed Income"] == 0.0
+    assert by_month["2025-01"]["High Yield Fixed Income"] == 0.0
+    assert by_month["2025-01"]["Equities"] == 145.0
     assert payload["aa_by_bank"]["jpmorgan"]["Equities"] == 100.0
     assert payload["aa_by_bank"]["etf_portfolio"]["Cash, Deposits & Money Market"] == 0.0
     assert payload["aa_by_bank"]["etf_portfolio"]["Equities"] == 100.0
@@ -822,8 +905,10 @@ def test_get_personal_exposes_returns_panel_and_detail_views_from_backend(db_ses
     asset_view = payload["detail_views"]["asset"]
     assert asset_view["show_activity_columns"] is False
     asset_rows = {row["label"]: row for row in asset_view["table_rows"]}
-    assert asset_rows["RV DM"]["monto_usd"] == 70.0
-    assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
+    assert "Cash" not in asset_rows
+    assert asset_rows["IG Fixed income"]["monto_usd"] == 50.0
+    assert asset_rows["US equities"]["monto_usd"] == pytest.approx(46.67, abs=0.01)
+    assert asset_rows["Non-US equities"]["monto_usd"] == pytest.approx(23.33, abs=0.01)
 
 
 def test_get_personal_asset_view_includes_jpm_brokerage_bucketized_allocation_and_table_labels(db_session):
@@ -905,15 +990,197 @@ def test_get_personal_asset_view_includes_jpm_brokerage_bucketized_allocation_an
     )
 
     asset_rows = {row["label"]: row for row in payload["detail_views"]["asset"]["table_rows"]}
-    assert asset_rows["Caja"]["monto_usd"] == 10.0
-    assert asset_rows["Caja"]["table_label"] == "Cash"
-    assert asset_rows["RF IG Short"]["monto_usd"] == 50.0
-    assert asset_rows["RF IG Short"]["table_label"] == "IG Fixed income"
-    assert asset_rows["Non US RF"]["monto_usd"] == 20.0
-    assert asset_rows["Non US RF"]["table_label"] == asset_bucket_detail_label("Non US RF")
-    assert asset_rows["RV DM"]["monto_usd"] == 70.0
-    assert asset_rows["RV DM"]["table_label"] == "Global Equity"
-    assert sum(row["monto_usd"] for row in asset_rows.values()) == 150.0
+    assert asset_rows["Cash"]["monto_usd"] == 10.0
+    assert asset_rows["Cash"]["table_label"] == "Cash"
+    assert asset_rows["IG Fixed income"]["monto_usd"] == 70.0
+    assert asset_rows["IG Fixed income"]["table_label"] == "IG Fixed income"
+    assert asset_rows["US equities"]["monto_usd"] == pytest.approx(46.67, abs=0.01)
+    assert asset_rows["US equities"]["table_label"] == "US equities"
+    assert asset_rows["Non-US equities"]["monto_usd"] == pytest.approx(23.33, abs=0.01)
+    assert asset_rows["Non-US equities"]["table_label"] == "Non-US equities"
+    assert sum(row["monto_usd"] for row in asset_rows.values()) == pytest.approx(150.0, abs=0.01)
+
+
+def test_get_personal_asset_view_includes_mandate_split_allocation_from_persisted_json(db_session):
+    mandate = _mk_account(
+        db_session,
+        account_number="432",
+        bank_code="ubs_miami",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=mandate.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("1000.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+                asset_allocation_json=json.dumps(
+                    {
+                        "Cash": {"value": 10.0, "unit": "%"},
+                        "Investment Grade Fixed Income": {"value": 40.0, "unit": "%"},
+                        "Emerging Market Fixed Income": {"value": 20.0, "unit": "%"},
+                        "US Equities": {"value": 15.0, "unit": "%"},
+                        "Non US Equities": {"value": 15.0, "unit": "%"},
+                        "Fixed Income": {"value": 60.0, "unit": "%"},
+                        "Equities": {"value": 30.0, "unit": "%"},
+                    }
+                ),
+            ),
+            MonthlyMetricNormalized(
+                account_id=mandate.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("1000.00"),
+                ending_value_without_accrual=Decimal("1000.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.00"),
+                cash_value=Decimal("100.00"),
+                asset_allocation_json=json.dumps(
+                    {
+                        "Cash": {"value": 10.0, "unit": "%"},
+                        "Investment Grade Fixed Income": {"value": 40.0, "unit": "%"},
+                        "Emerging Market Fixed Income": {"value": 20.0, "unit": "%"},
+                        "US Equities": {"value": 15.0, "unit": "%"},
+                        "Non US Equities": {"value": 15.0, "unit": "%"},
+                        "Fixed Income": {"value": 60.0, "unit": "%"},
+                        "Equities": {"value": 30.0, "unit": "%"},
+                    }
+                ),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[2], account_types=["mandato"]),
+        db_session,
+    )
+
+    asset_rows = {row["label"]: row for row in payload["detail_views"]["asset"]["table_rows"]}
+    assert asset_rows["Cash"]["monto_usd"] == 100.0
+    assert asset_rows["IG Fixed income"]["monto_usd"] == 400.0
+    assert asset_rows["HY Fixed income"]["monto_usd"] == 200.0
+    assert asset_rows["US equities"]["monto_usd"] == 150.0
+    assert asset_rows["Non-US equities"]["monto_usd"] == 150.0
+
+
+def test_get_personal_asset_view_includes_bonds_allocation_in_breakdown(db_session):
+    bonds = _mk_account(
+        db_session,
+        account_number="1531100",
+        bank_code="jpmorgan",
+        account_type="bonds",
+        entity_name="Ecoterra Internacional",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=bonds.id,
+                closing_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+                asset_allocation_json=json.dumps(
+                    {
+                        "Cash, Deposits & Money Market": {"value": "10.00"},
+                        "Investment Grade Fixed Income": {"value": "70.00"},
+                        "High Yield Fixed Income": {"value": "20.00"},
+                    }
+                ),
+            ),
+            MonthlyMetricNormalized(
+                account_id=bonds.id,
+                closing_date=date(2025, 12, 31),
+                year=2025,
+                month=12,
+                ending_value_with_accrual=Decimal("100.00"),
+                ending_value_without_accrual=Decimal("100.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.00"),
+                cash_value=Decimal("10.00"),
+                asset_allocation_json=json.dumps(
+                    {
+                        "Cash, Deposits & Money Market": {"value": "10.00"},
+                        "Investment Grade Fixed Income": {"value": "70.00"},
+                        "High Yield Fixed Income": {"value": "20.00"},
+                    }
+                ),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(
+            entity_names=["Ecoterra Internacional"],
+            years=[2025],
+            months=[12],
+            account_types=["bonds"],
+        ),
+        db_session,
+    )
+
+    asset_rows = {row["label"]: row for row in payload["detail_views"]["asset"]["table_rows"]}
+    assert asset_rows["Cash"]["monto_usd"] == 10.0
+    assert asset_rows["IG Fixed income"]["monto_usd"] == 70.0
+    assert asset_rows["HY Fixed income"]["monto_usd"] == 20.0
+
+
+def test_get_personal_asset_view_does_not_force_negative_accounts_into_cash(db_session):
+    mandate = _mk_account(
+        db_session,
+        account_number="206-579943-01",
+        bank_code="ubs",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=mandate.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("-50.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyMetricNormalized(
+                account_id=mandate.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                ending_value_with_accrual=Decimal("-50.00"),
+                ending_value_without_accrual=Decimal("-50.00"),
+                movements_net=Decimal("0.00"),
+                profit_period=Decimal("0.00"),
+                currency="USD",
+                asset_allocation_json=None,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[2], account_types=["mandato"]),
+        db_session,
+    )
+
+    assert payload["detail_views"]["asset"]["table_rows"] == []
+    assert payload["detail_views"]["asset"]["total_monto_usd"] == 0.0
 
 
 def test_get_personal_exposes_grouped_account_detail_view(db_session):
@@ -1012,6 +1279,83 @@ def test_get_personal_exposes_grouped_account_detail_view(db_session):
     assert grouped_rows[0]["movimientos_mes"] == 0.0
 
 
+def test_get_personal_exposes_account_grouping_levels(db_session):
+    mandato = _mk_account(
+        db_session,
+        account_number="3400",
+        bank_code="jpmorgan",
+        account_type="mandato",
+        entity_name="Boatview",
+    )
+    etf = _mk_account(
+        db_session,
+        account_number="9001",
+        bank_code="jpmorgan",
+        account_type="etf",
+        entity_name="Boatview",
+    )
+    alternativos = _mk_account(
+        db_session,
+        account_number="ALT-001",
+        bank_code="alternativos",
+        account_type="investment",
+        entity_name="Boatview",
+    )
+    db_session.add_all(
+        [
+            MonthlyClosing(
+                account_id=mandato.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("100.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=etf.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("200.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+            MonthlyClosing(
+                account_id=alternativos.id,
+                closing_date=date(2025, 2, 28),
+                year=2025,
+                month=2,
+                net_value=Decimal("300.00"),
+                income=Decimal("0.00"),
+                change_in_value=Decimal("0.00"),
+                currency="USD",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_personal(
+        FilterParams(entity_names=["Boatview"], years=[2025], months=[2]),
+        db_session,
+    )
+
+    level_1_labels = {row["label"] for row in payload["detail_views"]["account_level_1"]["table_rows"]}
+    assert {"Mandato", "ETF", "Alternativos"}.issubset(level_1_labels)
+
+    level_2_labels = {row["label"] for row in payload["detail_views"]["account_level_2"]["table_rows"]}
+    assert "Mandato - jpmorgan" in level_2_labels
+    assert "ETF - jpmorgan" in level_2_labels
+    assert "Alternativos - alternativos" in level_2_labels
+
+    level_4_labels = {row["label"] for row in payload["detail_views"]["account_level_4"]["table_rows"]}
+    assert "Mandato - jpmorgan - Boatview - 3400" in level_4_labels
+    assert "ETF - jpmorgan - Boatview - 9001" in level_4_labels
+    assert "Alternativos - alternativos - Boatview - ALT-001" in level_4_labels
+
+
 def test_get_personal_society_view_keeps_zero_societies_when_filtering_by_name(db_session):
     active = _mk_account(
         db_session,
@@ -1081,6 +1425,8 @@ def test_etf_asset_bucket_classifies_core_tickers_and_cash_aliases():
     assert _etf_asset_bucket_from_instrument("VDPA") == "RF IG Long"
     assert _etf_asset_bucket_from_instrument("VDCA") == "RF IG Short"
     assert _etf_asset_bucket_from_instrument("IHYA") == "HY"
+    assert _etf_asset_bucket_from_instrument("NON-US EQUITY") == "RV EM"
+    assert _etf_asset_bucket_from_instrument("NON US EQUITY") == "RV EM"
     assert _etf_asset_bucket_from_instrument("SPDR BLOOMBERG 1-10 YEAR U.S.") == "RF IG Short"
     assert _etf_asset_bucket_from_instrument("SSGA SPDR ETFS EU I PB L C-SPD ETF ON BLOOMBERG") == "RF IG Short"
     assert _etf_asset_bucket_from_instrument("non us fixed income") == "Non US RF"

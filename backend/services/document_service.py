@@ -33,7 +33,6 @@ from backend.services.cache_service import CacheService
 from parsers.registry import get_registry
 
 FILE_TYPE_TO_PARSER_KEY = {
-    "pdf_report": ("system", "report_asset_allocation"),
     "excel_alternatives": ("system", "alternatives"),
     "excel_master": ("system", "master_accounts"),
     "excel_positions": ("system", "daily_positions"),
@@ -173,7 +172,14 @@ class DocumentService:
 
         parser = None
         parser_key = FILE_TYPE_TO_PARSER_KEY.get(doc.file_type)
-        if parser_key:
+        if doc.file_type == "pdf_report":
+            # Aislamiento por banco/tipo: cada banco usa su motor dedicado de reportes.
+            if doc.bank_code:
+                parser = registry.get_parser(doc.bank_code, "report_mandato")
+            # Fallback de compatibilidad para bancos no modelados.
+            if parser is None:
+                parser = registry.get_parser("system", "report_asset_allocation")
+        elif parser_key:
             parser = registry.get_parser(parser_key[0], parser_key[1])
         elif doc.bank_code and doc.file_type:
             account_type = doc.file_type.replace("pdf_", "").replace("excel_", "")
@@ -474,7 +480,7 @@ class DocumentService:
         for (b_code, a_type), parser_class in registry._parsers.items():
             if b_code != bank_code or b_code == "system":
                 continue
-            if a_type == "report_asset_allocation":
+            if a_type in {"report_asset_allocation", "report_mandato"}:
                 continue
             try:
                 parser = parser_class()

@@ -1,0 +1,87 @@
+﻿{
+  "ignore_contains": [
+    "totalportfolio",
+    "totalnetmarketvalue",
+    "netassets",
+    "totalassets",
+    "totalmarketvalue"
+  ],
+  "exact_map": {
+    "cash": "cash",
+    "deposits": "cash",
+    "moneymarket": "cash",
+    "liquidity": "cash",
+    "investmentgrade": "ig_fixed_income",
+    "highgrade": "ig_fixed_income",
+    "fixedincome": "fixed_income",
+    "usequities": "us_equities",
+    "nonusequities": "non_us_equities",
+    "equities": "equities",
+    "globalequity": "global_equities",
+    "privateequity": "private_equity",
+    "realestate": "real_estate",
+    "otherinvestments": "other_investments",
+    "assetallocationinvestments": "other_investments",
+    "miscellaneous": "other_investments",
+    "hedgefunds": "other_investments"
+  },
+  "contains_rules": [
+    {
+      "contains_any": ["cash", "deposit", "money market", "moneymarket", "liquidity"],
+      "exclude_any": ["fixed income", "fixedincome", "bond", "equity", "stock"],
+      "category": "cash"
+    },
+    {
+      "contains_any": ["private equity", "privateequity"],
+      "category": "private_equity"
+    },
+    {
+      "contains_any": ["other investment", "other investments", "otherinvestment", "otherinvestments", "asset allocation investment", "asset allocation investments", "assetallocationinvestment", "assetallocationinvestments", "miscellaneous", "hedge fund", "hedgefund", "hedge funds"],
+      "category": "other_investments"
+    },
+    {
+      "contains_any": ["real estate", "realestate", "real assets", "realassets", "property"],
+      "category": "real_estate"
+    },
+    {
+      "contains_any": ["high yield", "highyield", "non investment grade", "noninvestmentgrade", "us high yield", "ushighyield", "other fixed income", "otherfixedincome"],
+      "category": "hy_fixed_income"
+    },
+    {
+      "contains_any": ["investment grade", "investmentgrade", "high grade", "highgrade", "corporate", "government", "treasury", "tips", "short duration", "shortduration"],
+      "category": "ig_fixed_income"
+    },
+    {
+      "contains_any": ["fixed income", "fixedincome", "bond", "bonds", "credit", "loan"],
+      "category": "fixed_income"
+    },
+    {
+      "contains_any": ["non us", "non-us", "nonus", "international", "emerging", "eafe", "europe", "japan", "switzerland", "uk", "emu"],
+      "contains_all": ["equit"],
+      "category": "non_us_equities"
+    },
+    {
+      "contains_any": ["us equity", "us equities", "usequity", "usequities", "us large", "uslarge", "s&p", "sp500", "russell", "nasdaq"],
+      "category": "us_equities"
+    },
+    {
+      "contains_any": ["global equity", "globalequity"],
+      "category": "global_equities"
+    },
+    {
+      "contains_any": ["equity", "equities", "stock", "stocks"],
+      "category": "equities"
+    }
+  ],
+  "bank_overrides": {
+    "ubs_miami": {
+      "contains_rules": [
+        {
+          "contains_any": ["emerging"],
+          "contains_all": ["fixed", "income"],
+          "category": "hy_fixed_income"
+        }
+      ]
+    }
+  }
+}

@@ -150,6 +150,52 @@ def test_ubs_suiza_portfolio_01_liquidity_row_keeps_total_column(filename, expec
     assert _as_decimal(alloc.get("Liquidity", {}).get("total")) == expected_liquidity
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected_net_assets", "expected_bonds", "expected_equities"),
+    [
+        (
+            "202310 Telmar UBS SW Mandato (0402 60P).pdf",
+            Decimal("68433704"),
+            Decimal("43964829"),
+            Decimal("23478819"),
+        ),
+        (
+            "202311 Telmar UBS SW Mandato (0402 60P).pdf",
+            Decimal("72201365"),
+            Decimal("45557933"),
+            Decimal("25731409"),
+        ),
+    ],
+)
+def test_ubs_suiza_telmar_2023_total_assets_ignores_graph_axis_noise(
+    filename,
+    expected_net_assets,
+    expected_bonds,
+    expected_equities,
+):
+    path = _raw_cartola_path(filename)
+    _require(path)
+
+    result = UBSSwitzerlandCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "206-560402-01"
+    assert result.closing_balance == expected_net_assets
+
+    selected = result.balances.get("selected_portfolio", {})
+    assert selected.get("portfolio") == "Portfolio01"
+    assert _as_decimal(selected.get("net_assets")) == expected_net_assets
+    assert _as_decimal(selected.get("asset_classes", {}).get("bonds")) == expected_bonds
+    assert _as_decimal(selected.get("asset_classes", {}).get("equities")) == expected_equities
+
+    monthly = result.qualitative_data.get("account_monthly_activity", [])
+    assert len(monthly) == 1
+    assert _as_decimal(monthly[0].get("ending_value_with_accrual")) == expected_net_assets
+
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("Bonds", {}).get("total")) == expected_bonds
+    assert _as_decimal(alloc.get("Equities", {}).get("total")) == expected_equities
+
+
 def test_ubs_suiza_extracts_negative_current_and_previous_net_assets_from_detail():
     parser = UBSSwitzerlandCustodyParser()
     current, previous = parser._extract_current_previous_from_detail(
@@ -701,6 +747,43 @@ def test_goldman_mandato_has_statement_dates_and_balances():
     assert monthly[0]["account_number"] == "451-9"
     assert _as_decimal(monthly[0]["net_contributions"]) == Decimal("0.00")
     assert _as_decimal(monthly[0]["utilidad"]) == Decimal("1106908.06")
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_closing"),
+    [
+        ("201711 Telmar - GS.pdf", Decimal("100605235.03")),
+        ("201802 Telmar - GS.pdf", Decimal("100445378.50")),
+    ],
+)
+def test_goldman_legacy_telmar_avoids_double_counting_main_overview_as_subportfolio(
+    filename,
+    expected_closing,
+):
+    path = _goldman_raw_cartola_path(filename)
+    _require(path)
+
+    result = GoldmanSachsCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "097-4"
+    assert result.closing_balance == expected_closing
+
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("TOTAL PORTFOLIO", {}).get("market_value")) == expected_closing
+
+
+def test_goldman_boatview_jan_2026_keeps_cash_umbrella_from_cartola():
+    path = _goldman_raw_cartola_path("202601 Boatview - GS (Mandato_).pdf")
+    _require(path)
+
+    result = GoldmanSachsCustodyParser().safe_parse(path)
+    assert result.is_success
+    assert result.account_number == "451-9"
+
+    alloc = result.qualitative_data.get("asset_allocation", {})
+    assert _as_decimal(alloc.get("CASH, DEPOSITS & MONEY MARKET FUNDS", {}).get("market_value")) == Decimal("38057935.83")
+    assert _as_decimal(alloc.get("FIXED INCOME", {}).get("market_value")) == Decimal("133979750.72")
+    assert _as_decimal(alloc.get("PUBLIC EQUITY", {}).get("market_value")) == Decimal("104103888.43")
 
 
 def test_goldman_etf_recovers_spdr_bloomberg_alias_from_legacy_layout():

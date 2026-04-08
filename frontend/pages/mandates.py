@@ -14,10 +14,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from asset_taxonomy import coarse_asset_bucket_series
+from asset_taxonomy import asset_bucket_color
 from frontend import api_client
 from frontend.components.data_health import render_health_warning
-from frontend.components.filters import BANK_DISPLAY_NAMES
+from frontend.components.filters import BANK_DISPLAY_NAMES, use_apply_filters
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
 
@@ -32,7 +32,12 @@ FIXED_BANKS = [
     ("ubs_miami", "UBS Miami"),
 ]
 
-ASSET_SERIES = coarse_asset_bucket_series()
+ASSET_SERIES = [
+    ("Cash, Deposits & Money Market", "Caja", asset_bucket_color("Caja") or "#D5DEE9"),
+    ("Investment Grade Fixed Income", "Investment Grade Fixed Income", asset_bucket_color("RF IG Short") or "#2D6FB7"),
+    ("High Yield Fixed Income", "High Yield Fixed Income", asset_bucket_color("HY") or "#8AB8EB"),
+    ("Equities", "Renta Variable", asset_bucket_color("RV DM") or "#B53639"),
+]
 
 
 def _pick_asset_value(payload: dict, asset_key: str) -> float:
@@ -45,9 +50,39 @@ def _pick_asset_value(payload: dict, asset_key: str) -> float:
         except (TypeError, ValueError):
             return 0.0
 
+    if asset_key == "Investment Grade Fixed Income":
+        ig_val = payload.get("Investment Grade Fixed Income")
+        hy_val = payload.get("High Yield Fixed Income")
+        fi_val = payload.get("Fixed Income")
+        try:
+            if ig_val is not None:
+                return float(ig_val or 0.0)
+            if fi_val is not None:
+                return max(float(fi_val or 0.0) - float(hy_val or 0.0), 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+        return 0.0
+
+    if asset_key == "High Yield Fixed Income":
+        hy_val = payload.get("High Yield Fixed Income")
+        try:
+            return float(hy_val or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    if asset_key == "Equities":
+        us_val = payload.get("US Equities")
+        non_us_val = payload.get("Non US Equities")
+        try:
+            if us_val is not None or non_us_val is not None:
+                return float(us_val or 0.0) + float(non_us_val or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
     key_map = {
         "Cash, Deposits & Money Market": ("cash", "deposit", "money market", "liquidity"),
-        "Fixed Income": ("fixed income", "bond"),
+        "Investment Grade Fixed Income": ("investment grade", "ig"),
+        "High Yield Fixed Income": ("high yield", "non investment grade", "hy"),
         "Equities": ("equity", "equities"),
     }
     tokens = key_map.get(asset_key, ())
@@ -470,6 +505,9 @@ def render():
         filter_opts = {"bank_codes": [], "entity_names": []}
 
     bank_options = filter_opts.get("bank_codes", [])
+    entity_options = sorted(filter_opts.get("entity_names", []))
+    applied_seed = st.session_state.get("mandates_filters_applied", {})
+    bank_seed = list(applied_seed.get("bank_codes", [])) if isinstance(applied_seed, dict) else []
 
     st.markdown("### Filtros")
     col_bank, col_entity, col_caja, col_fecha = st.columns(4)
@@ -481,23 +519,15 @@ def render():
             format_func=_fmt_bank,
             key="mandates_bank_codes",
         )
-        bank_seed = selected_banks
 
-    seed_payload = {
-        "bank_codes": bank_seed,
-    }
+    seed_payload = {"bank_codes": bank_seed}
     seed_data = api_client.post("/data/mandates", json=seed_payload)
     available_fechas = sorted(seed_data.get("available_fechas", []), reverse=True)
-    mandates_societies = sorted({
-        str(r.get("entity_name"))
-        for r in seed_data.get("banks_by_month", [])
-        if r.get("entity_name")
-    })
 
     with col_entity:
         selected_entities = st.multiselect(
             "Sociedad",
-            options=mandates_societies,
+            options=entity_options,
             key="mandates_entity_names",
         )
 
@@ -522,30 +552,44 @@ def render():
             selected_fecha = None
             st.selectbox("Fecha", options=["Sin datos"], disabled=True, key="mandates_fecha_empty")
 
+    applied_filters, _ = use_apply_filters(
+        state_key="mandates_filters_applied",
+        current_filters={
+            "bank_codes": list(selected_banks),
+            "entity_names": list(selected_entities),
+            "sin_caja": sin_caja,
+            "fecha": selected_fecha,
+        },
+    )
+    applied_banks = list(applied_filters.get("bank_codes", []))
+    applied_entities = list(applied_filters.get("entity_names", []))
+    applied_sin_caja = bool(applied_filters.get("sin_caja", False))
+    applied_fecha = applied_filters.get("fecha")
+
     st.markdown("---")
 
     payload = {
-        "bank_codes": selected_banks,
-        "entity_names": selected_entities,
-        "fecha": selected_fecha,
-        "sin_caja": sin_caja,
+        "bank_codes": applied_banks,
+        "entity_names": applied_entities,
+        "fecha": applied_fecha,
+        "sin_caja": applied_sin_caja,
     }
     data = api_client.post("/data/mandates", json=payload)
-    table_years = _calc_table_years(selected_fecha)
+    table_years = _calc_table_years(applied_fecha)
     table_data = api_client.post("/data/mandates", json={
-        "bank_codes": selected_banks,
-        "entity_names": selected_entities,
+        "bank_codes": applied_banks,
+        "entity_names": applied_entities,
         "years": table_years,
-        "sin_caja": sin_caja,
+        "sin_caja": applied_sin_caja,
     })
     series_data = api_client.post("/data/mandates", json={
-        "bank_codes": selected_banks,
-        "entity_names": selected_entities,
+        "bank_codes": applied_banks,
+        "entity_names": applied_entities,
         "years": table_years,
-        "sin_caja": sin_caja,
+        "sin_caja": applied_sin_caja,
     })
 
-    effective_fecha = data.get("selected_fecha") or selected_fecha
+    effective_fecha = data.get("selected_fecha") or applied_fecha
     chart_year = _year_from_fecha(effective_fecha)
     chart_month = int(effective_fecha[5:7]) if effective_fecha and len(effective_fecha) >= 7 else 12
 
@@ -553,8 +597,8 @@ def render():
         {
             "years": [chart_year] if chart_year else [],
             "months": list(range(1, chart_month + 1)) if chart_year else [],
-            "bank_codes": selected_banks,
-            "entity_names": selected_entities,
+            "bank_codes": applied_banks,
+            "entity_names": applied_entities,
             "account_types": ["mandato", "etf"],
             "sin_personal": True,
         },
@@ -574,7 +618,7 @@ def render():
         etf_totals_by_month=table_data.get("etf_totals_by_month", {}),
         etf_total_returns=table_data.get("etf_total_returns", {}),
         effective_fecha=effective_fecha,
-        sin_caja=sin_caja,
+        sin_caja=applied_sin_caja,
     )
     if not kpi_df.empty:
         sort_col_left, sort_col_right = st.columns([2, 1])
@@ -742,7 +786,7 @@ def render():
         banks_rows=series_data.get("banks_by_month", []),
         returns_table=series_data.get("returns_table", []),
         selected_year=chart_year,
-        sin_caja=sin_caja,
+        sin_caja=applied_sin_caja,
     )
 
     st.subheader(f"Mandato por Banco {chart_year}")

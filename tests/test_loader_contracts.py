@@ -18,12 +18,16 @@ from backend.db.models import (
     RawDocument,
     ValidationLog,
 )
-from backend.services.data_loading_service import DataLoadingService
+from backend.services.data_loading_service import (
+    DataLoadingService,
+    _normalize_mandate_asset_allocation,
+)
 from parsers.base import ParseResult, ParsedRow, ParserStatus
 from parsers.bbh.custody import BBHCustodyParser
 from parsers.goldman_sachs.custody import GoldmanSachsCustodyParser
 from parsers.jpmorgan.bonds import JPMorganBondsParser
 from parsers.jpmorgan.brokerage import JPMorganBrokerageParser
+from parsers.jpmorgan.custody import JPMorganCustodyParser
 from parsers.jpmorgan.etf import JPMorganEtfParser
 from parsers.ubs.custody import UBSSwitzerlandCustodyParser
 
@@ -137,11 +141,11 @@ def test_loader_maps_goldman_mandato_activity_to_monthly_closing(db_session):
     assert mc.income == Decimal("1106908.06")
     assert mc.change_in_value == Decimal("0.00")
     alloc = json.loads(mc.asset_allocation_json or "{}")
-    assert set(alloc.keys()) == {
+    assert {
         "Cash, Deposits & Money Market",
         "Fixed Income",
         "Equities",
-    }
+    }.issubset(set(alloc.keys()))
     assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("38078891.58")
     assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("133671048.88")
     assert Decimal(alloc["Equities"]["value"]) == Decimal("102110902.70")
@@ -198,11 +202,11 @@ def test_loader_maps_goldman_raw_subportfolio_summary_to_monthly_closing(db_sess
     assert mc.income == Decimal("-555931.41")
 
     alloc = json.loads(mc.asset_allocation_json or "{}")
-    assert set(alloc.keys()) == {
+    assert {
         "Cash, Deposits & Money Market",
         "Fixed Income",
         "Equities",
-    }
+    }.issubset(set(alloc.keys()))
     assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("1192230.13")
     assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("11893895.07")
     assert Decimal(alloc["Equities"]["value"]) == Decimal("37461987.07")
@@ -256,11 +260,11 @@ def test_loader_maps_bbh_mandato_activity_to_monthly_closing(db_session):
     assert mc.income is not None
     assert mc.change_in_value is not None
     alloc = json.loads(mc.asset_allocation_json or "{}")
-    assert set(alloc.keys()) == {
+    assert {
         "Cash, Deposits & Money Market",
         "Fixed Income",
         "Equities",
-    }
+    }.issubset(set(alloc.keys()))
     assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("516437.81")
     assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("51485414.23")
     assert Decimal(alloc["Equities"]["value"]) == Decimal("38198758.82")
@@ -2524,6 +2528,8 @@ def test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100():
     alloc_target = result_target.qualitative_data.get("asset_allocation", {})
     assert alloc_target.get("Cash, Deposits & Short Term", {}).get("ending") == "615750.66"
     assert alloc_target.get("Cash, Deposits & Short Term", {}).get("change") == "-698997.46"
+    assert alloc_target.get("Fixed Income", {}).get("ending") == "13268328.10"
+    assert alloc_target.get("Fixed Income", {}).get("change") == "-14035611.73"
 
     result_other = ParseResult(
         status=ParserStatus.SUCCESS,
@@ -2536,6 +2542,231 @@ def test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100():
     parser._extract_account_summary(pages, result_other)
     alloc_other = result_other.qualitative_data.get("asset_allocation", {})
     assert alloc_other.get("Cash, Deposits & Short Term", {}).get("ending") == "1217852.19"
+    assert alloc_other.get("Fixed Income", {}).get("ending") == "12629041.68"
+
+
+def test_canonical_from_etf_instruments_keeps_emerging_and_non_us_labels():
+    canonical = DataLoadingService._canonical_from_etf_instruments(
+        {
+            "IWDA": Decimal("60.00"),
+            "IEMA": Decimal("20.00"),
+            "NON-US EQUITY": Decimal("10.00"),
+        }
+    )
+
+    assert canonical["Cash, Deposits & Money Market"] == Decimal("0")
+    assert canonical["Investment Grade Fixed Income"] == Decimal("0")
+    assert canonical["High Yield Fixed Income"] == Decimal("0")
+    assert canonical["US Equities"] == Decimal("0")
+    assert canonical["Non US Equities"] == Decimal("90.00")
+
+
+def test_compose_normalized_payload_applies_reporting_exclusion_for_telmar_gs_mandato(db_session):
+    acct = Account(
+        account_number="097-4",
+        identification_number="097-4",
+        bank_code="goldman_sachs",
+        bank_name="Goldman Sachs",
+        account_type="mandato",
+        entity_name="Telmar",
+        entity_type="sociedad",
+        currency="USD",
+        country="US",
+    )
+    raw_payload = json.dumps(
+        {
+            "Private Equity": {"value": "3304758.00"},
+            "Hedge Funds": {"value": "8573.14"},
+        }
+    )
+
+    loader = DataLoadingService(db_session)
+    rendered = loader._compose_normalized_asset_allocation_json(
+        account=acct,
+        year=2026,
+        month=2,
+        ending_value_with_accrual=Decimal("3315792.73"),
+        raw_asset_allocation_json=raw_payload,
+    )
+    payload = json.loads(rendered or "{}")
+    exclusion = payload.get("__reporting_value_exclusion", {})
+    assert Decimal(exclusion.get("applied_total_usd")) == Decimal("3304758.00")
+    assert exclusion.get("components", [])[0]["label"] == "Private Equity"
+
+
+def test_normalize_mandate_asset_allocation_preserves_other_investments_with_macros():
+    payload = _normalize_mandate_asset_allocation(
+        {
+            "Cash, Deposits & Money Market Funds": {"market_value": "100"},
+            "Fixed Income": {"market_value": "200"},
+            "Public Equity": {"market_value": "300"},
+            "Alternative Investments": {"market_value": "999"},
+            "Hedge Funds": {"market_value": "40"},
+            "Other Investments": {"market_value": "50"},
+            "Private Equity": {"market_value": "60"},
+        },
+        bank_code="goldman_sachs",
+        macro_only=True,
+    )
+
+    assert payload == {
+        "Cash, Deposits & Money Market": {"value": "100"},
+        "Fixed Income": {"value": "200"},
+        "Equities": {"value": "300"},
+        "Private Equity": {"value": "60"},
+        "Other Investments": {"value": "90"},
+    }
+
+
+def test_compose_normalized_payload_keeps_other_investments_without_gs_pe_exclusion(db_session):
+    acct = Account(
+        account_number="097-4",
+        identification_number="097-4",
+        bank_code="goldman_sachs",
+        bank_name="Goldman Sachs",
+        account_type="mandato",
+        entity_name="Telmar",
+        entity_type="sociedad",
+        currency="USD",
+        country="US",
+    )
+    raw_payload = json.dumps(
+        {
+            "Cash, Deposits & Money Market": {"value": "10570890.34"},
+            "Fixed Income": {"value": "74698661.44"},
+            "Equities": {"value": "37322906.56"},
+            "Other Investments": {"value": "2726214.37"},
+        }
+    )
+
+    loader = DataLoadingService(db_session)
+    rendered = loader._compose_normalized_asset_allocation_json(
+        account=acct,
+        year=2016,
+        month=1,
+        ending_value_with_accrual=Decimal("125318672.71"),
+        raw_asset_allocation_json=raw_payload,
+    )
+    payload = json.loads(rendered or "{}")
+    assert "__reporting_value_exclusion" not in payload
+    canonical = payload.get("__canonical_breakdown", {})
+    assert Decimal(canonical["Other Investments"]["amount"]) == Decimal("2726214.37")
+
+
+def test_compose_normalized_payload_applies_reporting_exclusion_for_telmar_jpm_brokerage(db_session):
+    acct = Account(
+        account_number="B43459001",
+        identification_number="9001",
+        bank_code="jpmorgan",
+        bank_name="JPMorgan",
+        account_type="brokerage",
+        entity_name="Telmar",
+        entity_type="sociedad",
+        currency="USD",
+        country="US",
+    )
+    raw_payload = json.dumps(
+        {
+            "Alternative Assets": {"value": "19314.00"},
+            "Cash & Fixed Income": {"value": "1847643.43"},
+        }
+    )
+
+    loader = DataLoadingService(db_session)
+    rendered = loader._compose_normalized_asset_allocation_json(
+        account=acct,
+        year=2026,
+        month=2,
+        ending_value_with_accrual=Decimal("1873308.28"),
+        raw_asset_allocation_json=raw_payload,
+    )
+    payload = json.loads(rendered or "{}")
+    exclusion = payload.get("__reporting_value_exclusion", {})
+    assert Decimal(exclusion.get("applied_total_usd")) == Decimal("19314.00")
+    assert exclusion.get("components", [])[0]["label"] == "Alternative Assets"
+
+
+def test_compose_normalized_payload_derives_telmar_gs_private_equity_from_parsed_rows(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="097-4",
+        bank_code="goldman_sachs",
+        account_type="mandato",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202602 Telmar - GS.pdf",
+        bank_code="goldman_sachs",
+    )
+    parser_version = _create_parser_version(db_session, JPMorganEtfParser())
+    db_session.add(
+        ParsedStatement(
+            raw_document_id=doc.id,
+            account_id=acct.id,
+            statement_date=date(2026, 2, 28),
+            period_start=date(2026, 2, 1),
+            period_end=date(2026, 2, 28),
+            currency="USD",
+            parsed_data_json=json.dumps(
+                {
+                    "rows": [
+                        {
+                            "instrument": "WEST STREET CAPITAL PARTNERS VII OFFSHORE, L.P.",
+                            "market_value": "3304758.00",
+                        }
+                    ]
+                }
+            ),
+            parser_version_id=parser_version.id,
+        )
+    )
+    db_session.flush()
+
+    loader = DataLoadingService(db_session)
+    rendered = loader._compose_normalized_asset_allocation_json(
+        account=acct,
+        year=2026,
+        month=2,
+        ending_value_with_accrual=Decimal("3315792.73"),
+        raw_asset_allocation_json=json.dumps(
+            {
+                "__canonical_breakdown": {
+                    "Cash, Deposits & Money Market": {"amount": "2460.41"},
+                    "Investment Grade Fixed Income": {"amount": "0"},
+                    "High Yield Fixed Income": {"amount": "0"},
+                    "US Equities": {"amount": "0"},
+                    "Non US Equities": {"amount": "0"},
+                    "Private Equity": {"amount": "0"},
+                    "Real Estate": {"amount": "0"},
+                }
+            }
+        ),
+    )
+    payload = json.loads(rendered or "{}")
+    exclusion = payload.get("__reporting_value_exclusion", {})
+    assert Decimal(exclusion.get("applied_total_usd")) == Decimal("3304758.00")
+
+
+def test_jpmorgan_custody_splits_short_term_from_cash_holdings():
+    parser = JPMorganCustodyParser()
+    text = "\n".join(
+        [
+            "Account Summary",
+            "Asset Allocation",
+            "Cash, Deposits & Short Term 3,000.00 4,000.00 1,000.00",
+            "Fixed Income 10,000.00 20,000.00 10,000.00",
+            "Equities 15,000.00 16,000.00 1,000.00",
+            "Cash Holdings 2,500.00 1.25%",
+            "Short Term Investments 1,500.00 0.75%",
+        ]
+    )
+
+    alloc = parser._extract_summary_asset_allocation(text)
+    assert alloc["Cash, Deposits & Money Market"]["ending"] == "2500.00"
+    assert alloc["Cash, Deposits & Money Market"]["change"] == "-500.00"
+    assert alloc["Fixed Income"]["ending"] == "21500.00"
+    assert alloc["Fixed Income"]["change"] == "11500.00"
+    assert alloc["Equities"]["ending"] == "16000.00"
 
 
 def test_loader_loads_alternatives_into_normalized_with_synthetic_bank(db_session):
@@ -2722,3 +2953,208 @@ def test_process_document_prefers_account_type_brokerage_over_autodetect(db_sess
         .one()
     )
     assert pv.parser_name == "parsers.jpmorgan.brokerage"
+
+
+def test_process_document_pdf_report_uses_bank_isolated_report_parser(db_session, tmp_dir):
+    """pdf_report debe seleccionar motor aislado por banco (no parser system compartido)."""
+    from backend.services.document_service import DocumentService
+
+    acct = _create_account(
+        db_session,
+        account_number="7085-test-report",
+        bank_code="bbh",
+        account_type="mandato",
+    )
+
+    dummy_pdf = tmp_dir / "202501 Boatview BBH EQ report.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy content for report parser routing")
+
+    doc = RawDocument(
+        filename="202501 Boatview BBH EQ report.pdf",
+        filepath=str(dummy_pdf),
+        file_type="pdf_report",
+        sha256_hash=_mk_hash("test-pdf-report-bank-isolated-routing"),
+        file_size_bytes=dummy_pdf.stat().st_size,
+        bank_code="bbh",
+        account_id=acct.id,
+        status="uploaded",
+    )
+    db_session.add(doc)
+    db_session.flush()
+
+    service = DocumentService(db_session)
+    service.process_document(doc.id)
+
+    db_session.refresh(doc)
+    assert doc.parser_version_id is not None
+    pv = (
+        db_session.query(ParserVersion)
+        .filter(ParserVersion.id == doc.parser_version_id)
+        .one()
+    )
+    assert pv.parser_name == "parsers.bbh.report_mandato"
+
+
+def test_loader_persists_mandate_canonical_and_fi_metrics_in_normalized_payload(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="MAND-SSOT-001",
+        bank_code="bbh",
+        account_type="mandato",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="mandate-ssot.pdf",
+        bank_code="bbh",
+    )
+    parser = BBHCustodyParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("mandate-ssot"),
+        bank_code="bbh",
+        account_number=acct.account_number,
+        statement_date=date(2025, 12, 31),
+        period_start=date(2025, 12, 1),
+        period_end=date(2025, 12, 31),
+        opening_balance=Decimal("900.00"),
+        closing_balance=Decimal("1000.00"),
+        currency="USD",
+            qualitative_data={
+                "asset_allocation": {
+                    "Cash, Deposits & Money Market": {"value": "100.0"},
+                    "Investment Grade Fixed Income": {"value": "400.0"},
+                    "High Yield Fixed Income": {"value": "200.0"},
+                    "US Equities": {"value": "200.0"},
+                    "Non US Equities": {"value": "100.0"},
+                    "__mandate_metrics": {
+                        "fixed_income_duration": {"value": 4.2, "unit": "years"},
+                        "fixed_income_yield": {"value": 6.8, "unit": "%"},
+                    },
+                },
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "1000.00",
+                    "ending_value_without_accrual": "1000.00",
+                    "net_contributions": "0.00",
+                    "utilidad": "100.00",
+                }
+            ],
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 12,
+        )
+        .one()
+    )
+    payload = json.loads(normalized.asset_allocation_json or "{}")
+    assert "__canonical_breakdown" in payload
+    assert "__derived_breakdown" in payload
+    assert "__fi_metrics" in payload
+    # Mandato cartola persists only macro sleeves; without report-level splits the
+    # normalized layer applies the central fallback:
+    # - Fixed Income -> IG
+    # - Equities -> 2/3 US + 1/3 Non-US
+    assert Decimal(payload["__canonical_breakdown"]["Investment Grade Fixed Income"]["amount"]) == Decimal("600")
+    assert Decimal(payload["__canonical_breakdown"]["High Yield Fixed Income"]["amount"]) == Decimal("0")
+    assert Decimal(payload["__canonical_breakdown"]["US Equities"]["amount"]) == Decimal("200.00000001000")
+    assert Decimal(payload["__canonical_breakdown"]["Non US Equities"]["amount"]) == Decimal("99.99999999000")
+    assert payload["__fi_metrics"]["fixed_income_duration"]["unit"] == "years"
+    assert payload["__fi_metrics"]["fixed_income_yield"]["unit"] == "%"
+
+
+def test_loader_persists_etf_instrument_breakdown_in_normalized_payload(db_session):
+    acct = _create_account(
+        db_session,
+        account_number="ETF-SSOT-001",
+        bank_code="jpmorgan",
+        account_type="etf",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="etf-ssot.pdf",
+        bank_code="jpmorgan",
+    )
+    parser = JPMorganEtfParser()
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("etf-ssot"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2025, 12, 31),
+        period_start=date(2025, 12, 1),
+        period_end=date(2025, 12, 31),
+        opening_balance=Decimal("90.00"),
+        closing_balance=Decimal("100.00"),
+        currency="USD",
+        qualitative_data={
+            "account_monthly_activity": [
+                {
+                    "account_number": acct.account_number,
+                    "ending_value_with_accrual": "100.00",
+                    "ending_value_without_accrual": "100.00",
+                    "net_contributions": "0.00",
+                    "utilidad": "10.00",
+                }
+            ],
+        },
+        rows=[
+            ParsedRow(
+                data={
+                    "instrument": "IWDA",
+                    "market_value": "60.00",
+                    "account_number": acct.account_number,
+                },
+                row_number=1,
+                confidence=0.9,
+            ),
+            ParsedRow(
+                data={
+                    "instrument": "P JPM LI-LIQ LVNAV FD - USD - W -",
+                    "market_value": "40.00",
+                    "account_number": acct.account_number,
+                },
+                row_number=2,
+                confidence=0.9,
+            ),
+        ],
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert stats["etf_compositions"] == 2
+    assert not stats["errors"]
+
+    normalized = (
+        db_session.query(MonthlyMetricNormalized)
+        .filter(
+            MonthlyMetricNormalized.account_id == acct.id,
+            MonthlyMetricNormalized.year == 2025,
+            MonthlyMetricNormalized.month == 12,
+        )
+        .one()
+    )
+    payload = json.loads(normalized.asset_allocation_json or "{}")
+    assert "__canonical_breakdown" in payload
+    assert "__instrument_breakdown" in payload
+    assert Decimal(payload["__instrument_breakdown"]["IWDA"]["amount"]) == Decimal("60")
+    assert Decimal(payload["__instrument_breakdown"]["Money Market"]["amount"]) == Decimal("40")

@@ -69,7 +69,7 @@ def _parse_date_text(text: str) -> Optional[date]:
 class JPMorganBondsParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "bonds"
-    VERSION = "2.0.1"
+    VERSION = "2.0.2"
     DESCRIPTION = "Parser para cartolas Mandato Bonos JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -227,6 +227,34 @@ class JPMorganBondsParser(BaseParser):
                 return _parse_usd(m.group(1))
         return None
 
+    def _extract_total_short_term_investments(self, pages: list[str]) -> Optional[Decimal]:
+        """
+        Extrae `Total Short Term Investments` para reclasificarlo como IG FI en 1531100.
+        """
+        pattern = re.compile(
+            r"Total\s+Short\s+Term\s+Investments\s+[\d,]+\.\d{2}\s+([\d,]+\.\d{2})",
+            re.IGNORECASE,
+        )
+        fallback_pattern = re.compile(
+            r"Total\s+Short\s+Term\s+Investments\s+([\d,]+\.\d{2})",
+            re.IGNORECASE,
+        )
+        line_pattern = re.compile(
+            r"(?:^|\n)\s*Short\s+Term\s+Investments\s+([\d,]+\.\d{2})(?:\s|$)",
+            re.IGNORECASE,
+        )
+        for text in pages[:25]:
+            if "Short Term Investments" not in text:
+                continue
+            m = pattern.search(text)
+            if not m:
+                m = fallback_pattern.search(text)
+            if not m:
+                m = line_pattern.search(text)
+            if m:
+                return _parse_usd(m.group(1))
+        return None
+
     def _apply_cash_holdings_override_for_ecoterra_1100(
         self,
         *,
@@ -259,6 +287,30 @@ class JPMorganBondsParser(BaseParser):
         if beginning_value is not None:
             cash_payload["change"] = str(cash_holdings - beginning_value)
         alloc[cash_key] = cash_payload
+
+        # En esta cuenta, Short Term Investments se reporta dentro de RF (IG),
+        # no en caja.
+        short_term_total = self._extract_total_short_term_investments(pages)
+        if short_term_total is None:
+            return
+
+        fixed_key = None
+        for key in alloc.keys():
+            key_norm = self._normalized_label(key)
+            if "fixedincome" in key_norm:
+                fixed_key = key
+                break
+        if fixed_key is None:
+            return
+
+        fixed_payload = alloc.get(fixed_key) if isinstance(alloc.get(fixed_key), dict) else {}
+        fixed_beginning = _parse_usd(str(fixed_payload.get("beginning") or ""))
+        fixed_ending = _parse_usd(str(fixed_payload.get("ending") or "")) or Decimal("0")
+        updated_fixed = fixed_ending + short_term_total
+        fixed_payload["ending"] = str(updated_fixed)
+        if fixed_beginning is not None:
+            fixed_payload["change"] = str(updated_fixed - fixed_beginning)
+        alloc[fixed_key] = fixed_payload
 
     def _extract_fixed_income_summary(self, pages: list[str], result: ParseResult) -> None:
         """Extract Fixed Income summary page with maturity breakdown."""

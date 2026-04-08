@@ -69,7 +69,7 @@ def _parse_date_text(text: str) -> Optional[date]:
 class JPMorganCustodyParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.1.0"
+    VERSION = "2.2.0"
     DESCRIPTION = "Parser para cartolas Mandato JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -148,6 +148,74 @@ class JPMorganCustodyParser(BaseParser):
                 return
 
     @staticmethod
+    def _normalized_label(label: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
+
+    @staticmethod
+    def _extract_cash_holdings_ending(text: str) -> Optional[Decimal]:
+        m = re.search(r"(?:^|\n)\s*Cash Holdings\s+([\d,]+\.\d{2})", text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        return _parse_usd(m.group(1))
+
+    @staticmethod
+    def _extract_short_term_investments_ending(text: str) -> Optional[Decimal]:
+        m = re.search(r"(?:^|\n)\s*Short Term Investments\s+([\d,]+\.\d{2})", text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        return _parse_usd(m.group(1))
+
+    @staticmethod
+    def _apply_cash_short_term_split(
+        *,
+        alloc: dict[str, dict],
+        text: str,
+    ) -> None:
+        if not alloc:
+            return
+
+        cash_holdings = JPMorganCustodyParser._extract_cash_holdings_ending(text)
+        short_term = JPMorganCustodyParser._extract_short_term_investments_ending(text)
+        if cash_holdings is None and short_term is None:
+            return
+
+        cash_key: str | None = None
+        fixed_key: str | None = None
+        for key in alloc.keys():
+            norm = JPMorganCustodyParser._normalized_label(key)
+            if "fixedincome" in norm:
+                fixed_key = key
+            if "cash" in norm and "deposit" in norm and "shortterm" in norm:
+                cash_key = key
+
+        if cash_holdings is not None:
+            cash_payload = alloc.get(cash_key) if cash_key and isinstance(alloc.get(cash_key), dict) else {}
+            beginning_cash = _parse_usd(str(cash_payload.get("beginning") or ""))
+            cash_payload["ending"] = str(cash_holdings)
+            if beginning_cash is not None:
+                cash_payload["change"] = str(cash_holdings - beginning_cash)
+            canonical_cash_key = "Cash, Deposits & Money Market"
+            if cash_key and cash_key != canonical_cash_key:
+                alloc.pop(cash_key, None)
+            alloc[canonical_cash_key] = cash_payload
+
+        if short_term is not None:
+            if fixed_key and isinstance(alloc.get(fixed_key), dict):
+                fixed_payload = alloc.get(fixed_key) or {}
+            else:
+                fixed_payload = {}
+                fixed_key = "Fixed Income"
+            fixed_ending = _parse_usd(str(fixed_payload.get("ending") or ""))
+            if fixed_ending is None:
+                fixed_ending = Decimal("0")
+            updated_fixed = fixed_ending + short_term
+            fixed_payload["ending"] = str(updated_fixed)
+            fixed_beginning = _parse_usd(str(fixed_payload.get("beginning") or ""))
+            if fixed_beginning is not None:
+                fixed_payload["change"] = str(updated_fixed - fixed_beginning)
+            alloc[fixed_key] = fixed_payload
+
+    @staticmethod
     def _extract_summary_asset_allocation(text: str) -> dict[str, dict]:
         """
         Extrae Asset Allocation desde una página Account Summary.
@@ -167,6 +235,7 @@ class JPMorganCustodyParser(BaseParser):
                 "ending": str(ending) if ending is not None else None,
                 "change": str(change) if change is not None else None,
             }
+        JPMorganCustodyParser._apply_cash_short_term_split(alloc=alloc, text=text)
         return alloc
 
     def _extract_account_summary(self, pages: list[str], result: ParseResult) -> None:

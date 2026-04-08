@@ -94,7 +94,7 @@ def _extract_page_text(pdf: pdfplumber.PDF, page_idx: int) -> str:
 class UBSSwitzerlandCustodyParser(BaseParser):
     BANK_CODE = "ubs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.3.2"
+    VERSION = "2.3.3"
     DESCRIPTION = "Parser para Statement of Assets UBS Suiza (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -912,43 +912,61 @@ class UBSSwitzerlandCustodyParser(BaseParser):
         if first_numeric_idx is None:
             return None
 
-        number_tokens = parts[first_numeric_idx:]
+        number_tokens = [token for token in parts[first_numeric_idx:] if token != "%"]
         if not number_tokens:
             return None
 
-        # Remove trailing percentage token if present.
-        last = number_tokens[-1]
-        if re.fullmatch(r"-?\d+\.\d+%?", last):
-            number_tokens = number_tokens[:-1]
+        # "Total assets" rows may include graph-axis ticks appended after the % column
+        # (for example "... 34.31 10" or "... 100.00 -10"). Once the percentage token
+        # appears, everything to its right is layout noise and must be ignored.
+        pct_idx = None
+        for idx, token in enumerate(number_tokens):
+            cleaned = token.rstrip("%")
+            if not re.fullmatch(r"-?\d+\.\d+", cleaned):
+                continue
+            try:
+                pct_candidate = Decimal(cleaned)
+            except (InvalidOperation, ValueError):
+                continue
+            if abs(pct_candidate) <= Decimal("1000"):
+                pct_idx = idx
+                break
+        if pct_idx is not None:
+            number_tokens = number_tokens[:pct_idx]
         if not number_tokens:
             return None
 
         key = (row_key or "").lower()
-        take_n = 1
-        if key in {"liquidity", "equities"} and len(number_tokens) == 3:
-            first = number_tokens[0].lstrip("-")
-            middle = number_tokens[1].lstrip("-")
-            last = number_tokens[2].lstrip("-")
+        take_n = min(len(number_tokens), 1)
+        token_count = len(number_tokens)
+        if token_count == 3:
+            first_val = _parse_usd(number_tokens[0])
+            middle_val = _parse_usd(number_tokens[1])
+            last_val = _parse_usd(number_tokens[2])
             if (
-                re.fullmatch(r"\d+(?:\.\d+)?", first)
-                and re.fullmatch(r"\d+(?:\.\d+)?", middle)
-                and re.fullmatch(r"\d+(?:\.\d+)?", last)
-                and len(middle.split(".", 1)[0]) <= 3
-                and len(last.split(".", 1)[0]) >= max(len(first.split(".", 1)[0]) - 1, 1)
+                first_val is not None
+                and middle_val is not None
+                and last_val is not None
+                and (
+                    last_val == first_val + middle_val
+                    or last_val == first_val - middle_val
+                )
             ):
-                val = _parse_usd(number_tokens[-1])
-                if val is not None:
-                    return val
+                return last_val
         if key in {"liquidity", "equities"}:
-            if len(number_tokens) >= 2 and len(number_tokens) % 2 == 0:
-                take_n = min(max(len(number_tokens) // 2, 1), 3)
-            elif len(number_tokens) >= 3:
+            if token_count <= 3:
+                take_n = token_count
+            elif token_count == 4:
+                take_n = 2
+            else:
                 take_n = 3
         elif key in {"bonds", "net_assets"}:
-            if len(number_tokens) >= 7:
-                take_n = 3
-            elif len(number_tokens) >= 4:
+            if token_count <= 3:
+                take_n = token_count
+            elif token_count == 4:
                 take_n = 2
+            else:
+                take_n = 3
 
         take_n = min(take_n, len(number_tokens))
         for n in range(take_n, 0, -1):

@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsCustodyParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "custody"
-    VERSION = "2.1.1"
+    VERSION = "2.1.2"
     DESCRIPTION = "Parser para cartolas Goldman Sachs Mandato/Wrap (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -126,25 +126,28 @@ class GoldmanSachsCustodyParser(BaseParser):
                 if sub_ports:
                     balances["sub_portfolios"] = sub_ports
 
-            # 3) Overview (page 3 — total portfolio, asset allocation, activity)
-            if len(page_texts) >= 3:
-                overview = extract_overview(page_texts[2])
-                if overview:
-                    balances.update(overview)
-                    if overview.get("asset_allocation"):
-                        qualitative["asset_allocation"] = self._json_safe(overview["asset_allocation"])
-                    activity = overview.get("portfolio_activity", {})
-                    inv_results = overview.get("investment_results", {})
-                    opening_balance = (
-                        activity.get("opening_value")
-                        or inv_results.get("beginning_market_value")
-                    )
-                    closing_balance = (
-                        activity.get("closing_value")
-                        or inv_results.get("ending_market_value")
-                        or overview.get("total_portfolio")
-                    )
-
+            # 3) Overview (legacy GS wraps may place it on page 4+)
+            overview = self._extract_primary_overview(page_texts)
+            if overview:
+                balances.update(overview)
+                if overview.get("asset_allocation"):
+                    qualitative["asset_allocation"] = self._json_safe(overview["asset_allocation"])
+                activity = overview.get("portfolio_activity", {})
+                inv_results = overview.get("investment_results", {})
+                opening_balance = (
+                    activity.get("opening_value")
+                    or inv_results.get("beginning_market_value")
+                )
+                closing_balance = (
+                    activity.get("closing_value")
+                    or inv_results.get("ending_market_value")
+                    or overview.get("total_portfolio")
+                )
+                closing_balance = self._reconcile_overview_total_with_asset_allocation(
+                    balances=balances,
+                    qualitative=qualitative,
+                    closing_balance=closing_balance,
+                )
             # 4) Tax summary (pages 4-5)
             tax_text = ""
             for i in range(3, min(6, len(page_texts))):
@@ -229,6 +232,88 @@ class GoldmanSachsCustodyParser(BaseParser):
             closing_balance=closing_balance,
             warnings=warnings,
         )
+
+    def _reconcile_overview_total_with_asset_allocation(
+        self,
+        *,
+        balances: dict[str, Any],
+        qualitative: dict[str, Any],
+        closing_balance: Decimal | None,
+    ) -> Decimal | None:
+        """
+        Some legacy GS wrap overviews expose an inflated top-line total while the
+        asset-allocation table on the same page carries the correct TOTAL PORTFOLIO.
+        When both disagree materially, trust the asset-allocation total.
+        """
+        asset_allocation = qualitative.get("asset_allocation")
+        if not isinstance(asset_allocation, dict):
+            return closing_balance
+
+        total_payload = asset_allocation.get("TOTAL PORTFOLIO")
+        alloc_total = None
+        if isinstance(total_payload, dict):
+            alloc_total = self._to_decimal(
+                total_payload.get("market_value")
+                or total_payload.get("value")
+                or total_payload.get("amount")
+            )
+        if alloc_total is None or alloc_total <= 0:
+            return closing_balance
+        if closing_balance is None or closing_balance <= 0:
+            balances["total_portfolio"] = alloc_total
+            return alloc_total
+
+        gap = abs(closing_balance - alloc_total)
+        rel_gap = gap / alloc_total if alloc_total else Decimal("0")
+        if rel_gap <= Decimal("0.10"):
+            return closing_balance
+
+        balances["total_portfolio"] = alloc_total
+
+        investment_results = balances.get("investment_results")
+        if isinstance(investment_results, dict):
+            investment_results["ending_market_value"] = alloc_total
+
+        portfolio_activity = balances.get("portfolio_activity")
+        if isinstance(portfolio_activity, dict):
+            portfolio_activity["closing_value"] = alloc_total
+
+        return alloc_total
+
+    def _extract_primary_overview(self, page_texts: list[str]) -> dict[str, Any]:
+        """
+        Find the account-level overview page without assuming a fixed page index.
+
+        Legacy GS wraps may insert "Special Messages" before the main overview, so
+        the audited overview can start on page 4 and continue into the next page.
+        """
+        max_scan = min(6, len(page_texts))
+        for idx in range(max_scan):
+            page_text = page_texts[idx]
+            if "TOTAL PORTFOLIO" not in page_text or "PORTFOLIO ASSET ALLOCATION" not in page_text:
+                continue
+
+            combined_text = page_text
+            has_investment_results = "INVESTMENT RESULTS" in page_text
+            next_text = page_texts[idx + 1] if idx + 1 < len(page_texts) else ""
+            next_lines = [line.strip() for line in next_text.splitlines() if line.strip()]
+            next_is_overview_continued = any(
+                line == "Overview" or line == "Overview (Continued)"
+                for line in next_lines[-8:]
+            )
+
+            if not has_investment_results and "INVESTMENT RESULTS" in next_text and next_is_overview_continued:
+                combined_text = page_text + "\n" + next_text
+
+            overview = extract_overview(combined_text)
+            if (
+                overview.get("asset_allocation")
+                or overview.get("investment_results")
+                or overview.get("total_portfolio")
+            ):
+                return overview
+
+        return {}
 
     @staticmethod
     def _parse_period_date(raw: str | None) -> date | None:
@@ -494,8 +579,10 @@ class GoldmanSachsCustodyParser(BaseParser):
         for i, pt in enumerate(page_texts):
             lines = [l.strip() for l in pt.splitlines() if l.strip()]
             # Check if this is an Overview page for a sub-portfolio
-            has_overview = any("Overview" in l for l in lines[-8:]) if len(lines) > 8 else False
-            has_detail = any("Statement Detail" in l for l in lines[-8:]) if len(lines) > 8 else False
+            has_overview = any(
+                l == "Overview" or l == "Overview (Continued)" for l in lines[-8:]
+            ) if len(lines) > 8 else False
+            has_detail = any(l == "Statement Detail" for l in lines[-8:]) if len(lines) > 8 else False
             has_total = any("TOTAL PORTFOLIO" in l for l in lines[:10])
 
             if has_overview and has_detail and has_total:

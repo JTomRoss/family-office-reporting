@@ -9,8 +9,10 @@ Reglas de filtros:
 5) Indicador visible del estado actual del filtro
 """
 
+from copy import deepcopy
+from typing import Any, Optional
+
 import streamlit as st
-from typing import Optional
 
 
 # ── Display names for bank codes ─────────────────────────────────
@@ -172,3 +174,55 @@ def render_fecha_filter(
         key=widget_key,
     )
     return selected
+
+
+def _normalize_filter_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return tuple(sorted(_normalize_filter_value(item) for item in value))
+    if isinstance(value, dict):
+        return tuple(sorted((str(key), _normalize_filter_value(item)) for key, item in value.items()))
+    return value
+
+
+def use_apply_filters(
+    *,
+    state_key: str,
+    current_filters: dict[str, Any],
+    button_label: str = "Aplicar",
+) -> tuple[dict[str, Any], bool]:
+    """
+    Mantiene un estado de filtros "aplicados" separado del borrador visible.
+
+    Los widgets pueden cambiar libremente sin disparar consultas pesadas.
+    Solo al presionar el botón se promueven al estado aplicado.
+    """
+    stored = st.session_state.get(state_key)
+    if not isinstance(stored, dict):
+        stored = deepcopy(current_filters)
+        st.session_state[state_key] = stored
+
+    applied_filters = {
+        key: deepcopy(stored.get(key, value))
+        for key, value in current_filters.items()
+    }
+    pending_changes = any(
+        _normalize_filter_value(current_filters.get(key))
+        != _normalize_filter_value(applied_filters.get(key))
+        for key in current_filters
+    )
+
+    col_apply, col_status = st.columns([1, 3])
+    with col_apply:
+        apply_pressed = st.button(button_label, key=f"{state_key}_apply")
+    with col_status:
+        if pending_changes:
+            st.caption("Hay cambios de filtros sin aplicar.")
+        else:
+            st.caption("Mostrando datos con los filtros aplicados.")
+
+    if apply_pressed:
+        applied_filters = deepcopy(current_filters)
+        st.session_state[state_key] = applied_filters
+        return applied_filters, False
+
+    return applied_filters, pending_changes

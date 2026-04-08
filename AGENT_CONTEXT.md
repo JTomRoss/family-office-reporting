@@ -1,23 +1,23 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-03-24 (JPM/BBH reclassification consistency for duplicate mandate reports)
+Last updated: 2026-04-01 (GS Other Investments + context cleanup)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
 Stack: FastAPI + Streamlit + SQLAlchemy + SQLite + Alembic + pytest.
 
-This file is intentionally short. Detailed history and deep notes live in `DEEP_CONTEXT.md`.
+This file is intentionally short. Long historical detail should live in `DEEP_CONTEXT.md`.
 
-## 2) Startup Protocol (mandatory for new chats)
-Only load these first:
+## 2) Startup Protocol (mandatory)
+In new chats, load only:
 1. `AGENT_CONTEXT.md`
 2. `SESSION_STATE.md`
-3. `git status --short` and only relevant changed files
+3. `git status --short` and only relevant files
 
-Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
+Do not scan the full repository unless needed.
 
 ## 3) Runtime / Ops Rules
-- Use scripts, never manual uvicorn/streamlit commands.
+- Use scripts only, never manual uvicorn/streamlit commands.
 - Main app:
   - Start: `./scripts/start.ps1`
   - Stop: `./scripts/stop.ps1`
@@ -27,71 +27,120 @@ Do NOT read the full repo or `DEEP_CONTEXT.md` unless explicitly needed.
   - Stop: `./scripts/stop_preview.ps1`
   - Sync DB: `./scripts/sync_preview_db.ps1`
   - Ports: backend `8100`, frontend `8601`
-- Never use `--reload`.
+- Never run with `--reload`.
 
 ## 4) Architecture Guardrails
 - `frontend/` is presentation only. No business logic.
-- UI must call backend only through `frontend/api_client.py`.
-- `backend/` contains business logic and API endpoints.
-- `parsers/` are isolated plugins (one parser file per bank/account type).
-- Monetary values in DB must be `Numeric(20,4)` (no float persistence).
+- Frontend accesses backend only via `frontend/api_client.py`.
+- `backend/` owns business logic and API endpoints.
+- `parsers/` are isolated plugins by bank and account type.
+- Monetary DB persistence must use `Numeric(20,4)` (no float persistence).
 - Use timezone-aware UTC datetimes.
-- Reporting endpoints must be read-only consumers of normalized data; they must not "complete" missing data by reinterpreting raw payloads.
-- Reporting views such as `Detalle`, `Mandatos` and `ETF` must consume backend-prepared payloads. Frontend must not aggregate, normalize or infer financial metrics on its own.
+- Reporting endpoints are read-only consumers of persisted normalized data.
+- Reporting surfaces must not infer missing financial data at runtime from raw payloads.
 
 ## 5) Data / Reporting Rules
-- Bank statements (PDF cartolas) are truth for monthly closings.
-- Parser output loads via `DataLoadingService` into reporting tables.
-- `monthly_metrics_normalized` is the canonical monthly reporting layer.
-- Tables and charts in reporting (`Summary`, `Mandates`, `ETF`, `Personal`) must read monthly values from `monthly_metrics_normalized`.
-- `monthly_closings` is historical source + fallback; if normalized data exists, it wins.
-- `Alternativos.xlsx` is an independent Excel statement source. It loads only into `monthly_metrics_normalized` and is exposed in reporting as synthetic bank `alternativos` / `Alternativos`.
+- Bank statements (`pdf_cartola`) are auditable source of monthly closing values.
+- Loader path: parser output -> `DataLoadingService` -> reporting tables.
+- `monthly_metrics_normalized` is SSOT for monthly reporting.
+- `monthly_closings` is historical source + allowed fallback only.
+- If normalized data exists, normalized wins over fallback.
+- `Alternativos.xlsx` is an independent source and loads only into `monthly_metrics_normalized`.
 - Identity control is mandatory: `ending_current - movements - profit = ending_previous`.
-- YTD is control-only. Never use YTD to auto-fill, overwrite, or "force" monthly movements/profit.
-- If identity or YTD controls fail, reporting must alert; it must not silently mutate values to make them match.
-- `Salud BD` is an audit/read-only surface: it should alert from normalized/historical persisted values, not create a third interpreter of monthly data.
-- Operacional has two tabs: Salud BD and Revisión. The Revisión tab runs an **LLM-only** audit: PDF text is sent to OpenAI with **engine rules** (bank/account-type context) so extraction aligns with parser/normalization logic; results are compared to `monthly_metrics_normalized`. Read-only, isolated under `backend/services/audit/`, runs only when the user clicks Revisar; requires `OPENAI_API_KEY`. It does not modify the database or loading flows.
-- Raw PDFs are still operationally important for reprocesos, parser fixes, and audit traceability; do not assume processed PDFs can be deleted safely.
-- ETF / active-class taxonomy is centralized in `asset_taxonomy.py`: the official instrument dictionary now comes from `Documentos/Excel/Diccionario de instrumentos.xlsx`, while `asset_bucket_dictionary.json` remains only for visual order/colors. Do not create local copies of that mapping in pages or routers.
-- `Alternativos` must reuse canonical society names already used across the app (`Ecoterra Internacional`, `Ecoterra RE`, `Ecoterra RE II`, `Ecoterra RE III`) so consolidated scopes/presets match across banks.
+- YTD is control-only, never used to auto-fill monthly movements or profit.
+- If identity/YTD controls fail, reporting must alert and must not mutate persisted values.
+- Raw PDFs remain operationally required for reprocess, parser fixes, and traceability.
 
-## 5.1) Stable Parser / Bank Rules Already In Code
-- JPMorgan `brokerage` / `etf`: blank current-period fields stay `0`/`None` as monthly values; YTD remains control-only.
-- JPMorgan `brokerage` / `etf`: if old statements omit `asset_allocation` but holdings include cash-like sweep / money-market rows, `DataLoadingService` may derive `cash_value` into `monthly_metrics_normalized` during normalization/backfill. Reporting must not read `ParsedStatement` to infer cash.
-- JPMorgan `brokerage`: `asset_allocation_json` must be bucketized from persisted holdings + centralized taxonomy inside loader/normalization (not in parser, not in frontend) so `Detalle > Tipo de activos` can read normalized/fallback persisted buckets.
-- JPMorgan `custody`: `Net Security Contributions` must count as part of monthly movements when present.
-- JPMorgan `bonds` (`1531100` Ecoterra Internacional): in `Cash, Deposits & Short Term`, cash must come from `Total Cash Holdings` only (exclude `Short Term Investments` from cash). This is isolated to that account parser case.
-- Goldman Sachs: automatic OCR fallback exists for garbled PDFs; OCR is a parser-level backup, not a UI concern.
-- UBS Suiza: for multi-portfolio statements, the account suffix (`-01`, `-02`) selects the portfolio-specific `net_assets`; never use the combined total when a specific portfolio is identifiable.
-- UBS Suiza: negative positions are valid; in UBS-only reporting views, monthly return shown to the user is forced to `0%` when current or previous position is negative.
-- UBS Suiza only: the previous audited month-end `ending value` prevails over the next statement's `beginning value` when they differ. Quarterly performance tables may refine prior-month `movements`, but must not overwrite auditable month-end balances. `profit` is the adjustment variable and must be recomputed from identity against the previous audited ending.
-- Document reclassification rule: when bank/account classification changes, `raw_documents.account_id` must be reconciled with `bank_code`, document-derived outputs (`monthly_closings`, `monthly_metrics_normalized`, `etf_compositions`, `parsed_statements`, related `reconciliations`) must be purged, and the document must be reprocesado immediately (no stale `uploaded` state left by UI flow).
+## 5.1) Mandato Contract (stable)
+- PDF engines must stay strictly isolated by bank, account type, and mandate report parser:
+  - `parsers/*/report_mandato.py` per bank.
+  - No cross-bank shared mandate-report engine.
+- Mandato macro USD totals come only from cartola:
+  - `Cash, Deposits & Money Market`
+  - `Fixed Income`
+  - `Equities`
+- `report_mandato` must never overwrite mandate macro USD totals.
+- `report_mandato` parsers may emit only complement data:
+  - `Investment Grade Fixed Income`
+  - `High Yield Fixed Income`
+  - `US Equities`
+  - `Non US Equities`
+  - `Global Equity` (if present)
+  - FI metrics (`duration`, `yield`)
+- Split rules are centralized in backend merge/normalization:
+  - `Fixed Income = IG + HY`
+  - `Equities = US + Non-US`
+  - `Global Equity` split: `2/3 US + 1/3 Non-US`
+  - `Emerging FI` contributes to HY where bank rule says so (UBS Miami)
+  - `Alternativos = Private Equity + Real Estate`
+- Reprocessing a mandate cartola must refresh audited macros while preserving valid report enrichments for that month.
+
+## 5.2) Canonical Breakdown for Detail View
+`Detalle > Detalle por Activo` must use canonical categories:
+- `Cash`
+- `IG Fixed income`
+- `HY Fixed income`
+- `US equities`
+- `Non-US equities`
+- `PE`
+- `RE`
+- `Other investments`
+
+Mapping stays centralized in backend/taxonomy (not in frontend).
+
+## 5.3) Stable Bank Rules (selected)
+- JPM `brokerage/etf`: blank current-period values remain monthly `0`/`None`; YTD remains control-only.
+- JPM `custody`: `Net Security Contributions` counts in monthly movements when present.
+- JPM bonds account `1531100`:
+  - cash in `Cash, Deposits & Short Term` comes from `Total Cash Holdings` only.
+  - `Short Term Investments` contributes to `Fixed Income` (IG) for canonical breakdown.
+- JPM `report_mandato`:
+  - `Investment Review` contributes only `US Equities` / `Non US Equities`.
+  - `Complementario` contributes `Investment Grade Fixed Income` / `High Yield Fixed Income` + FI metrics.
+  - If the JPM mandate report resolves to `Varios`, apply it across sibling mandato accounts that share the same monthly cartola source document.
+- ETF taxonomy compatibility aliases must include `NON-US EQUITY`/`NON US EQUITY` and `Emerging Market Equities` variants as `RV EM`.
+- GS: OCR fallback is parser-level backup only.
+- GS legacy custody wraps may place the primary `Overview` on page 4+; parser must detect
+  the audited overview dynamically and must not double-count the main overview as a sub-portfolio.
+- GS Telmar legacy cartolas can expose `Other Investments` / `Hedge Funds` / `Miscellaneous`;
+  preserve them in normalized payload as reporting category `Other Investments` and exclude only
+  explicit duplicated `Private Equity` from reporting totals.
+- UBS Suiza: selected portfolio value prevails over combined relation total.
+- UBS Suiza `Total assets`: ignore chart-axis noise (`10/0/-10`) and keep the explicit `Total`
+  column when rows compress as `market / accrued / total`.
+- UBS Suiza only: previous audited month-end ending prevails over next beginning mismatch; `profit` absorbs identity adjustment.
+- Document reclassification must reconcile `raw_documents.account_id`, purge derived outputs, and reprocess immediately.
+
+## 5.4) Reporting Exclusion Rules (dedupe vs Alternativos)
+- Keep auditable raw month-end values in `monthly_closings`.
+- Apply reporting-only exclusions in `monthly_metrics_normalized.asset_allocation_json` under
+  `__reporting_value_exclusion` (no frontend logic).
+- Current stable exclusions:
+  - `Telmar | goldman_sachs | mandato | 097-4`: exclude Private Equity duplicated in `Alternativos.xlsx`.
+  - `Telmar | jpmorgan | brokerage | B43459001`: exclude Alternative Assets duplicated in `Alternativos.xlsx`.
+- All reporting totals must consume this exclusion consistently via backend helpers.
 
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`
 - Reporting router: `backend/routers/data.py`
-- Audit Revisión router: `backend/routers/audit.py` (POST `/data/audit-revision-run`)
+- Audit router: `backend/routers/audit.py`
 - Loader: `backend/services/data_loading_service.py`
 - Document processing: `backend/services/document_service.py`
 - DB models: `backend/db/models.py`
-- Asset taxonomy: `asset_bucket_dictionary.json`, `asset_taxonomy.py`
+- Taxonomy: `asset_taxonomy.py`, `asset_bucket_dictionary.json`, `mandate_taxonomy.py`, `mandate_report_dictionary.json`
 - Frontend entrypoint: `frontend/app.py`
-- Main pages: `frontend/pages/summary.py`, `mandates.py`, `etf.py`, `personal.py`, `upload.py`
-- Current backup metadata: `LATEST_VALID_BACKUP.txt`
 
 ## 7) Current Baseline
-- Latest known full-suite checkpoint in this line of work: `186 passed, 1 skipped`.
-- Current worktree may be ahead of that checkpoint with additional UI/reporting changes; run targeted/full tests as needed.
 - Worktree can be dirty; do not assume clean state.
+- Run targeted tests for touched modules; run broader suite when needed.
 
 ## 8) Context File Policy
-- `AGENT_CONTEXT.md`: stable rules and quick architecture (this file).
-- `SESSION_STATE.md`: current sprint/session state, decisions, next tasks.
-- `DEEP_CONTEXT.md`: full historical context, long notes, old iterations.
+- `AGENT_CONTEXT.md`: stable architecture/rules only.
+- `SESSION_STATE.md`: current block status, recent decisions, next actions.
+- `DEEP_CONTEXT.md`: long-form historical memory.
 
 ## 9) Update Rules
-After major work, update only:
-- `SESSION_STATE.md` (what changed now)
-- `AGENT_CONTEXT.md` only if a stable rule changed
-- `DEEP_CONTEXT.md` only for deep historical notes
- 
+After major work:
+- Update `SESSION_STATE.md` with what changed now.
+- Update `AGENT_CONTEXT.md` only when a stable rule changes.
+- Update `DEEP_CONTEXT.md` only for deep historical notes.

@@ -25,6 +25,27 @@ from asset_taxonomy import (
     classify_etf_asset_bucket,
     classify_etf_asset_bucket_with_match,
 )
+from etf_instrument_dictionary import normalize_etf_instrument
+from backend.services.normalized_reporting_payload import (
+    canonical_breakdown_from_payload,
+    compose_asset_allocation_payload,
+    decode_asset_allocation_json,
+    extract_fi_metrics,
+    to_decimal,
+)
+from mandate_taxonomy import (
+    MANDATE_CATEGORY_CASH,
+    MANDATE_CATEGORY_EQUITIES,
+    MANDATE_CATEGORY_FIXED,
+    MANDATE_CATEGORY_GLOBAL_EQUITIES,
+    MANDATE_CATEGORY_HY_FIXED,
+    MANDATE_CATEGORY_IG_FIXED,
+    MANDATE_CATEGORY_NON_US_EQUITIES,
+    MANDATE_CATEGORY_PRIVATE_EQUITY,
+    MANDATE_CATEGORY_REAL_ESTATE,
+    MANDATE_CATEGORY_US_EQUITIES,
+    classify_mandate_asset_label,
+)
 from backend.db.models import (
     Account,
     DailyMovement,
@@ -127,6 +148,62 @@ _UBS_MANUAL_MONTHLY_OVERRIDES: dict[tuple[str, int, int], dict[str, Any]] = {
 }
 
 
+_REPORT_MONTH_NAME_MAP = {
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "february": 2,
+    "mar": 3,
+    "march": 3,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "jun": 6,
+    "june": 6,
+    "jul": 7,
+    "july": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "oct": 10,
+    "october": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "december": 12,
+}
+
+_REPORTING_VALUE_EXCLUSION_KEY = "__reporting_value_exclusion"
+_REPORTING_VALUE_EXCLUSION_RULES: dict[tuple[str, str, str], dict[str, Any]] = {
+    (
+        "goldman_sachs",
+        "mandato",
+        "097-4",
+    ): {
+        "rule_id": "telmar_gs_mandato_private_equity_duplicated_in_alternatives",
+        "labels_norm": {"privateequity"},
+        "description": (
+            "Exclude Private Equity from GS Telmar mandato because it is already "
+            "reported in Alternativos.xlsx."
+        ),
+    },
+    (
+        "jpmorgan",
+        "brokerage",
+        "B43459001",
+    ): {
+        "rule_id": "telmar_jpm_brokerage_alternative_assets_duplicated_in_alternatives",
+        "labels_norm": {"alternativeassets"},
+        "description": (
+            "Exclude Alternative Assets from JPM Telmar brokerage because it is "
+            "already reported in Alternativos.xlsx."
+        ),
+    },
+}
+
+
 def _safe_decimal(value) -> Optional[Decimal]:
     """Convierte un valor a Decimal de forma segura."""
     if value is None:
@@ -135,6 +212,35 @@ def _safe_decimal(value) -> Optional[Decimal]:
         return Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def _extract_allocation_amount(
+    payload: Any,
+    *,
+    ending_value_with_accrual: Decimal | None,
+) -> Optional[Decimal]:
+    if isinstance(payload, dict):
+        raw_value = (
+            payload.get("value")
+            or payload.get("total")
+            or payload.get("ending")
+            or payload.get("ending_value")
+            or payload.get("market_value")
+            or payload.get("amount")
+        )
+        unit = str(payload.get("unit") or "").strip()
+    else:
+        raw_value = payload
+        unit = ""
+
+    amount = _safe_decimal(raw_value)
+    if amount is None:
+        return None
+    if unit == "%":
+        if ending_value_with_accrual is None or ending_value_with_accrual <= 0:
+            return None
+        return (ending_value_with_accrual * amount) / Decimal("100")
+    return amount
 
 
 def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[Decimal]:
@@ -361,83 +467,185 @@ def _asset_allocation_total_value(asset_alloc: Any) -> Optional[Decimal]:
     return total
 
 
-def _pick_asset_class_value(
-    entries: list[tuple[str, Decimal]],
-    *,
-    preferred_exact: list[str],
-    include_tokens: list[str],
-    exclude_tokens: list[str] | None = None,
-) -> Decimal | None:
-    if not entries:
+_MANDATE_ASSET_ORDER = (
+    "Cash, Deposits & Money Market",
+    "Investment Grade Fixed Income",
+    "High Yield Fixed Income",
+    "Fixed Income",
+    "US Equities",
+    "Non US Equities",
+    "Equities",
+    "Private Equity",
+    "Real Estate",
+    "Other Investments",
+)
+
+
+def _classify_mandate_asset_label(*, label_norm: str, bank_code: str = "") -> str | None:
+    if not label_norm:
         return None
-    by_label: dict[str, Decimal] = {}
-    for label, val in entries:
-        by_label[label] = val
+    key = label_norm
 
-    for label in preferred_exact:
-        if label in by_label:
-            return by_label[label]
+    if "totalportfolio" in key or "totalnetmarketvalue" in key or "netassets" in key:
+        return None
 
-    total = Decimal("0")
-    found = False
-    excludes = exclude_tokens or []
-    for label, val in entries:
-        if not any(tok in label for tok in include_tokens):
-            continue
-        if any(tok in label for tok in excludes):
-            continue
-        total += val
-        found = True
-    return total if found else None
+    if "cash" in key and ("fixedincome" in key or "bond" in key):
+        return None
+
+    if "privateequity" in key:
+        return "Private Equity"
+    if "realestate" in key:
+        return "Real Estate"
+    if any(token in key for token in ("otherinvestment", "assetallocationinvestment", "miscellaneous", "hedgefund")):
+        return "Other Investments"
+    if "alternativeinvestment" in key:
+        return None
+
+    if any(token in key for token in ("cash", "deposit", "moneymarket", "liquidity")):
+        return "Cash, Deposits & Money Market"
+
+    fixed_income_hint = (
+        "fixedincome" in key
+        or "bond" in key
+        or key in {
+            "investmentgrade",
+            "highgrade",
+            "uscorporates",
+            "corporateigcredit",
+            "corporatebonds",
+            "shortduration",
+            "globalbonds",
+            "investmentgrademultisector",
+        }
+    )
+    if fixed_income_hint:
+        if any(token in key for token in ("highyield", "noninvestmentgrade", "otherfixedincome", "ushighyield")):
+            return "High Yield Fixed Income"
+        if bank_code == "ubs_miami" and "emerging" in key:
+            return "High Yield Fixed Income"
+        if any(token in key for token in ("investmentgrade", "highgrade", "corporate", "government", "treasury", "tips", "shortduration")):
+            return "Investment Grade Fixed Income"
+        return "Fixed Income"
+
+    equity_hint = "equit" in key or "stock" in key
+    if equity_hint:
+        if "nonus" in key:
+            return "Non US Equities"
+        if any(
+            token in key
+            for token in (
+                "international",
+                "global",
+                "emerging",
+                "eafe",
+                "europe",
+                "japan",
+                "switzerland",
+                "uk",
+                "emu",
+            )
+        ) and not key.startswith("us") and "uslarge" not in key and "usmidsmall" not in key:
+            return "Non US Equities"
+        if key.startswith("us") or "usequity" in key or "uslargecap" in key or "usmidsmall" in key:
+            return "US Equities"
+        return "Equities"
+
+    return None
 
 
-def _normalize_mandate_asset_allocation(asset_alloc: Any) -> dict[str, dict[str, str]] | None:
+def _normalize_mandate_asset_allocation(
+    asset_alloc: Any,
+    *,
+    bank_code: str = "",
+    macro_only: bool = False,
+) -> dict[str, dict[str, str]] | None:
     """
-    Normaliza asset allocation de Mandatos a 3 clases:
-    - Cash, Deposits & Money Market
-    - Fixed Income
-    - Equities
+    Normaliza asset allocation de Mandatos preservando split:
+    - Cash
+    - IG / HY / Fixed Income
+    - US / Non-US / Equities
     """
     entries = _extract_asset_allocation_entries(asset_alloc)
-    if not entries:
+    metadata: dict[str, Any] = {}
+    if isinstance(asset_alloc, dict):
+        for key, payload in asset_alloc.items():
+            if str(key).startswith("__") and isinstance(payload, dict):
+                metadata[str(key)] = payload
+
+    totals: dict[str, Decimal] = {}
+    cash_values: list[Decimal] = []
+    cash_umbrella_values: list[Decimal] = []
+    other_investments_umbrella_values: list[Decimal] = []
+    other_investments_component_values: list[Decimal] = []
+    hedge_fund_values: list[Decimal] = []
+    for label_norm, value in entries:
+        canonical = _classify_mandate_asset_label(label_norm=label_norm, bank_code=bank_code)
+        if not canonical:
+            continue
+        if canonical == "Cash, Deposits & Money Market":
+            if "cash" in label_norm and "deposit" in label_norm and ("moneymarket" in label_norm or "shortterm" in label_norm):
+                cash_umbrella_values.append(value)
+            else:
+                cash_values.append(value)
+            continue
+        if canonical == "Other Investments":
+            if "hedgefund" in label_norm:
+                hedge_fund_values.append(value)
+            elif "otherinvestment" in label_norm:
+                other_investments_umbrella_values.append(value)
+            else:
+                other_investments_component_values.append(value)
+            continue
+        totals[canonical] = totals.get(canonical, Decimal("0")) + value
+
+    if cash_umbrella_values:
+        totals["Cash, Deposits & Money Market"] = max(cash_umbrella_values)
+    elif cash_values:
+        totals["Cash, Deposits & Money Market"] = sum(cash_values, Decimal("0"))
+
+    if hedge_fund_values or other_investments_umbrella_values or other_investments_component_values:
+        other_investments_total = sum(hedge_fund_values, Decimal("0"))
+        if other_investments_umbrella_values:
+            other_investments_total += max(other_investments_umbrella_values)
+        else:
+            other_investments_total += sum(other_investments_component_values, Decimal("0"))
+        totals["Other Investments"] = other_investments_total
+
+    ig = totals.get("Investment Grade Fixed Income")
+    hy = totals.get("High Yield Fixed Income")
+    fi = totals.get("Fixed Income")
+    if (ig is not None or hy is not None) and fi is None:
+        totals["Fixed Income"] = (ig or Decimal("0")) + (hy or Decimal("0"))
+
+    us_eq = totals.get("US Equities")
+    non_us_eq = totals.get("Non US Equities")
+    eq = totals.get("Equities")
+    if (us_eq is not None or non_us_eq is not None) and eq is None:
+        totals["Equities"] = (us_eq or Decimal("0")) + (non_us_eq or Decimal("0"))
+
+    macro_labels = ("Cash, Deposits & Money Market", "Fixed Income", "Equities")
+    for base_label in macro_labels:
+        totals.setdefault(base_label, Decimal("0"))
+
+    if not totals and not metadata:
         return None
 
-    cash = _pick_asset_class_value(
-        entries,
-        preferred_exact=[
-            "cashdepositsmoneymarketfunds",
-            "cashdepositsshortterm",
-            "liquidity",
-            "cash",
-        ],
-        include_tokens=["cash", "deposit", "moneymarket", "liquidity"],
-        exclude_tokens=["totalportfolio", "netassets", "totalmarketvalue", "totalnetmarketvalue"],
+    normalized: dict[str, dict[str, str]] = {}
+    labels_to_persist = (
+        macro_labels + ("Private Equity", "Real Estate", "Other Investments")
+        if macro_only
+        else _MANDATE_ASSET_ORDER
     )
-    fixed_income = _pick_asset_class_value(
-        entries,
-        preferred_exact=["fixedincome", "bonds"],
-        include_tokens=["fixedincome", "bond"],
-        exclude_tokens=["totalportfolio", "netassets"],
-    )
-    equities = _pick_asset_class_value(
-        entries,
-        preferred_exact=["equities", "publicequity", "equity"],
-        include_tokens=["equity", "equities", "stock"],
-        exclude_tokens=["totalportfolio", "netassets"],
-    )
+    for label in labels_to_persist:
+        value = totals.get(label)
+        if value is None:
+            continue
+        normalized[label] = {"value": str(value)}
 
-    if cash is None and fixed_income is None and equities is None:
-        return None
+    for key, payload in metadata.items():
+        normalized[key] = payload
 
-    cash = cash if cash is not None else Decimal("0")
-    fixed_income = fixed_income if fixed_income is not None else Decimal("0")
-    equities = equities if equities is not None else Decimal("0")
-
-    return {
-        "Cash, Deposits & Money Market": {"value": str(cash)},
-        "Fixed Income": {"value": str(fixed_income)},
-        "Equities": {"value": str(equities)},
-    }
+    return normalized
 
 
 def _asset_bucket_sort_key(bucket: str) -> tuple[int, str]:
@@ -449,6 +657,77 @@ def _asset_bucket_sort_key(bucket: str) -> tuple[int, str]:
 
 def _normalize_alloc_label(label: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
+
+
+def _last_day_of_month(year: int, month: int) -> date:
+    return date(year, month, calendar.monthrange(year, month)[1])
+
+
+def _infer_pdf_report_period_end_from_filename(filename: str) -> date | None:
+    name = str(filename or "")
+    if not name:
+        return None
+
+    # 1) Nombres con mes explícito (e.g. "Feb 2026", "2026 February")
+    month_re = r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    month_year = re.search(rf"\b{month_re}\s+([12]\d{{3}})\b", name, re.IGNORECASE)
+    if month_year:
+        month_token = month_year.group(1).lower()
+        year = int(month_year.group(2))
+        month = _REPORT_MONTH_NAME_MAP.get(month_token)
+        if month:
+            return _last_day_of_month(year, month)
+
+    year_month = re.search(rf"\b([12]\d{{3}})\s+{month_re}\b", name, re.IGNORECASE)
+    if year_month:
+        year = int(year_month.group(1))
+        month_token = year_month.group(2).lower()
+        month = _REPORT_MONTH_NAME_MAP.get(month_token)
+        if month:
+            return _last_day_of_month(year, month)
+
+    # 2) Fechas completas con separadores (dd-mm-yyyy / mm-dd-yyyy / dd.mm.yyyy / mm.dd.yyyy)
+    for m in re.finditer(r"\b(\d{1,2})[./-](\d{1,2})[./-]([12]\d{3})\b", name):
+        first = int(m.group(1))
+        second = int(m.group(2))
+        year = int(m.group(3))
+        # Preferir mm-dd-yyyy (común en filenames UBS Miami); fallback a dd-mm-yyyy.
+        month = first
+        day = second
+        try:
+            parsed = date(year, month, day)
+        except ValueError:
+            month = second
+            day = first
+            try:
+                parsed = date(year, month, day)
+            except ValueError:
+                continue
+        return parsed
+
+    # 3) Prefijo YYYY MM (e.g. "2026 02 ...")
+    prefix = re.search(r"^\D*([12]\d{3})[\s._-]+(0?[1-9]|1[0-2])\b", name)
+    if prefix:
+        year = int(prefix.group(1))
+        month = int(prefix.group(2))
+        return _last_day_of_month(year, month)
+
+    return None
+
+
+def _resolve_pdf_report_period_end(result: ParseResult, raw_document: RawDocument) -> date | None:
+    if raw_document.period_year and raw_document.period_month:
+        return _last_day_of_month(raw_document.period_year, raw_document.period_month)
+
+    inferred = _infer_pdf_report_period_end_from_filename(raw_document.filename or "")
+    if inferred is not None:
+        return inferred
+
+    if result.period_end:
+        return result.period_end
+    if result.statement_date:
+        return result.statement_date
+    return None
 
 
 class DataLoadingService:
@@ -961,83 +1240,668 @@ class DataLoadingService:
         raw_document: RawDocument,
     ) -> dict:
         """
-        Carga un PDF de reporte (asset allocation) y actualiza monthly_closings.
+        Carga un PDF de reporte (asset allocation) y actualiza allocation mensual
+        sin alterar la base financiera/trazabilidad de cartolas.
         """
-        stats = {"monthly_closings_updated": 0, "errors": []}
+        stats = {"monthly_closings_updated": 0, "skipped": 0, "errors": []}
         if not result.is_success:
             stats["errors"].append("ParseResult no exitoso para pdf_report")
             return stats
 
         asset_alloc = result.qualitative_data.get("asset_allocation")
-        if not isinstance(asset_alloc, dict) or not asset_alloc:
-            stats["errors"].append("El reporte no contiene asset_allocation estructurado")
+        has_asset_alloc = isinstance(asset_alloc, dict) and bool(asset_alloc)
+        metrics_series = result.qualitative_data.get("fixed_income_metrics_by_month")
+        has_metrics_series = isinstance(metrics_series, list) and bool(metrics_series)
+
+        if not has_asset_alloc and not has_metrics_series:
+            stats["errors"].append("El reporte no contiene asset_allocation ni serie de metricas")
             return stats
 
-        account: Optional[Account] = None
-        if result.account_number:
-            account = (
-                self.db.query(Account)
-                .filter(Account.account_number == result.account_number)
-                .first()
-            )
-        if account is None and raw_document.account_id:
-            account = (
+        closing_date = _resolve_pdf_report_period_end(result=result, raw_document=raw_document) if has_asset_alloc else None
+        target_accounts = self._resolve_pdf_report_target_accounts(
+            result=result,
+            raw_document=raw_document,
+            closing_date=closing_date,
+        )
+        if not target_accounts:
+            stats["errors"].append("No se pudo resolver cuenta para pdf_report")
+            return stats
+
+        touched_years: set[int] = set()
+
+        if has_metrics_series:
+            for account in target_accounts:
+                touched_years |= self._apply_pdf_report_metrics_series(
+                    account=account,
+                    metrics_series=metrics_series,
+                    raw_document_id=raw_document.id,
+                    stats=stats,
+                )
+
+        if has_asset_alloc:
+            if closing_date is None:
+                stats["errors"].append("No se pudo determinar periodo para pdf_report")
+            else:
+                for account in target_accounts:
+                    existing = (
+                        self.db.query(MonthlyClosing)
+                        .filter(
+                            MonthlyClosing.account_id == account.id,
+                            MonthlyClosing.year == closing_date.year,
+                            MonthlyClosing.month == closing_date.month,
+                        )
+                        .first()
+                    )
+                    if existing is None:
+                        # Guardrail: reportes de asset allocation no crean cierres financieros nuevos.
+                        stats["skipped"] += 1
+                        self._log(
+                            "load",
+                            "warning",
+                            (
+                                f"pdf_report omitido para {account.bank_code}/{account.account_number} "
+                                f"{closing_date.year}-{closing_date.month:02d}: no existe cierre base"
+                            ),
+                            raw_document.id,
+                            account_id=account.id,
+                        )
+                        continue
+
+                    merged = self._merge_asset_allocation_payload(
+                        existing_json=existing.asset_allocation_json,
+                        incoming_allocation=asset_alloc,
+                        bank_code=account.bank_code,
+                        account_type=account.account_type,
+                        ending_value=_safe_decimal(existing.net_value),
+                    )
+                    if merged is not None:
+                        existing.asset_allocation_json = json.dumps(merged)
+                        stats["monthly_closings_updated"] += 1
+                        touched_years.add(closing_date.year)
+
+        self.db.flush()
+        for account in target_accounts:
+            for year in sorted(touched_years):
+                self._refresh_normalized_activity_from_monthly_closings(
+                    account=account,
+                    year=year,
+                )
+        self.db.commit()
+        return stats
+
+    def _resolve_pdf_report_account(
+        self,
+        *,
+        result: ParseResult,
+        raw_document: RawDocument,
+    ) -> Optional[Account]:
+        bank_code = (raw_document.bank_code or result.bank_code or "").strip()
+        result_account_number = str(result.account_number or "").strip()
+
+        if result_account_number and result_account_number.lower() != "varios":
+            q = self.db.query(Account).filter(Account.account_number == result_account_number)
+            if bank_code:
+                q = q.filter(Account.bank_code == bank_code)
+            account = q.first()
+            if account:
+                return account
+
+            digits = "".join(ch for ch in result_account_number if ch.isdigit())
+            if digits and bank_code:
+                candidates = (
+                    self.db.query(Account)
+                    .filter(
+                        Account.bank_code == bank_code,
+                        Account.account_type == "mandato",
+                        Account.account_number.like(f"%{digits}%"),
+                    )
+                    .all()
+                )
+                if len(candidates) == 1:
+                    return candidates[0]
+
+        doc_account: Optional[Account] = None
+        if raw_document.account_id:
+            doc_account = (
                 self.db.query(Account)
                 .filter(Account.id == raw_document.account_id)
                 .first()
             )
-        if account is None:
-            stats["errors"].append("No se pudo resolver cuenta para pdf_report")
-            return stats
+            if doc_account and doc_account.account_type == "mandato":
+                return doc_account
 
-        closing_date = result.period_end or result.statement_date
-        if closing_date is None:
-            if raw_document.period_year and raw_document.period_month:
-                last_day = calendar.monthrange(raw_document.period_year, raw_document.period_month)[1]
-                closing_date = date(raw_document.period_year, raw_document.period_month, last_day)
-            else:
-                stats["errors"].append("No se pudo determinar período para pdf_report")
-                return stats
-
-        existing = (
-            self.db.query(MonthlyClosing)
-            .filter(
-                MonthlyClosing.account_id == account.id,
-                MonthlyClosing.year == closing_date.year,
-                MonthlyClosing.month == closing_date.month,
-            )
-            .first()
-        )
-
-        payload_json = json.dumps(asset_alloc)
-        if existing:
-            existing.asset_allocation_json = payload_json
-            existing.source_document_id = raw_document.id
-            if not existing.closing_date:
-                existing.closing_date = closing_date
-            if not existing.currency:
-                existing.currency = result.currency or account.currency
-        else:
-            self.db.add(
-                MonthlyClosing(
-                    account_id=account.id,
-                    closing_date=closing_date,
-                    year=closing_date.year,
-                    month=closing_date.month,
-                    currency=result.currency or account.currency,
-                    asset_allocation_json=payload_json,
-                    source_document_id=raw_document.id,
+        if doc_account and bank_code:
+            # If report was assigned to non-mandato account, remap to mandato sibling.
+            mandate_q = (
+                self.db.query(Account)
+                .filter(
+                    Account.bank_code == bank_code,
+                    Account.account_type == "mandato",
                 )
             )
-        self.db.flush()
-        self._refresh_normalized_activity_from_monthly_closings(
-            account=account,
-            year=closing_date.year,
-        )
-        stats["monthly_closings_updated"] += 1
-        self.db.commit()
-        return stats
+            if doc_account.entity_name:
+                mandate_q = mandate_q.filter(Account.entity_name == doc_account.entity_name)
+            mandate_candidates = mandate_q.all()
+            if len(mandate_candidates) == 1:
+                return mandate_candidates[0]
 
+            digits = "".join(ch for ch in result_account_number if ch.isdigit())
+            if digits:
+                by_digits = [acct for acct in mandate_candidates if digits in (acct.account_number or "")]
+                if len(by_digits) == 1:
+                    return by_digits[0]
+
+            return doc_account
+
+        if bank_code:
+            mandate_candidates = (
+                self.db.query(Account)
+                .filter(
+                    Account.bank_code == bank_code,
+                    Account.account_type == "mandato",
+                )
+                .all()
+            )
+            if len(mandate_candidates) == 1:
+                return mandate_candidates[0]
+
+        return doc_account
+
+    def _resolve_pdf_report_target_accounts(
+        self,
+        *,
+        result: ParseResult,
+        raw_document: RawDocument,
+        closing_date: date | None,
+    ) -> list[Account]:
+        primary = self._resolve_pdf_report_account(result=result, raw_document=raw_document)
+        if primary is None:
+            return []
+        targets = [primary]
+
+        result_account_number = str(result.account_number or "").strip().lower()
+        if (
+            primary.bank_code == "jpmorgan"
+            and primary.account_type == "mandato"
+            and primary.entity_name
+            and closing_date is not None
+            and result_account_number in {"", "varios"}
+        ):
+            primary_closing = (
+                self.db.query(MonthlyClosing)
+                .filter(
+                    MonthlyClosing.account_id == primary.id,
+                    MonthlyClosing.year == closing_date.year,
+                    MonthlyClosing.month == closing_date.month,
+                )
+                .first()
+            )
+            if primary_closing is not None:
+                sibling_query = (
+                    self.db.query(Account)
+                    .join(MonthlyClosing, MonthlyClosing.account_id == Account.id)
+                    .filter(
+                        Account.bank_code == primary.bank_code,
+                        Account.account_type == "mandato",
+                        Account.entity_name == primary.entity_name,
+                        MonthlyClosing.year == closing_date.year,
+                        MonthlyClosing.month == closing_date.month,
+                    )
+                )
+                if primary_closing.source_document_id is not None:
+                    sibling_query = sibling_query.filter(
+                        MonthlyClosing.source_document_id == primary_closing.source_document_id,
+                    )
+                siblings = sibling_query.all()
+                if siblings:
+                    targets = siblings
+
+        deduped: dict[int, Account] = {acct.id: acct for acct in targets}
+        return list(deduped.values())
+
+    @staticmethod
+    def _merge_asset_allocation_payload(
+        *,
+        existing_json: str | None,
+        incoming_allocation: dict[str, Any] | None,
+        incoming_metrics: dict[str, Any] | None = None,
+        bank_code: str | None = None,
+        account_type: str | None = None,
+        ending_value: Decimal | None = None,
+    ) -> dict[str, Any] | None:
+        base: dict[str, Any] = {}
+        if existing_json:
+            try:
+                parsed = json.loads(existing_json)
+                if isinstance(parsed, dict):
+                    base = parsed
+            except (TypeError, ValueError):
+                base = {}
+
+        if isinstance(incoming_allocation, dict):
+            if str(account_type or "").strip().lower() == "mandato":
+                base = DataLoadingService._merge_mandate_report_allocation(
+                    base=base,
+                    incoming_allocation=incoming_allocation,
+                    bank_code=bank_code,
+                    ending_value=ending_value,
+                )
+            else:
+                for key, value in incoming_allocation.items():
+                    if key == "__mandate_metrics" and isinstance(value, dict):
+                        prev = base.get("__mandate_metrics")
+                        merged_metrics = dict(prev) if isinstance(prev, dict) else {}
+                        merged_metrics.update(value)
+                        base["__mandate_metrics"] = merged_metrics
+                        continue
+                    base[key] = value
+
+        if incoming_metrics:
+            prev = base.get("__mandate_metrics")
+            merged_metrics = dict(prev) if isinstance(prev, dict) else {}
+            merged_metrics.update(incoming_metrics)
+            base["__mandate_metrics"] = merged_metrics
+
+        return base or None
+
+    @staticmethod
+    def _merge_cartola_mandate_allocation(
+        *,
+        cartola_json: str,
+        existing_json: str | None,
+        bank_code: str | None,
+    ) -> dict[str, Any] | None:
+        try:
+            cartola_payload = json.loads(cartola_json)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(cartola_payload, dict):
+            return None
+
+        existing_payload: dict[str, Any] = {}
+        if existing_json:
+            try:
+                parsed_existing = json.loads(existing_json)
+                if isinstance(parsed_existing, dict):
+                    existing_payload = parsed_existing
+            except (TypeError, ValueError):
+                existing_payload = {}
+
+        if not existing_payload:
+            return cartola_payload
+
+        merged = DataLoadingService._merge_mandate_report_allocation(
+            base=cartola_payload,
+            incoming_allocation=existing_payload,
+            bank_code=bank_code,
+        )
+        return merged or cartola_payload
+
+    @staticmethod
+    def _payload_amount_and_unit(payload: Any) -> tuple[Decimal | None, str | None]:
+        if isinstance(payload, dict):
+            raw = (
+                payload.get("value")
+                or payload.get("total")
+                or payload.get("ending")
+                or payload.get("ending_value")
+                or payload.get("market_value")
+                or payload.get("amount")
+            )
+            raw_unit = payload.get("unit")
+            unit = str(raw_unit).strip() if raw_unit is not None else None
+        else:
+            raw = payload
+            unit = None
+        return _safe_decimal(raw), unit
+
+    @staticmethod
+    def _payload_absolute_amount(payload: Any) -> Decimal | None:
+        amount, unit = DataLoadingService._payload_amount_and_unit(payload)
+        if amount is None:
+            return None
+        if str(unit or "").strip() == "%":
+            return None
+        return amount
+
+    @staticmethod
+    def _units_compatible(unit_a: str | None, unit_b: str | None) -> bool:
+        a = str(unit_a or "").strip()
+        b = str(unit_b or "").strip()
+        if not a or not b:
+            return True
+        return a == b
+
+    @staticmethod
+    def _coalesced_unit(*units: str | None) -> str | None:
+        non_empty = [str(unit).strip() for unit in units if str(unit or "").strip()]
+        if not non_empty:
+            return None
+        first = non_empty[0]
+        if all(unit == first for unit in non_empty):
+            return first
+        return None
+
+    @staticmethod
+    def _adjust_equity_split_entries(
+        *,
+        us_entry: tuple[Decimal, str | None] | None,
+        non_us_entry: tuple[Decimal, str | None] | None,
+        global_entry: tuple[Decimal, str | None] | None,
+    ) -> tuple[tuple[Decimal, str | None] | None, tuple[Decimal, str | None] | None]:
+        if global_entry is None:
+            return us_entry, non_us_entry
+
+        unit = DataLoadingService._coalesced_unit(
+            us_entry[1] if us_entry else None,
+            non_us_entry[1] if non_us_entry else None,
+            global_entry[1],
+        )
+        if unit is None and any(
+            str(raw_unit or "").strip()
+            for raw_unit in (
+                us_entry[1] if us_entry else None,
+                non_us_entry[1] if non_us_entry else None,
+                global_entry[1],
+            )
+        ):
+            return us_entry, non_us_entry
+
+        global_value = global_entry[0]
+        global_non_us = global_value / Decimal("3")
+        global_us = global_value - global_non_us
+        us_value = (us_entry[0] if us_entry else Decimal("0")) + global_us
+        non_us_value = (non_us_entry[0] if non_us_entry else Decimal("0")) + global_non_us
+        return (us_value, unit), (non_us_value, unit)
+
+    @staticmethod
+    def _normalized_split(
+        a_value: Decimal | None,
+        b_value: Decimal | None,
+    ) -> tuple[Decimal, Decimal] | None:
+        a = max(a_value or Decimal("0"), Decimal("0"))
+        b = max(b_value or Decimal("0"), Decimal("0"))
+        total = a + b
+        if total <= 0:
+            return None
+        a_ratio = a / total
+        return a_ratio, Decimal("1") - a_ratio
+
+    @staticmethod
+    def _split_from_parent(
+        *,
+        child_value: Decimal | None,
+        parent_value: Decimal | None,
+    ) -> tuple[Decimal, Decimal] | None:
+        if child_value is None or parent_value is None or parent_value <= 0:
+            return None
+        ratio = child_value / parent_value
+        if ratio < 0:
+            ratio = Decimal("0")
+        if ratio > 1:
+            ratio = Decimal("1")
+        return ratio, Decimal("1") - ratio
+
+    @staticmethod
+    def _canonical_amount_payload(value: Decimal) -> dict[str, str]:
+        clean = max(value, Decimal("0"))
+        return {"value": str(clean)}
+
+    @staticmethod
+    def _absolute_macro_amount(base: dict[str, Any], *labels: str) -> Decimal | None:
+        for label in labels:
+            if label not in base:
+                continue
+            amount = DataLoadingService._payload_absolute_amount(base.get(label))
+            if amount is not None:
+                return amount
+        return None
+
+    @staticmethod
+    def _drop_category_keys(
+        *,
+        payload: dict[str, Any],
+        bank_code: str | None,
+        categories: set[str],
+    ) -> None:
+        for key in list(payload.keys()):
+            if str(key).startswith("__"):
+                continue
+            cat = classify_mandate_asset_label(label=str(key), bank_code=bank_code)
+            if cat in categories:
+                payload.pop(key, None)
+
+    @staticmethod
+    def _merge_mandate_report_allocation(
+        *,
+        base: dict[str, Any],
+        incoming_allocation: dict[str, Any],
+        bank_code: str | None,
+        ending_value: Decimal | None = None,
+    ) -> dict[str, Any]:
+        merged = dict(base)
+
+        incoming_by_category: dict[str, tuple[Decimal, str | None]] = {}
+        incoming_payload_by_category: dict[str, Any] = {}
+        incoming_metrics_payload: dict[str, Any] | None = None
+
+        for key, value in incoming_allocation.items():
+            if key == "__mandate_metrics" and isinstance(value, dict):
+                incoming_metrics_payload = value
+                continue
+            if str(key).startswith("__"):
+                merged[key] = value
+                continue
+
+            amount, unit = DataLoadingService._payload_amount_and_unit(value)
+            category = classify_mandate_asset_label(label=str(key), bank_code=bank_code)
+            if category:
+                incoming_payload_by_category[category] = value
+            if category and amount is not None:
+                incoming_by_category[category] = (amount, unit)
+
+        if incoming_metrics_payload:
+            prev = merged.get("__mandate_metrics")
+            metrics = dict(prev) if isinstance(prev, dict) else {}
+            metrics.update(incoming_metrics_payload)
+            merged["__mandate_metrics"] = metrics
+
+        fixed_total = DataLoadingService._absolute_macro_amount(merged, "Fixed Income")
+        equities_total = DataLoadingService._absolute_macro_amount(merged, "Equities")
+
+        ig_entry = incoming_by_category.get(MANDATE_CATEGORY_IG_FIXED)
+        hy_entry = incoming_by_category.get(MANDATE_CATEGORY_HY_FIXED)
+        fixed_entry = incoming_by_category.get(MANDATE_CATEGORY_FIXED)
+        us_entry = incoming_by_category.get(MANDATE_CATEGORY_US_EQUITIES)
+        non_us_entry = incoming_by_category.get(MANDATE_CATEGORY_NON_US_EQUITIES)
+        global_entry = incoming_by_category.get(MANDATE_CATEGORY_GLOBAL_EQUITIES)
+        equities_entry = incoming_by_category.get(MANDATE_CATEGORY_EQUITIES)
+
+        if (
+            str(bank_code or "").strip().lower() == "jpmorgan"
+            and ig_entry is not None
+            and hy_entry is None
+            and fixed_entry is None
+            and DataLoadingService._payload_amount_and_unit(merged.get("High Yield Fixed Income"))[0] is not None
+        ):
+            # JPM Investment Review may carry a one-sided IG view; preserve prior HG/HY split from complementario.
+            ig_entry = None
+
+        fixed_split: tuple[Decimal, Decimal] | None = None
+        if ig_entry and hy_entry and DataLoadingService._units_compatible(ig_entry[1], hy_entry[1]):
+            fixed_split = DataLoadingService._normalized_split(ig_entry[0], hy_entry[0])
+        elif ig_entry and fixed_entry and DataLoadingService._units_compatible(ig_entry[1], fixed_entry[1]):
+            fixed_split = DataLoadingService._split_from_parent(
+                child_value=ig_entry[0],
+                parent_value=fixed_entry[0],
+            )
+        elif hy_entry and fixed_entry and DataLoadingService._units_compatible(hy_entry[1], fixed_entry[1]):
+            hy_first = DataLoadingService._split_from_parent(
+                child_value=hy_entry[0],
+                parent_value=fixed_entry[0],
+            )
+            if hy_first is not None:
+                fixed_split = (hy_first[1], hy_first[0])
+
+        adj_us_entry, adj_non_us_entry = DataLoadingService._adjust_equity_split_entries(
+            us_entry=us_entry,
+            non_us_entry=non_us_entry,
+            global_entry=global_entry,
+        )
+
+        eq_split: tuple[Decimal, Decimal] | None = None
+        if (
+            adj_us_entry
+            and adj_non_us_entry
+            and DataLoadingService._units_compatible(adj_us_entry[1], adj_non_us_entry[1])
+        ):
+            eq_split = DataLoadingService._normalized_split(adj_us_entry[0], adj_non_us_entry[0])
+        elif (
+            adj_us_entry
+            and equities_entry
+            and DataLoadingService._units_compatible(adj_us_entry[1], equities_entry[1])
+        ):
+            eq_split = DataLoadingService._split_from_parent(
+                child_value=adj_us_entry[0],
+                parent_value=equities_entry[0],
+            )
+        elif (
+            adj_non_us_entry
+            and equities_entry
+            and DataLoadingService._units_compatible(adj_non_us_entry[1], equities_entry[1])
+        ):
+            non_us_first = DataLoadingService._split_from_parent(
+                child_value=adj_non_us_entry[0],
+                parent_value=equities_entry[0],
+            )
+            if non_us_first is not None:
+                eq_split = (non_us_first[1], non_us_first[0])
+
+        if fixed_total is not None and fixed_split is not None:
+            DataLoadingService._drop_category_keys(
+                payload=merged,
+                bank_code=bank_code,
+                categories={
+                    MANDATE_CATEGORY_IG_FIXED,
+                    MANDATE_CATEGORY_HY_FIXED,
+                },
+            )
+            ig_amount = fixed_total * fixed_split[0]
+            hy_amount = fixed_total - ig_amount
+            merged["Investment Grade Fixed Income"] = DataLoadingService._canonical_amount_payload(ig_amount)
+            merged["High Yield Fixed Income"] = DataLoadingService._canonical_amount_payload(hy_amount)
+        elif fixed_total is not None and ending_value is not None and ending_value > 0:
+            if ig_entry and str(ig_entry[1] or "").strip() == "%" and hy_entry is None:
+                ig_amount = min((ending_value * ig_entry[0]) / Decimal("100"), fixed_total)
+                merged["Investment Grade Fixed Income"] = DataLoadingService._canonical_amount_payload(ig_amount)
+                merged["High Yield Fixed Income"] = DataLoadingService._canonical_amount_payload(fixed_total - ig_amount)
+            elif hy_entry and str(hy_entry[1] or "").strip() == "%" and ig_entry is None:
+                hy_amount = min((ending_value * hy_entry[0]) / Decimal("100"), fixed_total)
+                merged["Investment Grade Fixed Income"] = DataLoadingService._canonical_amount_payload(fixed_total - hy_amount)
+                merged["High Yield Fixed Income"] = DataLoadingService._canonical_amount_payload(hy_amount)
+
+        if equities_total is not None and eq_split is not None:
+            DataLoadingService._drop_category_keys(
+                payload=merged,
+                bank_code=bank_code,
+                categories={
+                    MANDATE_CATEGORY_US_EQUITIES,
+                    MANDATE_CATEGORY_NON_US_EQUITIES,
+                    MANDATE_CATEGORY_GLOBAL_EQUITIES,
+                },
+            )
+            us_amount = equities_total * eq_split[0]
+            non_us_amount = equities_total - us_amount
+            merged["US Equities"] = DataLoadingService._canonical_amount_payload(us_amount)
+            merged["Non US Equities"] = DataLoadingService._canonical_amount_payload(non_us_amount)
+        elif equities_total is not None and ending_value is not None and ending_value > 0:
+            if adj_us_entry and str(adj_us_entry[1] or "").strip() == "%" and adj_non_us_entry is None:
+                us_amount = min((ending_value * adj_us_entry[0]) / Decimal("100"), equities_total)
+                merged["US Equities"] = DataLoadingService._canonical_amount_payload(us_amount)
+                merged["Non US Equities"] = DataLoadingService._canonical_amount_payload(equities_total - us_amount)
+            elif adj_non_us_entry and str(adj_non_us_entry[1] or "").strip() == "%" and adj_us_entry is None:
+                non_us_amount = min((ending_value * adj_non_us_entry[0]) / Decimal("100"), equities_total)
+                merged["US Equities"] = DataLoadingService._canonical_amount_payload(equities_total - non_us_amount)
+                merged["Non US Equities"] = DataLoadingService._canonical_amount_payload(non_us_amount)
+
+        return merged
+
+    def _apply_pdf_report_metrics_series(
+        self,
+        *,
+        account: Account,
+        metrics_series: list[Any],
+        raw_document_id: int,
+        stats: dict[str, Any],
+    ) -> set[int]:
+        touched_years: set[int] = set()
+        for item in metrics_series:
+            if not isinstance(item, dict):
+                continue
+            year = int(item.get("year") or 0)
+            month = int(item.get("month") or 0)
+            if year <= 0 or month < 1 or month > 12:
+                continue
+
+            duration_val = _safe_decimal(item.get("fixed_income_duration"))
+            yield_val = _safe_decimal(item.get("fixed_income_yield"))
+            if duration_val is None and yield_val is None:
+                continue
+
+            existing = (
+                self.db.query(MonthlyClosing)
+                .filter(
+                    MonthlyClosing.account_id == account.id,
+                    MonthlyClosing.year == year,
+                    MonthlyClosing.month == month,
+                )
+                .first()
+            )
+            if existing is None:
+                stats["skipped"] += 1
+                continue
+
+            metrics_payload: dict[str, Any] = {}
+            source = str(item.get("source") or "pdf_report_series")
+            if duration_val is not None:
+                metrics_payload["fixed_income_duration"] = {
+                    "value": float(duration_val),
+                    "unit": "years",
+                    "source": source,
+                }
+            if yield_val is not None:
+                metrics_payload["fixed_income_yield"] = {
+                    "value": float(yield_val),
+                    "unit": str(item.get("yield_unit") or "%"),
+                    "source": source,
+                }
+
+            merged = self._merge_asset_allocation_payload(
+                existing_json=existing.asset_allocation_json,
+                incoming_allocation=None,
+                incoming_metrics=metrics_payload,
+                bank_code=account.bank_code,
+                account_type=account.account_type,
+                ending_value=_safe_decimal(existing.net_value),
+            )
+            if merged is None:
+                continue
+            existing.asset_allocation_json = json.dumps(merged)
+            stats["monthly_closings_updated"] += 1
+            touched_years.add(year)
+
+        if touched_years:
+            self._log(
+                "load",
+                "info",
+                (
+                    f"Serie duration/yield aplicada para {account.bank_code}/{account.account_number}: "
+                    f"{len(touched_years)} ano(s) afectados"
+                ),
+                raw_document_id=raw_document_id,
+                account_id=account.id,
+            )
+        return touched_years
     # ═══════════════════════════════════════════════════════════════
     # RESOLUCIÓN DE CUENTAS
     # ═══════════════════════════════════════════════════════════════
@@ -1266,7 +2130,11 @@ class DataLoadingService:
             account_values=account_values,
         )
         if account.account_type == "mandato":
-            asset_alloc = _normalize_mandate_asset_allocation(raw_asset_alloc) or raw_asset_alloc
+            asset_alloc = _normalize_mandate_asset_allocation(
+                raw_asset_alloc,
+                bank_code=account.bank_code or "",
+                macro_only=True,
+            )
         elif account.bank_code == "jpmorgan" and account.account_type == "brokerage":
             asset_alloc = self._derive_jpm_brokerage_asset_allocation(
                 account=account,
@@ -1303,6 +2171,14 @@ class DataLoadingService:
         )
 
         if existing:
+            if account.account_type == "mandato" and asset_alloc_json and existing.asset_allocation_json:
+                preserved = self._merge_cartola_mandate_allocation(
+                    cartola_json=asset_alloc_json,
+                    existing_json=existing.asset_allocation_json,
+                    bank_code=account.bank_code,
+                )
+                if preserved is not None:
+                    asset_alloc_json = json.dumps(preserved)
             existing.closing_date = closing_date
             existing.total_assets = closing_bal
             existing.net_value = closing_bal
@@ -1387,6 +2263,268 @@ class DataLoadingService:
 
         return True
 
+    @staticmethod
+    def _account_asset_class(account: Account) -> str | None:
+        try:
+            metadata = json.loads(account.metadata_json or "{}")
+        except (TypeError, ValueError):
+            metadata = {}
+        raw = metadata.get("asset_class")
+        if raw is None:
+            return None
+        return str(raw).strip() or None
+
+    def _load_etf_instrument_amounts(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+    ) -> dict[str, Decimal]:
+        rows = (
+            self.db.query(EtfComposition.etf_name, EtfComposition.market_value_usd, EtfComposition.market_value)
+            .filter(
+                EtfComposition.account_id == account.id,
+                EtfComposition.year == year,
+                EtfComposition.month == month,
+            )
+            .all()
+        )
+        grouped: dict[str, Decimal] = {}
+        for etf_name, market_value_usd, market_value in rows:
+            instrument = normalize_etf_instrument(str(etf_name or "").strip())
+            amount = to_decimal(market_value_usd)
+            if amount is None:
+                amount = to_decimal(market_value)
+            if amount is None or amount <= 0:
+                continue
+            grouped[instrument] = grouped.get(instrument, Decimal("0")) + amount
+        return grouped
+
+    @staticmethod
+    def _canonical_from_etf_instruments(instrument_amounts: dict[str, Decimal]) -> dict[str, Decimal]:
+        canonical = {
+            "Cash, Deposits & Money Market": Decimal("0"),
+            "Investment Grade Fixed Income": Decimal("0"),
+            "High Yield Fixed Income": Decimal("0"),
+            "US Equities": Decimal("0"),
+            "Non US Equities": Decimal("0"),
+            "Private Equity": Decimal("0"),
+            "Real Estate": Decimal("0"),
+        }
+        for instrument, amount in instrument_amounts.items():
+            if amount <= 0:
+                continue
+            bucket = classify_etf_asset_bucket(instrument, normalized_name=instrument)
+            if bucket == "Caja":
+                canonical["Cash, Deposits & Money Market"] += amount
+            elif bucket == "HY":
+                canonical["High Yield Fixed Income"] += amount
+            elif bucket in {"RF IG Short", "RF IG Long", "RF IG", "Non US RF", "RF"}:
+                canonical["Investment Grade Fixed Income"] += amount
+            elif bucket in {"RV EM", "RV DM", "Global Equity"}:
+                # ETF cartolas/reportes usan etiquetas globales/no-US; en detalle
+                # operativo se consolidan en Non US para evitar residuales.
+                canonical["Non US Equities"] += amount
+            elif bucket in {"Real Estate", "RE"}:
+                canonical["Real Estate"] += amount
+            elif bucket in {"Alternativos", "PE"}:
+                canonical["Private Equity"] += amount
+            else:
+                canonical["Non US Equities"] += amount
+
+        return canonical
+
+    @staticmethod
+    def _reporting_value_exclusion_rule(account: Account) -> dict[str, Any] | None:
+        key = (
+            str(account.bank_code or "").strip().lower(),
+            str(account.account_type or "").strip().lower(),
+            str(account.account_number or "").strip(),
+        )
+        return _REPORTING_VALUE_EXCLUSION_RULES.get(key)
+
+    @staticmethod
+    def _apply_reporting_value_exclusion_payload(
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        payload: dict | list | None,
+        ending_value_with_accrual: Decimal | None,
+        ending_value_without_accrual: Decimal | None,
+        db: Session,
+    ) -> dict | list | None:
+        rule = DataLoadingService._reporting_value_exclusion_rule(account)
+        if rule is None:
+            return payload
+        if not isinstance(payload, dict):
+            return payload
+
+        labels_norm = {
+            str(token).strip().lower()
+            for token in (rule.get("labels_norm") or set())
+            if str(token).strip()
+        }
+        if not labels_norm:
+            return payload
+
+        components: list[dict[str, str]] = []
+        total_excluded = Decimal("0")
+        for raw_label, raw_value in payload.items():
+            if str(raw_label).startswith("__"):
+                continue
+            label_norm = _normalize_alloc_label(raw_label)
+            if label_norm not in labels_norm:
+                continue
+            amount = _extract_allocation_amount(
+                raw_value,
+                ending_value_with_accrual=ending_value_with_accrual,
+            )
+            if amount is None or amount <= 0:
+                continue
+            total_excluded += amount
+            components.append(
+                {
+                    "rule_id": str(rule.get("rule_id") or ""),
+                    "label": str(raw_label),
+                    "amount_usd": str(amount),
+                }
+            )
+
+        rule_id = str(rule.get("rule_id") or "")
+        if not components and rule_id == "telmar_gs_mandato_private_equity_duplicated_in_alternatives":
+            month_start = date(year, month, 1)
+            next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+            ps_row = (
+                db.query(ParsedStatement.parsed_data_json)
+                .filter(
+                    ParsedStatement.account_id == account.id,
+                    ParsedStatement.statement_date >= month_start,
+                    ParsedStatement.statement_date < next_month,
+                )
+                .order_by(ParsedStatement.id.desc())
+                .first()
+            )
+            if ps_row and ps_row[0]:
+                try:
+                    ps_payload = json.loads(ps_row[0] or "{}")
+                except (TypeError, ValueError):
+                    ps_payload = {}
+                rows = ps_payload.get("rows") if isinstance(ps_payload, dict) else None
+                token = "weststreetcapitalpartnersviioffshore"
+                if isinstance(rows, list):
+                    for row in rows:
+                        if not isinstance(row, dict):
+                            continue
+                        instrument = str(row.get("instrument") or "").strip()
+                        instrument_norm = _normalize_alloc_label(instrument)
+                        if token not in instrument_norm:
+                            continue
+                        amount = _safe_decimal(
+                            row.get("market_value")
+                            or row.get("value")
+                            or row.get("amount")
+                        )
+                        if amount is None or amount <= 0:
+                            continue
+                        total_excluded += amount
+                        components.append(
+                            {
+                                "rule_id": rule_id,
+                                "label": instrument or "Private Equity",
+                                "amount_usd": str(amount),
+                            }
+                        )
+                        break
+
+        if not components and rule_id == "telmar_jpm_brokerage_alternative_assets_duplicated_in_alternatives":
+            alloc_total = _asset_allocation_total_value(payload)
+            base_ending = ending_value_without_accrual
+            if base_ending is None:
+                base_ending = ending_value_with_accrual
+            if alloc_total is not None and base_ending is not None:
+                residual = base_ending - alloc_total
+                if residual > Decimal("1"):
+                    total_excluded += residual
+                    components.append(
+                        {
+                            "rule_id": rule_id,
+                            "label": "Alternative Assets (residual vs ending without accrual)",
+                            "amount_usd": str(residual),
+                        }
+                    )
+
+        next_payload = dict(payload)
+        if total_excluded <= 0 or not components:
+            next_payload.pop(_REPORTING_VALUE_EXCLUSION_KEY, None)
+            return next_payload
+
+        next_payload[_REPORTING_VALUE_EXCLUSION_KEY] = {
+            "version": "1.0.0",
+            "applied_total_usd": str(total_excluded),
+            "period": f"{year:04d}-{month:02d}",
+            "description": str(rule.get("description") or ""),
+            "components": components,
+        }
+        return next_payload
+
+    def _compose_normalized_asset_allocation_json(
+        self,
+        *,
+        account: Account,
+        year: int,
+        month: int,
+        ending_value_with_accrual: Decimal | None,
+        ending_value_without_accrual: Decimal | None = None,
+        raw_asset_allocation_json: str | None,
+    ) -> str | None:
+        raw_payload = decode_asset_allocation_json(raw_asset_allocation_json)
+        raw_payload = self._apply_reporting_value_exclusion_payload(
+            account=account,
+            year=year,
+            month=month,
+            payload=raw_payload,
+            ending_value_with_accrual=ending_value_with_accrual,
+            ending_value_without_accrual=ending_value_without_accrual,
+            db=self.db,
+        )
+
+        account_type = str(account.account_type or "").strip().lower()
+        if account_type not in {"mandato", "etf"}:
+            if raw_payload is None:
+                return raw_asset_allocation_json
+            return json.dumps(raw_payload)
+
+        canonical_amounts = canonical_breakdown_from_payload(
+            payload=raw_payload,
+            ending_value=ending_value_with_accrual,
+            bank_code=account.bank_code,
+            account_type=account.account_type,
+            fallback_asset_class=self._account_asset_class(account),
+        )
+
+        instrument_amounts: dict[str, Decimal] | None = None
+        if str(account.account_type or "").strip().lower() == "etf":
+            loaded_instruments = self._load_etf_instrument_amounts(account=account, year=year, month=month)
+            if loaded_instruments:
+                instrument_amounts = loaded_instruments
+                canonical_from_instruments = self._canonical_from_etf_instruments(loaded_instruments)
+                if any(value > 0 for value in canonical_from_instruments.values()):
+                    canonical_amounts = canonical_from_instruments
+
+        fi_metrics = extract_fi_metrics(raw_payload)
+        composed = compose_asset_allocation_payload(
+            raw_payload=raw_payload,
+            canonical_amounts=canonical_amounts,
+            ending_value=ending_value_with_accrual,
+            instrument_amounts=instrument_amounts,
+            fi_metrics=fi_metrics or None,
+        )
+        if not composed:
+            return None
+        return json.dumps(composed)
+
     def _upsert_monthly_metric_normalized(
         self,
         account: Account,
@@ -1439,6 +2577,14 @@ class DataLoadingService:
 
         movements_ytd = _safe_decimal(account_values.get("change_investment_ytd"))
         profit_ytd = _safe_decimal(account_values.get("income_ytd"))
+        normalized_alloc_json = self._compose_normalized_asset_allocation_json(
+            account=account,
+            year=year,
+            month=month,
+            ending_value_with_accrual=end_w,
+            ending_value_without_accrual=end_wo,
+            raw_asset_allocation_json=asset_alloc_json,
+        )
 
         existing = (
             self.db.query(MonthlyMetricNormalized)
@@ -1460,7 +2606,7 @@ class DataLoadingService:
             "profit_period": _safe_decimal(profit),
             "movements_ytd": movements_ytd,
             "profit_ytd": profit_ytd,
-            "asset_allocation_json": asset_alloc_json,
+            "asset_allocation_json": normalized_alloc_json,
             "currency": currency,
             "source_document_id": source_document_id,
         }
@@ -1525,10 +2671,12 @@ class DataLoadingService:
                 ending_without = ending_with
 
             existing_alloc = normalized.asset_allocation_json if normalized else None
+            # Keep normalized layer synced with MonthlyClosing allocation updates
+            # (e.g. mandate report enrichments IG/HY, US/Non-US, duration/yield).
             alloc_json = (
-                existing_alloc
-                if existing_alloc is not None
-                else closing.asset_allocation_json
+                closing.asset_allocation_json
+                if closing.asset_allocation_json is not None
+                else existing_alloc
             )
             alloc_payload = None
             if alloc_json:
@@ -1538,16 +2686,26 @@ class DataLoadingService:
                         alloc_payload = decoded
                 except (TypeError, ValueError):
                     alloc_payload = None
-            derived_alloc = self._derive_jpm_brokerage_asset_allocation(
+            if account.bank_code == "jpmorgan" and account.account_type == "brokerage":
+                derived_alloc = self._derive_jpm_brokerage_asset_allocation(
+                    account=account,
+                    raw_asset_alloc=alloc_payload,
+                    year=closing.year,
+                    month=closing.month,
+                    source_document_id=closing.source_document_id,
+                )
+                if derived_alloc:
+                    alloc_json = json.dumps(derived_alloc)
+                    closing.asset_allocation_json = alloc_json
+
+            normalized_alloc_json = self._compose_normalized_asset_allocation_json(
                 account=account,
-                raw_asset_alloc=alloc_payload,
                 year=closing.year,
                 month=closing.month,
-                source_document_id=closing.source_document_id,
+                ending_value_with_accrual=to_decimal(ending_with),
+                ending_value_without_accrual=to_decimal(ending_without),
+                raw_asset_allocation_json=alloc_json,
             )
-            if derived_alloc:
-                alloc_json = json.dumps(derived_alloc)
-                closing.asset_allocation_json = alloc_json
 
             existing_cash = normalized.cash_value if normalized else None
             cash_value = (
@@ -1570,7 +2728,7 @@ class DataLoadingService:
                 "cash_value": cash_value,
                 "movements_net": closing.change_in_value,
                 "profit_period": closing.income,
-                "asset_allocation_json": alloc_json,
+                "asset_allocation_json": normalized_alloc_json,
                 "currency": closing.currency or account.currency,
                 "source_document_id": closing.source_document_id,
             }
@@ -2078,6 +3236,14 @@ class DataLoadingService:
                 )
             )
         )
+        normalized_alloc_json = self._compose_normalized_asset_allocation_json(
+            account=account,
+            year=year,
+            month=month,
+            ending_value_with_accrual=to_decimal(end_w),
+            ending_value_without_accrual=to_decimal(end_wo),
+            raw_asset_allocation_json=asset_alloc_json,
+        )
         normalized_payload = {
             "closing_date": closing_date,
             "ending_value_with_accrual": end_w,
@@ -2086,7 +3252,7 @@ class DataLoadingService:
             "cash_value": cash_value,
             "movements_net": movements,
             "profit_period": profit,
-            "asset_allocation_json": asset_alloc_json,
+            "asset_allocation_json": normalized_alloc_json,
             "currency": currency,
             "source_document_id": source_document_id or (normalized.source_document_id if normalized else None),
         }
@@ -2632,6 +3798,15 @@ class DataLoadingService:
             self.db.add(comp)
 
             count += 1
+
+        if count > 0:
+            # Asegura que el refresh lea los ETF recién insertados
+            # (Session está con autoflush=False).
+            self.db.flush()
+            self._refresh_normalized_activity_from_monthly_closings(
+                account=account,
+                year=year,
+            )
 
         return count
 

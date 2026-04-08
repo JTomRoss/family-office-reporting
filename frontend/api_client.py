@@ -35,6 +35,7 @@ def upload_file(
     filename: str,
     file_type: str,
     extra_data: Optional[dict] = None,
+    timeout: float = 300.0,
 ) -> Any:
     """Upload de archivo al backend."""
     with open(filepath, "rb") as f:
@@ -42,7 +43,7 @@ def upload_file(
         data = {"file_type": file_type}
         if extra_data:
             data.update(extra_data)
-        response = _client.post(endpoint, files=files, data=data)
+        response = _client.post(endpoint, files=files, data=data, timeout=timeout)
     response.raise_for_status()
     return response.json()
 

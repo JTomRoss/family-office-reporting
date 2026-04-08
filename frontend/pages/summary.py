@@ -18,7 +18,7 @@ import streamlit as st
 from frontend import api_client
 from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
-from frontend.components.filters import BANK_DISPLAY_NAMES
+from frontend.components.filters import BANK_DISPLAY_NAMES, use_apply_filters
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
 
@@ -249,54 +249,14 @@ def render():
     if not fecha_options:
         fecha_options = _build_fecha_options(year_options)
 
-    raw_selected_consolidated = st.session_state.get("summary_consolidated", "")
-    raw_selected_entities = list(st.session_state.get("summary_entity_names", []))
-    raw_selected_banks = list(st.session_state.get("summary_bank_codes", []))
-    raw_selected_people = list(st.session_state.get("summary_person_names", []))
-    raw_selected_types = list(st.session_state.get("summary_account_types", []))
     current_fecha = st.session_state.get("summary_fecha")
     if current_fecha not in fecha_options and fecha_options:
         current_fecha = fecha_options[0]
         st.session_state["summary_fecha"] = current_fecha
-    selected_year_seed = int(current_fecha[:4]) if current_fecha else None
-    preset_entities_seed = list(CONSOLIDATED_PRESETS.get(raw_selected_consolidated, []))
-    effective_entities_seed = sorted(set(raw_selected_entities) | set(preset_entities_seed))
-    effective_people_seed = [] if preset_entities_seed else raw_selected_people
-
-    bank_seed_rows = _summary_seed_rows(
-        selected_year=selected_year_seed,
-        entity_names=effective_entities_seed,
-        account_types=raw_selected_types,
-        person_names=effective_people_seed,
-    )
-    entity_seed_rows = _summary_seed_rows(
-        selected_year=selected_year_seed,
-        bank_codes=raw_selected_banks,
-        account_types=raw_selected_types,
-        person_names=effective_people_seed,
-    )
-    person_seed_rows = _summary_seed_rows(
-        selected_year=selected_year_seed,
-        bank_codes=raw_selected_banks,
-        entity_names=effective_entities_seed,
-        account_types=raw_selected_types,
-    )
-    type_seed_rows = _summary_seed_rows(
-        selected_year=selected_year_seed,
-        bank_codes=raw_selected_banks,
-        entity_names=effective_entities_seed,
-        person_names=effective_people_seed,
-    )
-
-    bank_options = _distinct_values(bank_seed_rows, "banco") or bank_options_all
-    entity_options = _distinct_values(entity_seed_rows, "sociedad") or entity_options_all
-    person_options = _distinct_values(person_seed_rows, "nombre") or person_options_all
-    account_type_options = _distinct_account_type_values(type_seed_rows)
-    if not account_type_options:
-        if set(raw_selected_banks) == {"alternativos"}:
-            account_type_options = [opt for opt in account_type_options_all if opt in {"pe", "re"}]
-        else:
-            account_type_options = account_type_options_all
+    bank_options = bank_options_all
+    entity_options = entity_options_all
+    person_options = person_options_all
+    account_type_options = account_type_options_all
 
     _sanitize_multiselect_state("summary_bank_codes", bank_options)
     _sanitize_multiselect_state("summary_entity_names", entity_options)
@@ -352,13 +312,31 @@ def render():
             selected_fecha = None
             st.selectbox("Fecha", options=["Sin datos"], disabled=True, key="summary_fecha_empty")
 
-    preset_entities = list(CONSOLIDATED_PRESETS.get(selected_consolidated, []))
-    selected_entities_effective = sorted(set(selected_entities) | set(preset_entities))
-    effective_people = [] if preset_entities else selected_people
-    if selected_consolidated and preset_entities:
+    applied_filters, _ = use_apply_filters(
+        state_key="summary_filters_applied",
+        current_filters={
+            "bank_codes": list(selected_banks),
+            "entity_names": list(selected_entities),
+            "consolidated": selected_consolidated,
+            "person_names": list(selected_people),
+            "account_types": list(selected_types),
+            "fecha": selected_fecha,
+        },
+    )
+    applied_banks = list(applied_filters.get("bank_codes", []))
+    applied_entities = list(applied_filters.get("entity_names", []))
+    applied_consolidated = applied_filters.get("consolidated", "")
+    applied_people = list(applied_filters.get("person_names", []))
+    applied_types = list(applied_filters.get("account_types", []))
+    applied_fecha = applied_filters.get("fecha")
+
+    preset_entities = list(CONSOLIDATED_PRESETS.get(applied_consolidated, []))
+    selected_entities_effective = sorted(set(applied_entities) | set(preset_entities))
+    effective_people = [] if preset_entities else applied_people
+    if applied_consolidated and preset_entities:
         st.caption(f"Consolidado activo: {', '.join(preset_entities)}")
 
-    selected_year = int(selected_fecha[:4]) if selected_fecha else None
+    selected_year = int(applied_fecha[:4]) if applied_fecha else None
 
     st.markdown("---")
 
@@ -367,10 +345,10 @@ def render():
             "/data/summary",
             json={
                 "years": [selected_year] if selected_year else [],
-                "bank_codes": selected_banks,
+                "bank_codes": applied_banks,
                 "entity_names": selected_entities_effective,
                 "person_names": effective_people,
-                "account_types": selected_types,
+                "account_types": applied_types,
             },
         )
     except Exception as exc:
@@ -387,10 +365,10 @@ def render():
                 "/data/summary",
                 json={
                     "years": [selected_year - 1, selected_year],
-                    "bank_codes": selected_banks,
+                    "bank_codes": applied_banks,
                     "entity_names": selected_entities_effective,
                     "person_names": effective_people,
-                    "account_types": selected_types,
+                    "account_types": applied_types,
                 },
             )
         except Exception:
@@ -403,10 +381,10 @@ def render():
             "/data/summary",
             json={
                 "years": [],
-                "bank_codes": selected_banks,
+                "bank_codes": applied_banks,
                 "entity_names": selected_entities_effective,
                 "person_names": effective_people,
-                "account_types": selected_types,
+                "account_types": applied_types,
             },
         )
     except Exception:
@@ -417,10 +395,10 @@ def render():
     render_health_warning(
         {
             "years": [selected_year] if selected_year else [],
-            "bank_codes": selected_banks,
+            "bank_codes": applied_banks,
             "entity_names": selected_entities_effective,
             "person_names": effective_people,
-            "account_types": selected_types,
+            "account_types": applied_types,
         },
         label="Resumen",
     )
@@ -433,8 +411,8 @@ def render():
 
     st.subheader("Evolucion 12 meses")
 
-    if selected_fecha:
-        end_key = selected_fecha
+    if applied_fecha:
+        end_key = applied_fecha
     else:
         chart_dates = [str(r.get("fecha")) for r in rolling_chart_data if r.get("fecha")]
         end_key = max(chart_dates) if chart_dates else None
@@ -592,7 +570,7 @@ def render():
         else:
             default_start = f"{selected_year}-01" if selected_year else ym_options[0]
             start_index = ym_options.index(default_start) if default_start in ym_options else 0
-            default_end = selected_fecha if selected_fecha in ym_options else ym_options[-1]
+            default_end = applied_fecha if applied_fecha in ym_options else ym_options[-1]
             end_index = ym_options.index(default_end) if default_end in ym_options else len(ym_options) - 1
             rc1, rc2 = st.columns(2)
             with rc1:

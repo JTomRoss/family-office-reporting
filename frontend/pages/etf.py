@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pagina ETF.
 
 Estructura:
@@ -18,7 +18,7 @@ from asset_taxonomy import asset_bucket_series
 from frontend import api_client
 from frontend.components.chart_utils import aligned_dual_return_axes
 from frontend.components.data_health import render_health_warning
-from frontend.components.filters import BANK_DISPLAY_NAMES, render_fecha_filter
+from frontend.components.filters import BANK_DISPLAY_NAMES, render_fecha_filter, use_apply_filters
 from frontend.components.number_format import fmt_number, fmt_percent
 from frontend.components.table_utils import render_table
 
@@ -87,6 +87,18 @@ def _to_float(val):
         return float(val)
     except (TypeError, ValueError):
         return None
+
+
+def _has_instrument_data(vals: dict, columns: list[str]) -> bool:
+    if not isinstance(vals, dict):
+        return False
+    for col in columns:
+        value = _to_float(vals.get(col))
+        if value is None:
+            continue
+        if abs(value) > 1e-9:
+            return True
+    return False
 
 
 def _month_label(fecha_key: str) -> str:
@@ -179,17 +191,33 @@ def render():
         )
         sin_personal = personal_option == "Sin Personal"
 
+    applied_filters, _ = use_apply_filters(
+        state_key="etf_filters_applied",
+        current_filters={
+            "bank_codes": list(selected_banks),
+            "entity_names": list(selected_entities),
+            "sin_caja": sin_caja,
+            "fecha": fecha,
+            "sin_personal": sin_personal,
+        },
+    )
+    applied_banks = list(applied_filters.get("bank_codes", []))
+    applied_entities = list(applied_filters.get("entity_names", []))
+    applied_sin_caja = bool(applied_filters.get("sin_caja", False))
+    applied_fecha = applied_filters.get("fecha")
+    applied_sin_personal = bool(applied_filters.get("sin_personal", False))
+
     st.markdown("---")
 
     try:
         data = api_client.post(
             "/data/etf",
             json={
-                "fecha": fecha,
-                "bank_codes": selected_banks,
-                "entity_names": selected_entities,
-                "sin_caja": sin_caja,
-                "sin_personal": sin_personal,
+                "fecha": applied_fecha,
+                "bank_codes": applied_banks,
+                "entity_names": applied_entities,
+                "sin_caja": applied_sin_caja,
+                "sin_personal": applied_sin_personal,
             },
         )
     except Exception as e:
@@ -214,10 +242,10 @@ def render():
     render_health_warning(
         {
             "years": [selected_year] if selected_year else [],
-            "bank_codes": selected_banks,
-            "entity_names": selected_entities,
+            "bank_codes": applied_banks,
+            "entity_names": applied_entities,
             "account_types": ["etf"],
-            "sin_personal": sin_personal,
+            "sin_personal": applied_sin_personal,
         },
         label="ETF",
     )
@@ -228,10 +256,10 @@ def render():
             "/data/summary",
             json={
                 "years": years_payload,
-                "bank_codes": selected_banks,
-                "entity_names": selected_entities,
+                "bank_codes": applied_banks,
+                "entity_names": applied_entities,
                 "account_types": ["etf"],
-                "sin_personal": sin_personal,
+                "sin_personal": applied_sin_personal,
             },
         )
     except Exception:
@@ -241,10 +269,10 @@ def render():
     st.subheader("Rentabilidad ultimos 12 meses (%)")
     chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
     if chart_map:
-        end_key = str(fecha) if fecha in chart_map else max(chart_map.keys())
+        end_key = str(applied_fecha) if applied_fecha in chart_map else max(chart_map.keys())
         month_keys = _rolling_month_keys(end_key, 12)
         x_labels = [_month_label(key) for key in month_keys]
-        rent_key = "rent_mensual_sin_caja_pct" if sin_caja else "rent_mensual_pct"
+        rent_key = "rent_mensual_sin_caja_pct" if applied_sin_caja else "rent_mensual_pct"
         monthly_returns = [_to_float(chart_map.get(key, {}).get(rent_key)) for key in month_keys]
         accumulated_returns = _compute_accumulated_from_monthly(monthly_returns)
         monthly_vals = [v for v in monthly_returns if v is not None]
@@ -313,45 +341,59 @@ def render():
     st.caption("Afectado por Fecha, Con/Sin Caja y Sin Personal.")
 
     if instruments_table:
-        instr_rows = []
-        totals_raw = {col: 0.0 for col in active_society_cols}
-
+        visible_instruments: list[str] = []
         for instr in INSTRUMENT_ORDER:
             vals = instruments_table.get(instr, {})
-            row = {"Instrumento": _instrument_label(instr)}
+            if _has_instrument_data(vals, active_society_cols):
+                visible_instruments.append(instr)
+        for instr, vals in instruments_table.items():
+            if instr in INSTRUMENT_ORDER:
+                continue
+            if _has_instrument_data(vals, active_society_cols):
+                visible_instruments.append(instr)
+
+        if not visible_instruments:
+            st.info("Sin instrumentos con datos para la selección actual.")
+        else:
+            instr_rows = []
+            totals_raw = {col: 0.0 for col in active_society_cols}
+
+            for instr in visible_instruments:
+                vals = instruments_table.get(instr, {})
+                row = {"Instrumento": _instrument_label(instr)}
+                for col in active_society_cols:
+                    v = float(vals.get(col, 0) or 0)
+                    row[col] = _fmt_num(v)
+                    totals_raw[col] += v
+                instr_rows.append(row)
+
+            total_row = {"Instrumento": "Total"}
             for col in active_society_cols:
-                v = float(vals.get(col, 0) or 0)
-                row[col] = _fmt_num(v)
-                totals_raw[col] += v
-            instr_rows.append(row)
+                total_row[col] = _fmt_num(totals_raw[col])
+            instr_rows.append(total_row)
 
-        total_row = {"Instrumento": "Total"}
-        for col in active_society_cols:
-            total_row[col] = _fmt_num(totals_raw[col])
-        instr_rows.append(total_row)
+            control_row = {"Instrumento": ""}
+            has_any_difference = False
+            for col in active_society_cols:
+                expected = float(control_expected.get(col, 0) or 0)
+                diff = abs(totals_raw[col] - expected)
+                if diff <= 1:
+                    control_row[col] = ""
+                else:
+                    has_any_difference = True
+                    control_row[col] = "Diferencia"
+            if has_any_difference:
+                instr_rows.append(control_row)
 
-        control_row = {"Instrumento": ""}
-        has_any_difference = False
-        for col in active_society_cols:
-            expected = float(control_expected.get(col, 0) or 0)
-            diff = abs(totals_raw[col] - expected)
-            if diff <= 1:
-                control_row[col] = ""
-            else:
-                has_any_difference = True
-                control_row[col] = "Diferencia"
-        if has_any_difference:
-            instr_rows.append(control_row)
-
-        df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + active_society_cols)
-        df_instr = df_instr.rename(columns={c: _society_label(c) for c in active_society_cols})
-        render_table(
-            df_instr,
-            bold_row_labels={"Total"},
-            bold_cols=["Total"],
-            label_col="Instrumento",
-            fixed_equal_cols=True,
-        )
+            df_instr = pd.DataFrame(instr_rows, columns=["Instrumento"] + active_society_cols)
+            df_instr = df_instr.rename(columns={c: _society_label(c) for c in active_society_cols})
+            render_table(
+                df_instr,
+                bold_row_labels={"Total"},
+                bold_cols=["Total"],
+                label_col="Instrumento",
+                fixed_equal_cols=True,
+            )
     else:
         st.info("Sin datos. Seleccione una fecha con datos ETF.")
 
@@ -367,11 +409,26 @@ def render():
             totals_pct[col] = 0.0
         benchmark_total = 0.0
 
+        visible_instruments: list[str] = []
         for instr in INSTRUMENT_ORDER:
-            if instr in instruments_pct_table:
-                if sin_caja and instr == "Money Market":
-                    continue
-                vals = instruments_pct_table[instr]
+            if applied_sin_caja and instr == "Money Market":
+                continue
+            vals = instruments_table.get(instr, {})
+            if _has_instrument_data(vals, active_society_cols):
+                visible_instruments.append(instr)
+        for instr, vals in instruments_table.items():
+            if instr in INSTRUMENT_ORDER:
+                continue
+            if applied_sin_caja and instr == "Money Market":
+                continue
+            if _has_instrument_data(vals, active_society_cols):
+                visible_instruments.append(instr)
+
+        if not visible_instruments:
+            st.info("Sin instrumentos con datos para la selección actual.")
+        else:
+            for instr in visible_instruments:
+                vals = instruments_pct_table.get(instr, {})
                 row = {"Instrumento": _instrument_label(instr)}
                 for col in active_society_cols:
                     v = vals.get(col, 0)
@@ -382,32 +439,20 @@ def render():
                 benchmark_total += float(bench or 0.0)
                 pct_rows.append(row)
 
-        for instr, vals in instruments_pct_table.items():
-            if instr not in INSTRUMENT_ORDER:
-                if sin_caja and instr == "Money Market":
-                    continue
-                row = {"Instrumento": _instrument_label(instr)}
-                for col in active_society_cols:
-                    v = vals.get(col, 0)
-                    row[col] = _fmt_pct(v)
-                    totals_pct[col] += float(v or 0)
-                row["Benchmark"] = ""
-                pct_rows.append(row)
+            for col in active_society_cols:
+                totals_pct[col] = _fmt_pct(totals_pct[col])
+            totals_pct["Benchmark"] = _fmt_pct(benchmark_total)
+            pct_rows.append(totals_pct)
 
-        for col in active_society_cols:
-            totals_pct[col] = _fmt_pct(totals_pct[col])
-        totals_pct["Benchmark"] = _fmt_pct(benchmark_total)
-        pct_rows.append(totals_pct)
-
-        df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + active_society_cols + ["Benchmark"])
-        df_pct = df_pct.rename(columns={c: _society_label(c) for c in active_society_cols})
-        render_table(
-            df_pct,
-            bold_row_labels={"Total"},
-            bold_cols=["Total"],
-            label_col="Instrumento",
-            fixed_equal_cols=True,
-        )
+            df_pct = pd.DataFrame(pct_rows, columns=["Instrumento"] + active_society_cols + ["Benchmark"])
+            df_pct = df_pct.rename(columns={c: _society_label(c) for c in active_society_cols})
+            render_table(
+                df_pct,
+                bold_row_labels={"Total"},
+                bold_cols=["Total"],
+                label_col="Instrumento",
+                fixed_equal_cols=True,
+            )
     else:
         st.info("Sin datos de pesos %.")
 

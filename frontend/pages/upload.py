@@ -20,6 +20,7 @@ from io import BytesIO
 from pathlib import Path
 
 from frontend import api_client
+from frontend.components.filters import use_apply_filters
 from frontend.components.table_utils import render_table
 
 # ── Opciones estáticas para selectboxes ──────────────────────────
@@ -1205,28 +1206,46 @@ def render():
             key="doc_quick_search",
         ).strip().lower()
 
+        applied_doc_filters, _ = use_apply_filters(
+            state_key="upload_docs_filters_applied",
+            current_filters={
+                "file_type": filter_type,
+                "bank_code": filter_bank,
+                "quick_search": quick_search,
+            },
+            button_label="Buscar",
+        )
+        applied_filter_type = str(applied_doc_filters.get("file_type") or "").strip()
+        applied_filter_bank = str(applied_doc_filters.get("bank_code") or "").strip()
+        applied_quick_search = str(applied_doc_filters.get("quick_search") or "").strip().lower()
+        has_doc_scope = bool(applied_filter_type or applied_filter_bank or applied_quick_search)
+
         try:
-            params = {}
-            if filter_type:
-                params["file_type"] = filter_type
-            if filter_bank:
-                params["bank_code"] = filter_bank
+            docs = []
+            if has_doc_scope:
+                params = {}
+                if applied_filter_type:
+                    params["file_type"] = applied_filter_type
+                if applied_filter_bank:
+                    params["bank_code"] = applied_filter_bank
 
-            docs = api_client.get("/documents/", params=params)
-            if quick_search and docs:
-                filtered_docs = []
-                for d in docs:
-                    haystack = " ".join([
-                        str(d.get("id", "")),
-                        str(d.get("filename", "")),
-                        str(d.get("file_type", "")),
-                        str(d.get("bank_code", "")),
-                    ]).lower()
-                    if quick_search in haystack:
-                        filtered_docs.append(d)
-                docs = filtered_docs
+                docs = api_client.get("/documents/", params=params)
+                if applied_quick_search and docs:
+                    filtered_docs = []
+                    for d in docs:
+                        haystack = " ".join([
+                            str(d.get("id", "")),
+                            str(d.get("filename", "")),
+                            str(d.get("file_type", "")),
+                            str(d.get("bank_code", "")),
+                        ]).lower()
+                        if applied_quick_search in haystack:
+                            filtered_docs.append(d)
+                    docs = filtered_docs
 
-            if docs:
+            if not has_doc_scope:
+                st.info("Selecciona al menos un filtro o escribe una búsqueda y presiona Buscar.")
+            elif docs:
                 import pandas as pd
                 df_docs = pd.DataFrame(docs)
                 # Índice 0..n-1 para alinear selección con filas
@@ -1260,48 +1279,81 @@ def render():
                     if n > 0:
                         st.success("✅ Selección eliminada.")
 
+                doc_ids_signature = ",".join(df_docs["id"].astype(str).tolist())
+                docs_scope_signature = f"{applied_filter_type}|{applied_filter_bank}|{applied_quick_search}|{doc_ids_signature}"
+                if st.session_state.get("doc_table_scope_signature") != docs_scope_signature:
+                    st.session_state["doc_table_scope_signature"] = docs_scope_signature
+                    st.session_state["doc_table_selected_ids"] = []
+                    st.session_state["doc_table_editor_nonce"] = int(st.session_state.get("doc_table_editor_nonce", 0)) + 1
+
                 # Agregar columna de selección para eliminación
                 df_show.insert(len(df_show.columns), "Eliminar", False)
 
-                edited_df = st.data_editor(
-                    df_show,
-                    use_container_width=True,
-                    hide_index=True,
-                    disabled=[c for c in df_show.columns if c != "Eliminar"],
-                    column_config={
-                        "ID": st.column_config.TextColumn("ID"),
-                        "Eliminar": st.column_config.CheckboxColumn(
-                            "🗑️",
-                            help="Selecciona los documentos a eliminar",
-                            default=False,
-                        ),
-                    },
-                    key="doc_table_editor",
-                )
+                if "doc_table_selected_ids" not in st.session_state:
+                    st.session_state["doc_table_selected_ids"] = []
 
-                # ── Eliminar seleccionados ──────────────────────
-                eliminar_col = edited_df["Eliminar"].fillna(False)
-                # Aceptar True, 1, "true" por compatibilidad con el widget
-                selected_mask = (
-                    (eliminar_col == True)
-                    | (eliminar_col.astype(str).str.lower() == "true")
-                    | (eliminar_col == 1)
-                )
-                selected_count = int(selected_mask.sum())
+                editor_key = f"doc_table_editor_{int(st.session_state.get('doc_table_editor_nonce', 0))}"
+                apply_selection = False
+                clear_selection = False
+                with st.form("doc_table_selection_form", clear_on_submit=False):
+                    st.caption("Marca todos los documentos que quieras y luego presiona Aplicar selección.")
+                    edited_df = st.data_editor(
+                        df_show,
+                        use_container_width=True,
+                        hide_index=True,
+                        disabled=[c for c in df_show.columns if c != "Eliminar"],
+                        column_config={
+                            "ID": st.column_config.TextColumn("ID"),
+                            "Eliminar": st.column_config.CheckboxColumn(
+                                "🗑️",
+                                help="Selecciona los documentos a eliminar",
+                                default=False,
+                            ),
+                        },
+                        key=editor_key,
+                    )
+
+                    form_col_apply, form_col_clear = st.columns([1, 1])
+                    with form_col_apply:
+                        apply_selection = st.form_submit_button("Aplicar selección")
+                    with form_col_clear:
+                        clear_selection = st.form_submit_button("Limpiar selección")
+
+                if apply_selection:
+                    eliminar_col = edited_df["Eliminar"].fillna(False)
+                    selected_mask = (
+                        (eliminar_col == True)
+                        | (eliminar_col.astype(str).str.lower() == "true")
+                        | (eliminar_col == 1)
+                    )
+                    selected_indices = edited_df.index[selected_mask]
+                    st.session_state["doc_table_selected_ids"] = (
+                        df_docs.loc[selected_indices, "id"].astype(int).tolist()
+                    )
+                    st.rerun()
+
+                if clear_selection:
+                    st.session_state["doc_table_selected_ids"] = []
+                    st.session_state["doc_table_editor_nonce"] = int(st.session_state.get("doc_table_editor_nonce", 0)) + 1
+                    st.rerun()
+
+                selected_doc_ids = [
+                    int(doc_id)
+                    for doc_id in st.session_state.get("doc_table_selected_ids", [])
+                    if int(doc_id) in set(df_docs["id"].astype(int).tolist())
+                ]
+                st.session_state["doc_table_selected_ids"] = selected_doc_ids
 
                 col_del, col_reproc, col_info = st.columns([1, 1, 2])
                 with col_del:
                     if st.button(
-                        f"🗑️ Eliminar seleccionados ({selected_count})",
-                        disabled=selected_count == 0,
+                        f"🗑️ Eliminar seleccionados ({len(selected_doc_ids)})",
+                        disabled=len(selected_doc_ids) == 0,
                         key="btn_del_selected",
                     ):
-                        # IDs por índice desde df_docs: misma fila que ve el usuario
-                        selected_indices = edited_df.index[selected_mask]
-                        doc_ids = df_docs.loc[selected_indices, "id"].astype(int).tolist()
                         deleted = 0
                         errors = []
-                        for doc_id in doc_ids:
+                        for doc_id in selected_doc_ids:
                             try:
                                 api_client.delete(f"/documents/{doc_id}")
                                 deleted += 1
@@ -1312,8 +1364,12 @@ def render():
                                 st.error(err)
                         if deleted > 0:
                             st.session_state["doc_deleted_count"] = deleted
+                            st.session_state["doc_table_selected_ids"] = []
+                            st.session_state["doc_table_editor_nonce"] = int(st.session_state.get("doc_table_editor_nonce", 0)) + 1
                             st.rerun()
-                        elif doc_ids and not errors:
+                        if not selected_doc_ids and not errors:
+                            st.info("Selecciona al menos un documento antes de eliminar.")
+                        elif selected_doc_ids and deleted == 0 and not errors:
                             st.warning("No se eliminó ningún documento (revisar IDs).")
                 with col_reproc:
                     # Contar docs uploaded (no procesados)
@@ -1333,8 +1389,7 @@ def render():
                         st.success(f"✅ {processed} documento(s) procesado(s)")
                         st.rerun()
                 with col_info:
-                    if selected_count > 0:
-                        st.caption(f"📌 {selected_count} documento(s) seleccionado(s)")
+                    st.caption("Selecciona filas, presiona Aplicar selección, y luego Eliminar seleccionados.")
 
                 # ── Eliminación masiva ──────────────────────────
                 st.markdown("---")
