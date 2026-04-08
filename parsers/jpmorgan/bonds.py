@@ -235,8 +235,14 @@ class JPMorganBondsParser(BaseParser):
             r"Total\s+Short\s+Term\s+Investments\s+[\d,]+\.\d{2}\s+([\d,]+\.\d{2})",
             re.IGNORECASE,
         )
-        fallback_pattern = re.compile(
-            r"Total\s+Short\s+Term\s+Investments\s+([\d,]+\.\d{2})",
+        # Fallback two-col: skip beginning, capture ending (same as primary pattern).
+        # Fallback one-col: capture the only value when no second column is present.
+        fallback_two_col = re.compile(
+            r"Total\s+Short\s+Term\s+Investments\s+[\d,]+\.\d{2}\s+([\d,]+\.\d{2})",
+            re.IGNORECASE,
+        )
+        fallback_one_col = re.compile(
+            r"Total\s+Short\s+Term\s+Investments\s+([\d,]+\.\d{2})(?!\s*[\d,]+\.\d{2})",
             re.IGNORECASE,
         )
         line_pattern = re.compile(
@@ -248,7 +254,9 @@ class JPMorganBondsParser(BaseParser):
                 continue
             m = pattern.search(text)
             if not m:
-                m = fallback_pattern.search(text)
+                m = fallback_two_col.search(text)
+            if not m:
+                m = fallback_one_col.search(text)
             if not m:
                 m = line_pattern.search(text)
             if m:
