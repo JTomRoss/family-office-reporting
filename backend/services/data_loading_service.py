@@ -3572,7 +3572,21 @@ class DataLoadingService:
         # - ending value is the auditable month-end balance (monthly statement wins)
         # - quarterly tables may refine prior-month movements
         # - profit absorbs any continuity mismatch against the previous audited ending
-        current.income = current.net_value - current.change_in_value - prev.net_value
+        recomputed = current.net_value - current.change_in_value - prev.net_value
+        if current.net_value != 0 and abs(recomputed) > abs(current.net_value) * Decimal("0.5"):
+            self._log(
+                "load",
+                "warning",
+                (
+                    f"UBS income recomputado sospechoso: "
+                    f"{account.bank_code}/{account.account_number} "
+                    f"{year}-{month:02d}: income={recomputed}, "
+                    f"ending={current.net_value}, movements={current.change_in_value}, "
+                    f"prev_ending={prev.net_value}"
+                ),
+                account_id=account.id,
+            )
+        current.income = recomputed
 
     def _recompute_ubs_income_series(self, account: Account) -> set[int]:
         """
