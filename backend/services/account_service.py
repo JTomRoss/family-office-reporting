@@ -9,6 +9,7 @@ Este servicio se encarga de:
 """
 
 from typing import Optional
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from backend.db.models import Account, MonthlyClosing, MonthlyMetricNormalized, ValidationLog
@@ -235,7 +236,10 @@ class AccountService:
                 self.db.query(Account.id)
                 .filter(
                     Account.bank_code == "alternativos",
-                    Account.metadata_json.like(f'%\"asset_class\": \"{asset_class}\"%'),
+                    or_(
+                        Account.metadata_json.like(f'%"asset_class": "{asset_class}"%'),
+                        Account.metadata_json.like(f'%"asset_class":"{asset_class}"%'),
+                    ),
                 )
                 .first()
             )

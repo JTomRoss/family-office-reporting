@@ -147,7 +147,10 @@ def _apply_account_filters(query, filters: FilterParams):
         alt_clauses = [
             and_(
                 Account.bank_code == "alternativos",
-                Account.metadata_json.like(f'%\"asset_class\": \"{asset_class}\"%'),
+                or_(
+                    Account.metadata_json.like(f'%"asset_class": "{asset_class}"%'),
+                    Account.metadata_json.like(f'%"asset_class":"{asset_class}"%'),
+                ),
             )
             for key, asset_class in ALTERNATIVES_ASSET_CLASS_FILTERS.items()
             if key in normalized_types
@@ -226,7 +229,10 @@ def _get_filter_options(db: Session) -> dict:
         if db.query(Account.id)
         .filter(
             Account.bank_code == "alternativos",
-            Account.metadata_json.like(f'%\"asset_class\": \"{asset_class}\"%'),
+            or_(
+                Account.metadata_json.like(f'%"asset_class": "{asset_class}"%'),
+                Account.metadata_json.like(f'%"asset_class":"{asset_class}"%'),
+            ),
         )
         .first()
     ]
