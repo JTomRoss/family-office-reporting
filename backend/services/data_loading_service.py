@@ -3485,26 +3485,23 @@ class DataLoadingService:
         if ytd_mov is None and ytd_util is None:
             return
 
+        # Exclude the current month from the DB query: with autoflush=False the
+        # upsert for this month may or may not be flushed yet, making the result
+        # non-deterministic. Sum prior months from DB, then add current values
+        # from the in-memory account_values dict.
         rows = (
             self.db.query(MonthlyClosing)
             .filter(
                 MonthlyClosing.account_id == account.id,
                 MonthlyClosing.year == year,
-                MonthlyClosing.month <= month,
+                MonthlyClosing.month < month,
             )
             .all()
         )
         sum_mov = sum((row.change_in_value or Decimal("0")) for row in rows)
         sum_util = sum((row.income or Decimal("0")) for row in rows)
-        current = (
-            self.db.query(MonthlyClosing)
-            .filter(
-                MonthlyClosing.account_id == account.id,
-                MonthlyClosing.year == year,
-                MonthlyClosing.month == month,
-            )
-            .first()
-        )
+        sum_mov += account_values.get("change_investment") or Decimal("0")
+        sum_util += account_values.get("income") or Decimal("0")
 
         if ytd_mov is not None:
             diff_mov = ytd_mov - sum_mov
