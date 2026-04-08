@@ -78,6 +78,96 @@ def decode_asset_allocation_json(raw_json: str | None) -> dict | list | None:
     return None
 
 
+def cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Decimal | None:
+    """Extrae caja desde asset_allocation_json persistido.
+
+    Retorna Decimal si encuentra un monto de caja, None si no hay dato.
+    Canónica: usada por loader y router para garantizar consistencia.
+    """
+    if not asset_alloc_json:
+        return None
+    try:
+        alloc = json.loads(asset_alloc_json)
+    except (TypeError, ValueError):
+        return None
+
+    def _is_cash_umbrella(label_norm: str) -> bool:
+        return (
+            "cash" in label_norm
+            and "deposit" in label_norm
+            and ("moneymarket" in label_norm or "shortterm" in label_norm)
+        )
+
+    def _is_mixed_cash_bucket(label_norm: str) -> bool:
+        # Ej: "Cash & Fixed Income" no es caja pura.
+        return "cash" in label_norm and any(
+            tok in label_norm for tok in ("fixedincome", "bond", "equity", "stock")
+        )
+
+    def _value_from_payload(payload: Any) -> Decimal | None:
+        if isinstance(payload, dict):
+            raw = (
+                payload.get("value")
+                or payload.get("total")
+                or payload.get("ending")
+                or payload.get("ending_value")
+                or payload.get("market_value")
+                or payload.get("amount")
+            )
+        else:
+            raw = payload
+        return to_decimal(raw)
+
+    total = Decimal("0")
+    found = False
+    if isinstance(alloc, dict):
+        umbrella_values: list[Decimal] = []
+        for key, payload in alloc.items():
+            key_norm = normalize_label(key)
+            if _is_mixed_cash_bucket(key_norm):
+                continue
+            if not _is_cash_umbrella(key_norm):
+                continue
+            val = _value_from_payload(payload)
+            if val is not None:
+                umbrella_values.append(val)
+        if umbrella_values:
+            return max(umbrella_values)
+
+        for key, payload in alloc.items():
+            key_norm = normalize_label(key)
+            if _is_mixed_cash_bucket(key_norm):
+                continue
+            if not any(
+                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
+            ):
+                continue
+            val = _value_from_payload(payload)
+            if val is None:
+                continue
+            total += val
+            found = True
+    elif isinstance(alloc, list):
+        for row in alloc:
+            if not isinstance(row, dict):
+                continue
+            name_norm = normalize_label(
+                row.get("asset_class") or row.get("name") or row.get("label") or ""
+            )
+            if _is_mixed_cash_bucket(name_norm):
+                continue
+            if not any(
+                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
+            ):
+                continue
+            val = _value_from_payload(row)
+            if val is None:
+                continue
+            total += val
+            found = True
+    return total if found else None
+
+
 def _extract_amount_and_unit(payload: Any) -> tuple[Decimal | None, str | None]:
     if isinstance(payload, dict):
         raw = (

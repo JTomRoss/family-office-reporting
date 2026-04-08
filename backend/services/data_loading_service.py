@@ -28,6 +28,7 @@ from asset_taxonomy import (
 from etf_instrument_dictionary import normalize_etf_instrument
 from backend.services.normalized_reporting_payload import (
     canonical_breakdown_from_payload,
+    cash_from_asset_allocation_json,
     compose_asset_allocation_payload,
     decode_asset_allocation_json,
     extract_fi_metrics,
@@ -241,93 +242,6 @@ def _extract_allocation_amount(
             return None
         return (ending_value_with_accrual * amount) / Decimal("100")
     return amount
-
-
-def _cash_from_asset_allocation_json(asset_alloc_json: str | None) -> Optional[Decimal]:
-    """Extrae caja desde asset_allocation_json si está disponible."""
-    if not asset_alloc_json:
-        return None
-    try:
-        alloc = json.loads(asset_alloc_json)
-    except (TypeError, ValueError):
-        return None
-
-    def _label_norm(label: Any) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
-
-    def _is_cash_umbrella(label_norm: str) -> bool:
-        return (
-            "cash" in label_norm
-            and "deposit" in label_norm
-            and ("moneymarket" in label_norm or "shortterm" in label_norm)
-        )
-
-    def _is_mixed_cash_bucket(label_norm: str) -> bool:
-        # Ej: "Cash & Fixed Income" no es caja pura.
-        return "cash" in label_norm and any(
-            tok in label_norm for tok in ("fixedincome", "bond", "equity", "stock")
-        )
-
-    def _value_from_payload(payload: Any) -> Optional[Decimal]:
-        if isinstance(payload, dict):
-            raw = (
-                payload.get("value")
-                or payload.get("total")
-                or payload.get("ending")
-                or payload.get("ending_value")
-                or payload.get("market_value")
-                or payload.get("amount")
-            )
-        else:
-            raw = payload
-        return _safe_decimal(raw)
-
-    total = Decimal("0")
-    found = False
-    if isinstance(alloc, dict):
-        umbrella_values: list[Decimal] = []
-        for key, payload in alloc.items():
-            key_norm = _label_norm(key)
-            if _is_mixed_cash_bucket(key_norm):
-                continue
-            if not _is_cash_umbrella(key_norm):
-                continue
-            val = _value_from_payload(payload)
-            if val is not None:
-                umbrella_values.append(val)
-        if umbrella_values:
-            return max(umbrella_values)
-
-        for key, payload in alloc.items():
-            key_norm = _label_norm(key)
-            if _is_mixed_cash_bucket(key_norm):
-                continue
-            if not any(
-                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
-            ):
-                continue
-            val = _value_from_payload(payload)
-            if val is None:
-                continue
-            total += val
-            found = True
-    elif isinstance(alloc, list):
-        for row in alloc:
-            if not isinstance(row, dict):
-                continue
-            name_norm = _label_norm(row.get("asset_class") or row.get("name") or row.get("label") or "")
-            if _is_mixed_cash_bucket(name_norm):
-                continue
-            if not any(
-                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
-            ):
-                continue
-            val = _value_from_payload(row)
-            if val is None:
-                continue
-            total += val
-            found = True
-    return total if found else None
 
 
 def _cash_from_jpmorgan_holdings_rows(rows: Any) -> Optional[Decimal]:
@@ -3861,7 +3775,7 @@ class DataLoadingService:
         source_document_id: int | None,
         parsed_rows: list[dict[str, Any]] | None = None,
     ) -> Optional[Decimal]:
-        cash_value = _cash_from_asset_allocation_json(asset_alloc_json)
+        cash_value = cash_from_asset_allocation_json(asset_alloc_json)
         if cash_value is not None:
             return cash_value
 

@@ -31,6 +31,7 @@ from backend.db.models import (
 from backend.db.session import get_db
 from backend.schemas import FilterParams, HealthAuditParams
 from backend.services.normalized_reporting_payload import (
+    cash_from_asset_allocation_json,
     decode_asset_allocation_json,
     extract_canonical_breakdown,
     extract_instrument_breakdown,
@@ -246,99 +247,6 @@ def _account_metadata(acct: Account) -> dict:
         return json.loads(acct.metadata_json or "{}")
     except (TypeError, ValueError):
         return {}
-
-
-def _extract_cash_from_asset_allocation(asset_alloc_json: str | None) -> float:
-    """Extrae monto de caja desde asset_allocation_json persistido."""
-    if not asset_alloc_json:
-        return 0.0
-    try:
-        alloc = json.loads(asset_alloc_json)
-    except (TypeError, ValueError):
-        return 0.0
-
-    def _payload_value(payload) -> Optional[float]:
-        if isinstance(payload, dict):
-            raw = (
-                payload.get("value")
-                or payload.get("total")
-                or payload.get("ending")
-                or payload.get("ending_value")
-                or payload.get("market_value")
-                or payload.get("amount")
-            )
-        else:
-            raw = payload
-        try:
-            return float(raw)
-        except (TypeError, ValueError):
-            return None
-
-    def _label_norm(label: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(label or "").lower())
-
-    def _is_cash_umbrella(label_norm: str) -> bool:
-        return (
-            "cash" in label_norm
-            and "deposit" in label_norm
-            and ("moneymarket" in label_norm or "shortterm" in label_norm)
-        )
-
-    def _is_mixed_cash_bucket(label_norm: str) -> bool:
-        # Ej: "Cash & Fixed Income" no es caja pura.
-        return "cash" in label_norm and any(
-            tok in label_norm for tok in ("fixedincome", "bond", "equity", "stock")
-        )
-
-    total = 0.0
-    if isinstance(alloc, dict):
-        items = list(alloc.items())
-        # Evitar doble conteo en bancos que reportan total + sublineas (ej. Goldman).
-        umbrella_values: list[float] = []
-        for key, payload in items:
-            key_norm = _label_norm(key)
-            if _is_mixed_cash_bucket(key_norm):
-                continue
-            if not _is_cash_umbrella(key_norm):
-                continue
-            val = _payload_value(payload)
-            if val is not None:
-                umbrella_values.append(val)
-        if umbrella_values:
-            return max(max(umbrella_values), 0.0)
-
-        for key, payload in items:
-            key_norm = _label_norm(key)
-            if _is_mixed_cash_bucket(key_norm):
-                continue
-            if not any(
-                tok in key_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
-            ):
-                continue
-            val = _payload_value(payload)
-            if val is None:
-                continue
-            total += val
-    elif isinstance(alloc, list):
-        for row in alloc:
-            if not isinstance(row, dict):
-                continue
-            name_norm = _label_norm(
-                row.get("asset_class")
-                or row.get("name")
-                or row.get("label")
-                or ""
-            )
-            if not any(
-                tok in name_norm for tok in ("cash", "deposit", "moneymarket", "liquidity")
-            ):
-                continue
-            val = _payload_value(row)
-            if val is None:
-                continue
-            total += val
-
-    return max(total, 0.0)
 
 
 def _extract_reporting_value_exclusion_total(asset_alloc_json: str | None) -> float:
@@ -820,7 +728,8 @@ def _resolve_cash_value(
         if normalized_cash is not None:
             return max(normalized_cash, 0.0)
 
-    cash = _extract_cash_from_asset_allocation(_resolve_asset_allocation_json(mc, norm))
+    _cash_raw = cash_from_asset_allocation_json(_resolve_asset_allocation_json(mc, norm))
+    cash = float(_cash_raw) if _cash_raw is not None else 0.0
     if cash > 0.0:
         return cash
 
