@@ -3357,34 +3357,6 @@ class DataLoadingService:
 
         return values
 
-    def _apply_bbh_prior_adjustments(
-        self,
-        account: Account,
-        year: int,
-        month: int,
-        account_values: dict,
-    ) -> None:
-        if account.bank_code != "bbh":
-            return
-        prior_adj = account_values.get("prior_period_adjustments")
-        if prior_adj is None:
-            return
-        prev_year = year if month > 1 else year - 1
-        prev_month = month - 1 if month > 1 else 12
-        prev = (
-            self.db.query(MonthlyClosing)
-            .filter(
-                MonthlyClosing.account_id == account.id,
-                MonthlyClosing.year == prev_year,
-                MonthlyClosing.month == prev_month,
-            )
-            .first()
-        )
-        if prev is None:
-            return
-        base = prev.change_in_value or Decimal("0")
-        prev.change_in_value = base + prior_adj
-
     def _validate_ytd_consistency(
         self,
         account: Account,
@@ -3419,6 +3391,21 @@ class DataLoadingService:
 
         if ytd_mov is not None:
             diff_mov = ytd_mov - sum_mov
+            if account.bank_code == "bbh" and prior_adj is not None and prior_adj != 0:
+                # BBH prior_period_adjustments are control-only: they are included in
+                # BBH's YTD figure and explain why our monthly sum diverges, but we do
+                # not mutate prior months' closings. Log so the gap is traceable.
+                self._log(
+                    "load",
+                    "info",
+                    (
+                        f"BBH prior_period_adjustments={prior_adj} detectado en "
+                        f"{account.account_number} {year}-{month:02d}: "
+                        f"explica gap YTD (ytd={ytd_mov}, suma={sum_mov}, diff={diff_mov})"
+                    ),
+                    raw_document_id=raw_document_id,
+                    account_id=account.id,
+                )
             if abs(diff_mov) > Decimal("1"):
                 self._log(
                     "load",

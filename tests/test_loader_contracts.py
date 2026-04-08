@@ -2300,6 +2300,7 @@ def test_loader_bbh_prior_adjustment_is_control_only(db_session):
         .all()
     )
     assert any("YTD caja inconsistente" in (log.message or "") for log in logs)
+    assert any("prior_period_adjustments" in (log.message or "") for log in logs)
 
 
 def test_loader_ytd_alignment_is_control_only_non_bbh(db_session):
