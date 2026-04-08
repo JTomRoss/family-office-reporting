@@ -809,6 +809,7 @@ class DataLoadingService:
             except Exception as exc:
                 msg = f"Error cargando datos para cuenta {account.account_number}: {exc}"
                 stats["errors"].append(msg)
+                self.db.rollback()
                 self._log("load", "error", msg, raw_document.id, account.id)
                 logger.exception(msg)
 
