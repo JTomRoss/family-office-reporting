@@ -1,6 +1,6 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-04-01
+Last updated: 2026-04-09
 Owner: JTROSS + Codex
 Branch: master
 
@@ -393,3 +393,75 @@ Validation:
   - `2019-11`: `PE = 2,873,723.00`, `Other Investments = 41,903.09`, exclusion `2,873,723.00`
   - `2023-05`: `PE = 4,599,378.00`, `Other Investments = 18,295.30`, exclusion `4,599,378.00`
   - `2024-06`: `PE = 4,584,038.00`, `Other Investments = 8,442.89`, exclusion `4,584,038.00`
+
+## 16) Closed Block - 2026-04-09 (Bug report full resolution — 11 bugs)
+Goal:
+- Resolve all bugs identified in `bug_report.md` (static review by Claude Sonnet 4.6, 2026-04-07).
+
+Code changes:
+
+**Bug 1** — `parsers/jpmorgan/bonds.py`
+- `_extract_period`: correct `period_start` year for January cross-year statements
+  (`start_year = year - 1 if start_month > end_month else year`).
+
+**Bug 2** — `parsers/jpmorgan/bonds.py`
+- `_extract_total_short_term_investments`: fallback pattern now captures the ending
+  column (second number), not the beginning (first number), for account `1531100`.
+
+**Bug 3** — `backend/services/data_loading_service.py`
+- Removed dead method `_apply_bbh_prior_adjustments` (was never called; its design of
+  mutating prior months' closings violates architecture guardrails).
+- `_validate_ytd_consistency` now logs an `info` entry when BBH `prior_period_adjustments`
+  is detected, making the YTD gap traceable. The warning is still emitted so discrepancies
+  remain visible for audit.
+
+**Bug 4** — `backend/services/data_loading_service.py`
+- `_recompute_ubs_income_from_identity`: warn when recomputed income exceeds 50% of
+  ending value (guard against parser errors absorbed silently as profit).
+
+**Bug 5** — `backend/services/data_loading_service.py`
+- `_validate_ytd_consistency`: query now excludes current month and adds it from
+  in-memory `account_values`, making YTD comparison deterministic with `autoflush=False`.
+
+**Bug 6** — `backend/routers/data.py`
+- `_reconcile_mandates_asset_breakdown_to_target`: added `logger.warning` when positive
+  residual > 1% of target is silently assigned to Equities.
+- Added `import logging` + `logger = logging.getLogger(__name__)` to router.
+
+**Bug 7** — `backend/services/normalized_reporting_payload.py`
+- `canonical_breakdown_from_payload`: log warning when a significant negative amount
+  (`< -1`) is silently discarded from canonical breakdown.
+- Added `import logging` + `logger` to module.
+
+**Bug 8** — `backend/services/normalized_reporting_payload.py`, `data_loading_service.py`, `data.py`
+- Unified duplicate cash extractor into single canonical function
+  `cash_from_asset_allocation_json` in `normalized_reporting_payload.py`.
+- Fixed divergence: list-path missing `_is_mixed_cash_bucket` check (was in loader,
+  absent in router). Removed both local implementations.
+
+**Bug 9** — `backend/routers/data.py`
+- `_get_filter_options`: extended `years`, `bank_codes`, `entity_names`, `person_names`
+  to union results from `MonthlyMetricNormalized` so Alternativos accounts appear in
+  UI filter options.
+
+**Bug 10** — `backend/routers/data.py`, `backend/services/account_service.py`
+- Hardened Alternativos `asset_class` LIKE filter to match both JSON serialization
+  formats (`"asset_class": "PE"` with space and `"asset_class":"PE"` without space)
+  using `or_()` in all 3 occurrences.
+
+**Bug 11** — `backend/services/data_loading_service.py`
+- `load_parse_result`: added `self.db.rollback()` in per-account exception handler to
+  prevent `PendingRollbackError` on subsequent flush.
+
+Tests:
+- All targeted tests passing: `test_loader_contracts.py`, `test_normalized_reporting_layer.py`.
+- `test_loader_bbh_prior_adjustment_is_control_only`: updated to also assert info log for
+  `prior_period_adjustments` detection.
+
+Other:
+- Deleted temporary debug PNG files: `tmp_jpm_*.png` (5 files).
+
+Commits (in order):
+- `bc3ed1f` Bug 2, `b8feea3` Bug 11, `539db90` Bug 1, `91c621e` Bug 4,
+  `d47c18b` Bug 5, `47cad92` Bug 6, `10aa731` Bug 7, `6b41eee` Bug 8,
+  `46a03e8` Bug 9, `bd36bf3` Bug 10, `f8af5bb` Bug 3.
