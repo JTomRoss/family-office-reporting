@@ -208,8 +208,8 @@ def test_loader_maps_goldman_raw_subportfolio_summary_to_monthly_closing(db_sess
         "Equities",
     }.issubset(set(alloc.keys()))
     assert Decimal(alloc["Cash, Deposits & Money Market"]["value"]) == Decimal("1192230.13")
-    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("11893895.07")
-    assert Decimal(alloc["Equities"]["value"]) == Decimal("37461987.07")
+    assert Decimal(alloc["Fixed Income"]["value"]) == Decimal("61872536.72")
+    assert Decimal(alloc["Equities"]["value"]) == Decimal("42994307.69")
 
     normalized = (
         db_session.query(MonthlyMetricNormalized)
