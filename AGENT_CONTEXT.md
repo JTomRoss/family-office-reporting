@@ -120,6 +120,15 @@ Mapping stays centralized in backend/taxonomy (not in frontend).
   - `Telmar | jpmorgan | brokerage | B43459001`: exclude Alternative Assets duplicated in `Alternativos.xlsx`.
 - All reporting totals must consume this exclusion consistently via backend helpers.
 
+## 5.5) Temas Pendientes (stand-by)
+
+- **Mi Investments UBS Suiza — NAVs inconsistentes (pendiente resolución con banco)**:
+  Las cartolas de `Mi Investments | ubs | brokerage | 206-579943-01` para varios meses históricos
+  reportan movimientos que no cuadran con los NAVs mensuales. Los datos se están leyendo
+  correctamente por el parser; el problema es de calidad de la información en las cartolas
+  originales del banco. En stand-by hasta que el banco proporcione cartolas corregidas o
+  aclaraciones. No hacer cambios al parser ni a la BD para esta cuenta hasta resolver con el banco.
+
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`
 - Reporting router: `backend/routers/data.py`

@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class GoldmanSachsEtfParser(BaseParser):
     BANK_CODE = "goldman_sachs"
     ACCOUNT_TYPE = "etf"
-    VERSION = "2.1.1"
+    VERSION = "2.1.2"
     DESCRIPTION = "Parser para cartolas ETF Goldman Sachs – Brokerage Statement (PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -55,6 +55,27 @@ class GoldmanSachsEtfParser(BaseParser):
         "VUCP": "USD CORPORATE BOND UCITS ETF",
         "VDCA": "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF",
     }
+
+    # Group/master portfolio account number for this parser instance.
+    # GS PDFs may only show the sub-portfolio number (e.g. XXX-XX062-3) in
+    # newer statements; the DataLoadingService needs the group number to link
+    # income data to the correct account.
+    GROUP_ACCOUNT_NUMBER = "452-2"
+
+    # Sub-portfolio numbers that map to GROUP_ACCOUNT_NUMBER.
+    _SUB_PORTFOLIO_NUMBERS: set[str] = {"062-3"}
+
+    # Ordered list of known instrument names as they appear in the Holdings pages.
+    # Used as fallback when the Asset Strategy section is absent.
+    # Each entry is (exact_line_match, resolved_instrument_name).
+    _HOLDINGS_INSTRUMENT_MARKERS: list[tuple[str, str]] = [
+        ("DEPOSITS", "DEPOSITS"),
+        ("USD CORPORATE BOND UCITS ETF (VUCP)", "USD CORPORATE BOND UCITS ETF (VUCP)"),
+        ("VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF", "VANGUARD USD CORPORATE 1-3 YEAR BOND UCITS ETF"),
+        ("MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)", "MARKIT IBOXX USD LIQUID HY CAPPED INDEX FUND (ISHARES)"),
+        ("MSCI WORLD INDEX FUND (ISHARES)", "MSCI WORLD INDEX FUND (ISHARES)"),
+        ("MSCI EMERGING MARKETS INDEX FUND (ISHARES)", "MSCI EMERGING MARKETS INDEX FUND (ISHARES)"),
+    ]
 
     # ── detection ──────────────────────────────────────────────────────
     def detect(self, filepath: Path) -> float:
@@ -133,8 +154,9 @@ class GoldmanSachsEtfParser(BaseParser):
                 qualitative["asset_strategy"] = strategy
 
             # 5) Asset Strategy → generate instrument rows (correct per-instrument data)
-            # asset_strategy has the accurate per-instrument market values;
-            # extract_holdings is too fragile for GS format.
+            # asset_strategy has the accurate per-instrument market values.
+            # When the section is absent (format change), fall back to parsing
+            # the Holdings table pages directly.
             if strategy:
                 for s in strategy:
                     name = s.get("name", "")
@@ -154,6 +176,16 @@ class GoldmanSachsEtfParser(BaseParser):
                         },
                         confidence=0.90,
                     ))
+            else:
+                # Fallback: extract per-instrument market values from the Holdings
+                # table when the Asset Strategy summary section is not present.
+                fallback_rows = self._parse_holdings_fallback(page_texts)
+                if fallback_rows:
+                    rows.extend(fallback_rows)
+                    warnings.append(
+                        "Asset Strategy section not found; used Holdings table fallback "
+                        f"({len(fallback_rows)} instruments extracted)"
+                    )
 
             # 6) Cash activity — look for closing balance
             for i, pt in enumerate(page_texts):
@@ -206,13 +238,20 @@ class GoldmanSachsEtfParser(BaseParser):
 
         # ── Populate account_monthly_activity for DataLoadingService ──
         acct_num = balances.get("account_number")
+        # If the PDF only shows the sub-portfolio number, map it to the group
+        # account number so the DataLoadingService can link income correctly.
+        activity_acct_num = (
+            self.GROUP_ACCOUNT_NUMBER
+            if acct_num in self._SUB_PORTFOLIO_NUMBERS
+            else acct_num
+        )
         if acct_num and ir:
             # utilidad = investment_results (profit)
             utilidad = ir.get("investment_results", Decimal("0"))
             # movimientos = net_deposits_withdrawals
             net_contrib = ir.get("net_deposits_withdrawals", Decimal("0"))
             qualitative["account_monthly_activity"] = [{
-                "account_number": acct_num,
+                "account_number": activity_acct_num,
                 "net_contributions": str(net_contrib) if net_contrib is not None else "0",
                 "utilidad": str(utilidad) if utilidad is not None else "0",
                 "income_distributions": str(pa.get("interest_received", Decimal("0"))),
@@ -229,7 +268,7 @@ class GoldmanSachsEtfParser(BaseParser):
             cl = closing_bal or Decimal("0")
             utilidad = cl - op - net_dep
             qualitative["account_monthly_activity"] = [{
-                "account_number": acct_num,
+                "account_number": activity_acct_num,
                 "net_contributions": str(net_dep),
                 "utilidad": str(utilidad),
                 "income_distributions": "0",
@@ -241,7 +280,7 @@ class GoldmanSachsEtfParser(BaseParser):
         # ── Populate accounts for ending/beginning value ─────────
         if acct_num:
             qualitative["accounts"] = [{
-                "account_number": acct_num,
+                "account_number": activity_acct_num,
                 "beginning_value": str(opening_bal) if opening_bal else None,
                 "ending_value": str(closing_bal) if closing_bal else None,
             }]
@@ -265,6 +304,59 @@ class GoldmanSachsEtfParser(BaseParser):
             warnings=warnings,
         )
         return result
+
+    def _parse_holdings_fallback(self, page_texts: list[str]) -> list[ParsedRow]:
+        """Extract per-instrument market values from the Holdings table pages.
+
+        Used when the Asset Strategy summary section is not present in the PDF.
+        Pattern: instrument_name_line → quantity → price → market_value (3rd number).
+        """
+        # Build a lookup: stripped line → resolved name
+        marker_lookup: dict[str, str] = {
+            m: r for m, r in self._HOLDINGS_INSTRUMENT_MARKERS
+        }
+
+        all_lines = []
+        for pt in page_texts:
+            all_lines.extend(l.strip() for l in pt.splitlines())
+
+        rows: list[ParsedRow] = []
+        seen_instruments: set[str] = set()
+        i = 0
+        while i < len(all_lines):
+            line = all_lines[i]
+            resolved = marker_lookup.get(line)
+            if resolved and resolved not in seen_instruments:
+                # Collect the next 3 numeric values starting from the following lines.
+                # GS format: quantity (whole shares), price (small), market_value (large).
+                numbers: list[float] = []
+                j = i + 1
+                while j < len(all_lines) and len(numbers) < 3:
+                    candidate = all_lines[j].replace(",", "").replace(" ", "")
+                    # Remove trailing non-numeric chars (e.g. special chars from fitz)
+                    candidate = re.sub(r"[^\d.\-]$", "", candidate)
+                    try:
+                        val = float(candidate)
+                        numbers.append(val)
+                    except ValueError:
+                        if numbers:
+                            # Text line after starting to collect numbers → stop
+                            break
+                    j += 1
+
+                if len(numbers) >= 3:
+                    market_value = numbers[2]
+                    rows.append(ParsedRow(
+                        data={
+                            "instrument": resolved,
+                            "market_value": str(market_value),
+                        },
+                        confidence=0.80,
+                    ))
+                    seen_instruments.add(resolved)
+            i += 1
+
+        return rows
 
     @staticmethod
     def _resolve_strategy_instrument_name(*, name: str, full_text: str) -> str:

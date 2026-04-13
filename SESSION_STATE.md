@@ -492,3 +492,32 @@ Validation:
 - Suite: **233 passed, 1 skipped**.
 
 Commit: `b7b0eb3` — pushed to origin/master.
+
+## 18) In Progress - 2026-04-13 (GS ETF parser fallback + reclasificación UBS Miami)
+
+Goal:
+- Corregir que GS Boatview ETF 2026-03 no mostraba detalle por activo (allocation todo en cero).
+- Gestionar documentos UBS Miami Boatview con account_id=None.
+
+Root cause GS ETF:
+- El PDF de marzo 2026 cambió formato: ya no incluye la sección "Asset Strategy Analysis" por instrumento.
+- El GS ETF parser (v2.1.1) dependía exclusivamente de esa sección; al no encontrarla devolvía 0 rows → no se creaban ETF compositions → canonical breakdown todo en cero.
+- Además, el PDF ya no incluye el número de grupo "452-2" en ninguna página (solo "062-3"), causando que el income/profit no se vinculara correctamente.
+
+Fix aplicado:
+- `parsers/goldman_sachs/etf.py` → v2.1.2:
+  - Nuevo método `_parse_holdings_fallback`: cuando `extract_asset_strategy` devuelve vacío, extrae market_value por instrumento directamente de la tabla Holdings usando nombre exacto como ancla y capturando el 3er número (market_value) de las filas de cifras.
+  - Nueva constante `GROUP_ACCOUNT_NUMBER = "452-2"` + `_SUB_PORTFOLIO_NUMBERS = {"062-3"}`.
+  - En `account_monthly_activity` y `accounts`, se usa `activity_acct_num = GROUP_ACCOUNT_NUMBER` cuando el PDF solo muestra "062-3" → profit/income vinculado correctamente.
+- Re-procesado doc 1956 (202603 Boatview - GS (ETF).pdf) via script ad-hoc + sync_normalized_for_account_year.
+- UBS Miami: 27 raw_documents reclasificados a account_id=38 (Boatview).
+
+Validation:
+- GS ETF 2026-03 canonical breakdown: Cash=109.16, IG FI=22.79M, HY FI=4.52M, US Eq=10.35M, Non-US=6.96M ✓
+- Total=44.61M ≈ PDF ✓
+- Profit 2026-03: -1,854,687.93 ✓
+- Suite: **233 passed, 1 skipped** ✓
+
+Pending:
+- Commit y push de cambios.
+- Usuario cargará cartolas faltantes UBS Miami 2021-04 a 2023-09 (cuenta P2 = 3J 00432 P2).
