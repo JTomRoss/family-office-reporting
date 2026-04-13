@@ -465,3 +465,30 @@ Commits (in order):
 - `bc3ed1f` Bug 2, `b8feea3` Bug 11, `539db90` Bug 1, `91c621e` Bug 4,
   `d47c18b` Bug 5, `47cad92` Bug 6, `10aa731` Bug 7, `6b41eee` Bug 8,
   `46a03e8` Bug 9, `bd36bf3` Bug 10, `f8af5bb` Bug 3.
+
+## 17) Closed Block - 2026-04-13 (ETF sin_caja rentabilidad fixes)
+Goal:
+- Corregir bugs en la tabla de rentabilidad por sociedad del endpoint `/data/etf` con filtro `sin_caja`.
+- Separar correctamente `RV EM` (100% Non-US) vs `RV DM`/`Global Equity` (2/3 US + 1/3 Non-US) en canonical ETF mapping.
+
+Code changes:
+- `backend/routers/data.py`
+  - Eliminado bloque incorrecto `mov -= (curr_cash - prev_cash)` en sección de movimientos.
+  - Nuevo dict `soc_month_cash_nc` cubre ambos años (`sel_year-1` y `sel_year`) para que denominador de Enero use EV_nc de Diciembre anterior.
+  - Ending sin caja: `max(ending_raw - cash_nc, 0.0)`.
+  - Retorno mensual sin caja: ajusta `mov_raw` por `delta_cash` (consistente con `/summary`).
+- `backend/services/normalized_reporting_payload.py`
+  - `_canonical_from_category_totals`: residual de equities distribuye `2/3 US + 1/3 Non-US`.
+- `backend/services/data_loading_service.py`
+  - Separación `RV EM` (100% Non-US) vs `RV DM`/`Global Equity` (2/3 US + 1/3 Non-US).
+- `frontend/pages/etf.py`
+  - `@st.cache_data(ttl=300)` wrapper `_fetch_etf_data` para evitar re-fetch en cada widget change.
+- `frontend/pages/personal.py`
+  - Typos corregidos: `Private Equtiy` → `Private Equity`, `Real Esteate` → `Real Estate`.
+- Tests: expectativas actualizadas para IWDA (RV DM) split y sin_caja movimientos/retornos.
+
+Validation:
+- Armel Hold. | Enero 2026 | sin_caja = **1,1708%** ✓
+- Suite: **233 passed, 1 skipped**.
+
+Commit: `b7b0eb3` — pushed to origin/master.
