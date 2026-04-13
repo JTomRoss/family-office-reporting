@@ -270,9 +270,9 @@ def _render_detail_table(
             if key in {"non-us equities", "non us equities", "non-us equity", "non us equity"}:
                 return "Non US Equities"
             if key in {"pe", "private equity"}:
-                return "Private Equtiy"
+                return "Private Equity"
             if key in {"re", "real estate"}:
-                return "Real Esteate"
+                return "Real Estate"
             if key in {"other investments", "other investment"}:
                 return "Otras inversiones"
             return str(label or "").strip()
@@ -294,8 +294,8 @@ def _render_detail_table(
                                  aggregated.get("HY Fixed income", {}).get("monto_usd", 0.0))
         equities_subtotal = (aggregated.get("US equities", {}).get("monto_usd", 0.0) +
                              aggregated.get("Non US Equities", {}).get("monto_usd", 0.0))
-        alternatives_subtotal = (aggregated.get("Private Equtiy", {}).get("monto_usd", 0.0) +
-                                 aggregated.get("Real Esteate", {}).get("monto_usd", 0.0) +
+        alternatives_subtotal = (aggregated.get("Private Equity", {}).get("monto_usd", 0.0) +
+                                 aggregated.get("Real Estate", {}).get("monto_usd", 0.0) +
                                  aggregated.get("Otras inversiones", {}).get("monto_usd", 0.0))
 
         ordered_asset_rows = [
@@ -307,8 +307,8 @@ def _render_detail_table(
             ("US equities", False),
             ("Non US Equities", False),
             ("Alternativos (subtotal)", True),
-            ("Private Equtiy", False),
-            ("Real Esteate", False),
+            ("Private Equity", False),
+            ("Real Estate", False),
             ("Otras inversiones", False),
         ]
 

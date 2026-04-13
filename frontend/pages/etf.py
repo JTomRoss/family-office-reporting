@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pagina ETF.
 
 Estructura:
@@ -24,6 +24,20 @@ from frontend.components.table_utils import render_table
 
 
 MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+
+@st.cache_data(ttl=300)
+def _fetch_etf_data(fecha, bank_codes, entity_names, sin_caja, sin_personal):
+    return api_client.post(
+        "/data/etf",
+        json={
+            "fecha": fecha,
+            "bank_codes": list(bank_codes),
+            "entity_names": list(entity_names),
+            "sin_caja": sin_caja,
+            "sin_personal": sin_personal,
+        },
+    )
 
 SOCIETY_COLUMNS = [
     "Boatview JPM",
@@ -210,15 +224,12 @@ def render():
     st.markdown("---")
 
     try:
-        data = api_client.post(
-            "/data/etf",
-            json={
-                "fecha": applied_fecha,
-                "bank_codes": applied_banks,
-                "entity_names": applied_entities,
-                "sin_caja": applied_sin_caja,
-                "sin_personal": applied_sin_personal,
-            },
+        data = _fetch_etf_data(
+            applied_fecha,
+            tuple(applied_banks),
+            tuple(applied_entities),
+            applied_sin_caja,
+            applied_sin_personal,
         )
     except Exception as e:
         data = {}

@@ -2691,10 +2691,6 @@ def get_etf(
             mov = _to_float(norm.movements_net) if norm else None
             if mov is None:
                 mov = _to_float(mc.change_in_value) or 0.0
-            if sin_caja:
-                curr_cash = society_month_cash.get(society, {}).get(mc.month, 0.0)
-                prev_cash = society_month_cash.get(society, {}).get(mc.month - 1, 0.0) if mc.month > 1 else 0.0
-                mov -= (curr_cash - prev_cash)
             if society not in society_month_movs:
                 society_month_movs[society] = {}
             society_month_movs[society][mc.month] = (
@@ -2729,19 +2725,24 @@ def get_etf(
     ).all()
 
     # Agrupar por sociedad × (year, month)
-    # Track both net_value and utilidad (income) for correct return calculation
+    # Track both net_value y cash (para sin_caja) y utilidad para cálculo de retorno.
+    # soc_month_cash_nc cubre AMBOS años (sel_year-1 y sel_year) para que el
+    # denominador de Enero use EV_nc de Diciembre del año anterior.
     soc_month_val: dict[str, dict[tuple, float]] = {}
     soc_month_util: dict[str, dict[tuple, float]] = {}
+    soc_month_cash_nc: dict[str, dict[tuple, float]] = {}
     for mc, acct, norm in mc_year_results:
         society = _get_society_label(acct.entity_name, acct.bank_code)
         key = (mc.year, mc.month)
         if society not in soc_month_val:
             soc_month_val[society] = {}
             soc_month_util[society] = {}
-        if sin_caja and mc.year == sel_year:
-            ending_with = society_month_montos.get(society, {}).get(mc.month, 0.0)
-        else:
-            ending_with = _resolve_ending_with_accrual(mc, norm) or 0.0
+        cash_nc = float(norm.cash_value or 0.0) if norm else 0.0
+        soc_month_cash_nc.setdefault(society, {})[key] = (
+            soc_month_cash_nc.get(society, {}).get(key, 0.0) + cash_nc
+        )
+        ending_raw = _resolve_ending_with_accrual(mc, norm) or 0.0
+        ending_with = max(ending_raw - cash_nc, 0.0) if sin_caja else ending_raw
         soc_month_val[society][key] = soc_month_val[society].get(key, 0) + ending_with
         utilidad = _to_float(norm.profit_period) if norm else None
         if utilidad is None:
@@ -2770,9 +2771,14 @@ def get_etf(
             # Monthly return = utilidad / prev_ending_value (same as Summary)
             ret = None
             util = utils.get((sel_year, m)) if sel_year else None
-            mov = society_movements_numeric.get(soc, {}).get(m) if sin_caja else None
-            if sin_caja and curr is not None and prev is not None and prev > 0 and mov is not None:
-                ret = round((((curr - mov) / prev) - 1) * 100, 4)
+            if sin_caja and curr is not None and prev is not None and prev > 0:
+                mov_raw = society_movements_numeric.get(soc, {}).get(m)
+                if mov_raw is not None:
+                    # Ajustar movimientos por delta_cash (igual que /summary)
+                    curr_cash_nc = soc_month_cash_nc.get(soc, {}).get((sel_year, m), 0.0)
+                    prev_cash_nc = soc_month_cash_nc.get(soc, {}).get(prev_key, 0.0) if prev_key else 0.0
+                    mov_nc = mov_raw - (curr_cash_nc - prev_cash_nc)
+                    ret = round((((curr - mov_nc) / prev) - 1) * 100, 4)
             elif util is not None and prev is not None and prev > 0:
                 ret = round((util / prev) * 100, 4)
             elif curr is not None and prev is not None and prev > 0:

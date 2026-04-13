@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -296,7 +296,8 @@ def _canonical_from_category_totals(category_totals: dict[str, Decimal]) -> dict
         if us_total > 0 or non_us_total > 0:
             residual = equities_total - (us_total + non_us_total)
             if residual > 0:
-                non_us_total += residual
+                us_total += residual * _GLOBAL_EQUITY_US_WEIGHT
+                non_us_total += residual * _GLOBAL_EQUITY_NON_US_WEIGHT
         else:
             us_total += equities_total * _GLOBAL_EQUITY_US_WEIGHT
             non_us_total += equities_total * _GLOBAL_EQUITY_NON_US_WEIGHT

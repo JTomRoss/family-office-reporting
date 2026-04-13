@@ -2558,8 +2558,10 @@ def test_canonical_from_etf_instruments_keeps_emerging_and_non_us_labels():
     assert canonical["Cash, Deposits & Money Market"] == Decimal("0")
     assert canonical["Investment Grade Fixed Income"] == Decimal("0")
     assert canonical["High Yield Fixed Income"] == Decimal("0")
-    assert canonical["US Equities"] == Decimal("0")
-    assert canonical["Non US Equities"] == Decimal("90.00")
+    # IWDA (RV DM) → 2/3 US + 1/3 Non-US = $40 US + $20 Non-US
+    # IEMA (RV EM) → $20 Non-US; NON-US EQUITY (RV EM) → $10 Non-US
+    assert canonical["US Equities"] == Decimal("40.00")
+    assert canonical["Non US Equities"] == Decimal("50.00")
 
 
 def test_compose_normalized_payload_applies_reporting_exclusion_for_telmar_gs_mandato(db_session):

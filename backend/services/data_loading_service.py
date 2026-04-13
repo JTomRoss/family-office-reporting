@@ -2237,10 +2237,12 @@ class DataLoadingService:
                 canonical["High Yield Fixed Income"] += amount
             elif bucket in {"RF IG Short", "RF IG Long", "RF IG", "Non US RF", "RF"}:
                 canonical["Investment Grade Fixed Income"] += amount
-            elif bucket in {"RV EM", "RV DM", "Global Equity"}:
-                # ETF cartolas/reportes usan etiquetas globales/no-US; en detalle
-                # operativo se consolidan en Non US para evitar residuales.
+            elif bucket == "RV EM":
                 canonical["Non US Equities"] += amount
+            elif bucket in {"RV DM", "Global Equity"}:
+                # Global Equity (ej. IWDA / MSCI World): regla 2/3 US + 1/3 Non-US.
+                canonical["US Equities"] += amount * Decimal("2") / Decimal("3")
+                canonical["Non US Equities"] += amount * Decimal("1") / Decimal("3")
             elif bucket in {"Real Estate", "RE"}:
                 canonical["Real Estate"] += amount
             elif bucket in {"Alternativos", "PE"}:

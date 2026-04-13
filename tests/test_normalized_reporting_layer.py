@@ -1993,14 +1993,14 @@ def test_etf_sin_caja_affects_all_visible_outputs(db_session):
     assert montos_by_soc["Total"]["02"] == 100.0
 
     movs_by_soc = {row["sociedad"]: row for row in payload["society_movements_table"]}
-    assert movs_by_soc["Telmar"]["01"] == 5.0
-    assert movs_by_soc["Telmar"]["02"] == 5.0
-    assert movs_by_soc["Total"]["01"] == 5.0
-    assert movs_by_soc["Total"]["02"] == 5.0
+    assert movs_by_soc["Telmar"]["01"] == 15.0
+    assert movs_by_soc["Telmar"]["02"] == 15.0
+    assert movs_by_soc["Total"]["01"] == 15.0
+    assert movs_by_soc["Total"]["02"] == 15.0
 
     returns_by_soc = {row["sociedad"]: row for row in payload["society_returns_monthly"]}
     assert returns_by_soc["Telmar"]["01"] is None
-    assert returns_by_soc["Telmar"]["02"] == pytest.approx(5.5556, rel=1e-4)
+    assert returns_by_soc["Telmar"]["02"] == pytest.approx(5.0, rel=1e-4)
     assert returns_by_soc["Total"]["02"] == pytest.approx(5.5556, rel=1e-4)
 
 
