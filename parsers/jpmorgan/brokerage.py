@@ -62,7 +62,7 @@ _ACTIVITY_VALUE_RE = re.compile(r"-?\(?\$?[\d,]+\.\d{2}\)?")
 class JPMorganBrokerageParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "brokerage"
-    VERSION = "2.1.2"
+    VERSION = "2.1.3"
     DESCRIPTION = "Parser para cartolas Brokerage JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -284,6 +284,18 @@ class JPMorganBrokerageParser(BaseParser):
                 continue
             if "Consolidated Summary" in text:
                 continue
+            # Skip Table-of-Contents pages that reference "Portfolio Activity"
+            # as a page number but lack actual financial data markers.
+            _ACTIVITY_DATA_MARKERS = (
+                "Beginning Market Value",
+                "Ending Market Value",
+                "Beginning Cash Balance",
+                "Ending Cash Balance",
+                "Net Contributions",
+                "Net Cash Contributions",
+            )
+            if not any(m in text for m in _ACTIVITY_DATA_MARKERS):
+                continue
 
             acct_data = self._parse_account_activity_page(text, current_account)
             if acct_data and current_account in cash_fixed_alloc_by_account and "asset_allocation" not in acct_data:
@@ -354,6 +366,16 @@ class JPMorganBrokerageParser(BaseParser):
             val = _parse_usd(without_accrual_m.group(1))
             data["ending_value_without_accrual"] = str(val) if val is not None else None
 
+        # Cash-only accounts (no investment activity) show Ending Cash Balance
+        if "ending_value_without_accrual" not in data:
+            cash_balance_m = re.search(
+                r"Ending Cash Balance\s+\$?([\d,]+\.\d{2})",
+                activity_text,
+            )
+            if cash_balance_m:
+                val = _parse_usd(cash_balance_m.group(1))
+                data["ending_value_without_accrual"] = str(val) if val is not None else None
+
         interpretation_notes: list[str] = []
         net_contributions, net_contributions_ytd, net_blank_current = self._extract_activity_values(
             activity_text,
@@ -385,7 +407,11 @@ class JPMorganBrokerageParser(BaseParser):
                 "Change in Investment Value mensual en blanco interpretado como 0; YTD se conserva solo como control."
             )
 
-        if net_contributions is None and income_distributions is None:
+        if (
+            net_contributions is None
+            and income_distributions is None
+            and data.get("ending_value_without_accrual") is None
+        ):
             return None
 
         data["net_contributions"] = str(net_contributions) if net_contributions is not None else None
