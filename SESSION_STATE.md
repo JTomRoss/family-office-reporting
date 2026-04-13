@@ -493,7 +493,7 @@ Validation:
 
 Commit: `b7b0eb3` — pushed to origin/master.
 
-## 18) In Progress - 2026-04-13 (GS ETF parser fallback + reclasificación UBS Miami)
+## 18) Closed Block - 2026-04-13 (GS ETF parser fallback + reclasificación UBS Miami)
 
 Goal:
 - Corregir que GS Boatview ETF 2026-03 no mostraba detalle por activo (allocation todo en cero).
@@ -509,15 +509,50 @@ Fix aplicado:
   - Nuevo método `_parse_holdings_fallback`: cuando `extract_asset_strategy` devuelve vacío, extrae market_value por instrumento directamente de la tabla Holdings usando nombre exacto como ancla y capturando el 3er número (market_value) de las filas de cifras.
   - Nueva constante `GROUP_ACCOUNT_NUMBER = "452-2"` + `_SUB_PORTFOLIO_NUMBERS = {"062-3"}`.
   - En `account_monthly_activity` y `accounts`, se usa `activity_acct_num = GROUP_ACCOUNT_NUMBER` cuando el PDF solo muestra "062-3" → profit/income vinculado correctamente.
-- Re-procesado doc 1956 (202603 Boatview - GS (ETF).pdf) via script ad-hoc + sync_normalized_for_account_year.
+- Re-procesado doc 1956 (202603 Boatview - GS (ETF).pdf).
 - UBS Miami: 27 raw_documents reclasificados a account_id=38 (Boatview).
 
 Validation:
 - GS ETF 2026-03 canonical breakdown: Cash=109.16, IG FI=22.79M, HY FI=4.52M, US Eq=10.35M, Non-US=6.96M ✓
-- Total=44.61M ≈ PDF ✓
 - Profit 2026-03: -1,854,687.93 ✓
 - Suite: **233 passed, 1 skipped** ✓
 
-Pending:
-- Commit y push de cambios.
-- Usuario cargará cartolas faltantes UBS Miami 2021-04 a 2023-09 (cuenta P2 = 3J 00432 P2).
+Commit: `aa3c61d` — pushed to origin/master.
+
+## 19) Closed Block - 2026-04-13 (JPM brokerage v2.1.3 + Isabel Izquierdo + UBS Miami reports)
+
+Goal:
+- Corregir que el parser JPM brokerage no leía los $9.84 de Isabel Izquierdo (acct E74997009) en 2024.
+- Aclarar la naturaleza de los archivos "BOATVIEW LIMITED - fecha.pdf" de UBS Miami y procesarlos correctamente.
+
+Root causes:
+- **Bug 1 (ToC page):** Página 1 del PDF tiene "Portfolio Activity 4" en el índice del documento. El parser la procesaba como página de actividad, añadía entrada vacía para E74997009 y el chequeo anti-duplicado bloqueaba páginas 2 y 4 (datos reales).
+- **Bug 2 (cash-only account):** `_parse_account_activity_page` retornaba `None` si `net_contributions` y `income_distributions` eran ambos `None`. Cuentas cash-only sin transacciones no tienen esos campos. Además, la página usaba "Ending Cash Balance" (no "Ending Market Value") que tampoco se capturaba.
+- **UBS Miami pdf_report:** Los archivos "BOATVIEW LIMITED - fecha.pdf" son performance reviews (no cartolas). Son correctamente leídos por `parsers/ubs_miami/report_mandato.py` (score 0.98). Tenían `account_id=None` al subirse → DataLoadingService no los vinculaba → 0 ParsedStatements.
+
+Fix aplicado:
+- `parsers/jpmorgan/brokerage.py` → v2.1.3:
+  - Skip de páginas ToC que mencionan "Portfolio Activity" sin marcadores de datos reales (`_ACTIVITY_DATA_MARKERS`).
+  - Extracción de "Ending Cash Balance" como alias de `ending_value_without_accrual`.
+  - Guardia de retorno `None` relajada: permite datos si hay `ending_value_without_accrual` aunque no haya `net_contributions`/`income_distributions`.
+
+Data operations:
+- 37 raw_documents Isabel Izquierdo (7009, 2022-2026) reclasificados a `account_id=13` y reprocesados.
+  - 2022-2023: tenían acct_id=None y ParsedStatements (datos correctos en esas fechas, e.g. $17-19M).
+  - Sep 2023 en adelante: $9.84 ahora se lee correctamente.
+  - 2024 completo (12 meses) + Ene 2026: `[NEW]` → monthly_closing creado con $9.84 cada mes.
+- 11 UBS Miami Boatview performance reviews (pdf_report, dic 2024 a dic 2025 + Jan/Feb/Mar 2026) cargados a `account_id=38`.
+- Normalized sync ejecutado para acct=13 (2022-2026) y acct=38 (2024-2026).
+
+Validation:
+- Isabel Ene-2024: `status=success  acct=E74997009  ev=9.84` ✓
+- La Guardia (control de no regresión): `status=success  ev=0.00` ✓
+- Suite: **258 passed, 1 skipped** ✓
+
+Commit: `e3c73a9` — pushed to origin/master.
+
+## 20) Pending — Próxima sesión
+
+- **UBS Miami Boatview cartolas 2021-04 a 2023-09**: El usuario debe cargar las cartolas mensuales de custodia (pdf_cartola) para la cuenta P2 (3J 00432 P2, account_id=77). Los archivos "BOATVIEW LIMITED - fecha.pdf" ya cargados son performance reviews (pdf_report), no cartolas.
+- **Revisión visual post-carga 2026-03**: Confirmar que para todos los bancos los datos de marzo 2026 se ven correctamente en la app (especialmente GS ETF detalle por activo y UBS Miami).
+- **Isabel Izquierdo 2022**: Los meses de 2022 (Jan-Oct) mostraban saldos de ~$17-19M (antes del traspaso a JPM). Verificar con el usuario si esos datos son correctos o requieren revisión.

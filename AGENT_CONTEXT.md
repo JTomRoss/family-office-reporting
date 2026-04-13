@@ -90,6 +90,7 @@ Mapping stays centralized in backend/taxonomy (not in frontend).
 
 ## 5.3) Stable Bank Rules (selected)
 - JPM `brokerage/etf`: blank current-period values remain monthly `0`/`None`; YTD remains control-only.
+- JPM `brokerage` (v2.1.3): skip Table-of-Contents pages that reference "Portfolio Activity" as a page number (detected by absence of real data markers: `Ending Market Value`, `Ending Cash Balance`, etc.). Cash-only accounts (e.g. E74997009) use "Ending Cash Balance" as the ending value and have no `net_contributions`/`income_distributions`; parser returns data if any ending value is found.
 - JPM `custody`: `Net Security Contributions` counts in monthly movements when present.
 - JPM bonds account `1531100`:
   - cash in `Cash, Deposits & Short Term` comes from `Total Cash Holdings` only.
@@ -128,6 +129,17 @@ Mapping stays centralized in backend/taxonomy (not in frontend).
   correctamente por el parser; el problema es de calidad de la información en las cartolas
   originales del banco. En stand-by hasta que el banco proporcione cartolas corregidas o
   aclaraciones. No hacer cambios al parser ni a la BD para esta cuenta hasta resolver con el banco.
+
+- **UBS Miami Boatview — Cartolas custodia 2021-04 a 2023-09 pendientes de carga**:
+  La cuenta P2 (3J 00432 P2, `account_id=77`) no tiene cartolas de custodia para ese período.
+  Los archivos "BOATVIEW LIMITED - fecha.pdf" ya cargados son **performance reviews** (pdf_report),
+  no cartolas mensuales — son leídos por `report_mandato.py`, no por `custody.py`.
+  El usuario debe localizar y subir las cartolas mensuales de custodia (pdf_cartola) para ese período.
+
+- **Isabel Izquierdo — Verificar saldos 2022 (Jan-Oct)**:
+  Los documentos de 2022 (Jan-Oct) muestran saldos de ~$17-19M, que corresponden a un período
+  anterior al traspaso a JPM. Confirmar con el usuario si esos datos son correctos o si requieren
+  revisión antes de usarlos en reportes.
 
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`
