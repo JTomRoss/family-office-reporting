@@ -551,8 +551,68 @@ Validation:
 
 Commit: `e3c73a9` — pushed to origin/master.
 
-## 20) Pending — Próxima sesión
+## 20) Closed Block - 2026-04-14 (JPM mandato net_security_contributions)
 
-- **UBS Miami Boatview cartolas 2021-04 a 2023-09**: El usuario debe cargar las cartolas mensuales de custodia (pdf_cartola) para la cuenta P2 (3J 00432 P2, account_id=77). Los archivos "BOATVIEW LIMITED - fecha.pdf" ya cargados son performance reviews (pdf_report), no cartolas.
-- **Revisión visual post-carga 2026-03**: Confirmar que para todos los bancos los datos de marzo 2026 se ven correctamente en la app (especialmente GS ETF detalle por activo y UBS Miami).
-- **Isabel Izquierdo 2022**: Los meses de 2022 (Jan-Oct) mostraban saldos de ~$17-19M (antes del traspaso a JPM). Verificar con el usuario si esos datos son correctos o requieren revisión.
+Goal:
+- Agregar extracción de "Net Security Contributions / Withdrawals" al motor de lectura JPM mandato, que en el formato pre-2021 separaba efectivo y securities en dos líneas.
+- Boatview JPM mandato 2020-04 (acct 1483400): movimientos corregidos de $17,258,517.10 → $58,423,807.95.
+
+Root cause:
+- El formato "Statement of Account" pre-2021 tiene dos filas separadas en Portfolio Activity:
+  - "Net Cash Contributions / Withdrawals" (efectivo)
+  - "Net Security Contributions / Withdrawals" (valores en especie)
+- El bonds parser solo extraía la primera. La segunda ($41,165,290.85) se ignoraba.
+- El brokerage parser también tenía el mismo hueco (aunque no aplica para esta cuenta específica, se corrigió igualmente por completitud y aislamiento).
+
+Code changes:
+- `parsers/jpmorgan/bonds.py` → v2.0.3:
+  - Nuevo patrón `net_security_contributions` en `_extract_account_summary`.
+- `parsers/jpmorgan/brokerage.py` → v2.1.4:
+  - Dos nuevos patrones en `_ACTIVITY_ROW_PATTERNS` para delimitar las filas split.
+  - Fallback en `_parse_account_activity_page`: suma net_cash + net_security cuando el formato unificado no matchea.
+- `backend/services/data_loading_service.py`:
+  - En el bloque fallback `portfolio_activity` de bonds/custody: lee `net_security_contributions` y lo suma a `net_cash_contributions` como total de movimientos.
+- `tests/test_specific_cartola_extraction.py`:
+  - Nuevo test `test_jpm_brokerage_split_format_sums_cash_and_security_contributions`.
+- `tests/test_loader_contracts.py`:
+  - Nuevo test `test_loader_jpmorgan_bonds_sums_cash_and_security_contributions`.
+
+Data operations:
+- Reprocesado doc 1246 (202004 Boatview JPM NY Multiactivo (3400) - INICIO.pdf).
+- Otros 8 docs 2020 (1244, 1245, 1247-1252): `net_security=0`, sin cambio efectivo en BD.
+- Sync normalized para account_id=4 (1483400) año 2020.
+
+Validation:
+- 1483400 | 2020-04 | change_in_value = 58,423,807.95 ✓ (identidad: 0 + 58,423,807.95 + 1,130,341.73 = 59,554,149.68 ✓)
+- Suite: **220 passed, 1 skipped** ✓
+
+## 21) Closed Block - 2026-04-14 (UBS Miami 2024-12 fix + salvaguarda pdf_report)
+
+Goal:
+- Restaurar net_value=NULL en UBS Miami Boatview 2024-12 causado por reporte de gestión sobreescribiendo la cartola.
+- Implementar salvaguarda permanente en DataLoadingService: un pdf_report nunca puede sobreescribir datos financieros de un monthly_closing ya establecido por una cartola.
+
+Root cause:
+- `BOATVIEW LIMITED - 12-31-2024.pdf` (pdf_report, doc 1854) fue procesado por `_upsert_monthly_closing` que, al encontrar un registro existente, sobreescribía incondicionalmente `net_value`, `total_assets`, e `income` con los valores del reporte (incluyendo `closing_bal=None`).
+- `source_document_id` también se actualizaba al report, borrando la trazabilidad a la cartola.
+
+Fix aplicado:
+- `backend/services/data_loading_service.py`:
+  - Variable `is_report_doc` detecta si el documento es `pdf_report` (`doc.file_type`).
+  - Variable `_preserve_financials = is_report_doc AND existing.net_value IS NOT NULL`.
+  - Si `_preserve_financials=True`: reasigna `closing_bal`, `income`, `change_in_value`, `accrual` a los valores del registro existente. El `source_document_id` en `monthly_closings` no se actualiza. El `source_document_id` en `monthly_metrics_normalized` también preserva el del documento original.
+  - El `asset_allocation_json` sí puede enriquecerse (los sub-splits del reporte de gestión siguen integrándose).
+
+Data operations:
+- Reprocesado doc 150 (202412 Boatview UBS Miami (432).pdf) para restaurar net_value=81,813,518.43.
+- Era el único mes afectado (solo 1 monthly_closing con net_value=NULL en UBS Miami 2024+).
+
+Validation:
+- 3J 00432 P1 | 2024-12 | net_value=81,813,518.43 ✓ | source=pdf_cartola (doc 150) ✓
+- monthly_metrics_normalized 2024-12: ending_with_accrual=81,813,518.43 ✓ | source=pdf_cartola ✓
+- Suite: **73 passed, 1 skipped** (loader_contracts + specific_cartola_extraction, -k not goldman) ✓
+
+## 22) Pending — Próxima sesión
+
+- **UBS Miami Boatview cartolas P2 2021-04 a 2023-09**: Si existen cartolas de custodia para ese período del P2 (account_id=77), se deben cargar.
+- **GS tests pre-existentes fallando** (12 tests): Parsers GS tienen tests fallando, presumiblemente por PDFs no disponibles. Investigar si es necesario.

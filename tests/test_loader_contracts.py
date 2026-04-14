@@ -2492,6 +2492,83 @@ def test_loader_jpmorgan_bonds_uses_portfolio_activity_when_monthly_block_missin
     assert norm.profit_period == mc.income
 
 
+def test_loader_jpmorgan_bonds_sums_cash_and_security_contributions(db_session):
+    """Formato pre-2021: 'Net Cash Contributions' + 'Net Security Contributions' separados.
+    El loader debe sumarlos como movimientos totales en monthly_closing.change_in_value."""
+    parser = JPMorganBondsParser()
+    acct = _create_account(
+        db_session,
+        account_number="1483400",
+        bank_code="jpmorgan",
+        account_type="mandato",
+    )
+    doc = _create_raw_document(
+        db_session,
+        filename="202004 Boatview JPM NY Multiactivo (3400) - INICIO.pdf",
+        bank_code="jpmorgan",
+    )
+    pv = _create_parser_version(db_session, parser)
+
+    result = ParseResult(
+        status=ParserStatus.SUCCESS,
+        parser_name=parser.get_parser_name(),
+        parser_version=parser.VERSION,
+        source_file_hash=_mk_hash("jpm-bonds-1483400-202004"),
+        bank_code="jpmorgan",
+        account_number=acct.account_number,
+        statement_date=date(2020, 4, 30),
+        period_start=date(2020, 4, 1),
+        period_end=date(2020, 4, 30),
+        opening_balance=Decimal("0.00"),
+        closing_balance=Decimal("59554149.69"),
+        currency="USD",
+        qualitative_data={
+            "asset_allocation": {
+                "Cash, Deposits & Short Term": {
+                    "beginning": "0.00", "ending": "9743854.99", "change": "9743854.99",
+                },
+                "Fixed Income": {
+                    "beginning": "0.00", "ending": "27045028.85", "change": "27045028.85",
+                },
+                "Equities": {
+                    "beginning": "0.00", "ending": "22765265.85", "change": "22765265.85",
+                },
+            },
+            "portfolio_activity": {
+                "beginning_market_value": {"current_period": "0.00", "ytd": "0.00"},
+                "net_cash_contributions": {
+                    "current_period": "17258517.10",
+                    "ytd": "17258517.10",
+                },
+                "net_security_contributions": {
+                    "current_period": "41165290.85",
+                    "ytd": "41165290.85",
+                },
+                "income_distributions": {"current_period": "6709.65", "ytd": "6709.65"},
+                "change_investment": {"current_period": "1123632.08", "ytd": "1123632.08"},
+                "ending_market_value": {
+                    "current_period": "59554149.68",
+                    "ytd": "59554149.68",
+                },
+            },
+        },
+    )
+
+    loader = DataLoadingService(db_session)
+    stats = loader.load_parse_result(result=result, raw_document=doc, parser_version_id=pv.id)
+    assert stats["monthly_closings"] == 1
+    assert not stats["errors"]
+
+    mc = (
+        db_session.query(MonthlyClosing)
+        .filter(MonthlyClosing.account_id == acct.id, MonthlyClosing.year == 2020, MonthlyClosing.month == 4)
+        .one()
+    )
+    # movimientos = cash (17,258,517.10) + security (41,165,290.85) = 58,423,807.95
+    assert mc.change_in_value == Decimal("58423807.95")
+    assert mc.net_value == Decimal("59554149.68")
+
+
 def test_jpmorgan_bonds_cash_holdings_override_applies_only_to_1531100():
     parser = JPMorganBondsParser()
     pages = [

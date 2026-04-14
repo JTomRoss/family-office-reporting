@@ -2085,6 +2085,19 @@ class DataLoadingService:
             .first()
         )
 
+        # SALVAGUARDA: un pdf_report NUNCA puede sobreescribir net_value,
+        # total_assets, income, change_in_value ni source_document_id de un
+        # registro que ya tiene net_value confirmado (proveniente de una
+        # cartola oficial).  El reporte de gestión solo puede enriquecer
+        # asset_allocation_json con los sub-splits del portafolio.
+        is_report_doc = (doc.file_type or "").lower() == "pdf_report"
+        _preserve_financials = is_report_doc and existing is not None and existing.net_value is not None
+        if _preserve_financials:
+            closing_bal = existing.net_value
+            income = existing.income
+            change_in_value = existing.change_in_value
+            accrual = existing.accrual
+
         if existing:
             if account.account_type == "mandato" and asset_alloc_json and existing.asset_allocation_json:
                 preserved = self._merge_cartola_mandate_allocation(
@@ -2112,7 +2125,8 @@ class DataLoadingService:
             if accrual is not None:
                 existing.accrual = accrual
             existing.asset_allocation_json = asset_alloc_json
-            existing.source_document_id = doc.id
+            if not _preserve_financials:
+                existing.source_document_id = doc.id
             if opening_bal is not None:
                 existing.total_liabilities = None  # No aplica a ETF
         else:
@@ -2133,6 +2147,15 @@ class DataLoadingService:
             )
             self.db.add(mc)
 
+        # Cuando la salvaguarda preserva datos financieros existentes, el source
+        # de la capa normalizada debe apuntar al documento original (la cartola),
+        # no al pdf_report que solo aportó sub-splits de asset allocation.
+        effective_source_doc_id = (
+            (existing.source_document_id if existing is not None else None) or doc.id
+            if _preserve_financials
+            else doc.id
+        )
+
         # Persistir capa canónica mensual (Fase 1 normalización).
         self._upsert_monthly_metric_normalized(
             account=account,
@@ -2140,7 +2163,7 @@ class DataLoadingService:
             month=month,
             closing_date=closing_date,
             currency=result.currency or account.currency,
-            source_document_id=doc.id,
+            source_document_id=effective_source_doc_id,
             account_values=account_values,
             closing_bal=closing_bal,
             accrual=accrual,
@@ -3304,6 +3327,28 @@ class DataLoadingService:
                 net_cash_ytd = _safe_decimal(
                     (portfolio_activity.get("net_cash_contributions") or {}).get("ytd")
                 )
+                # Formato pre-2021: "Net Security Contributions / Withdrawals" es una línea separada;
+                # se suma a net_cash para obtener el total de movimientos.
+                net_security = _safe_decimal(
+                    (portfolio_activity.get("net_security_contributions") or {}).get("current_period")
+                )
+                net_security_ytd = _safe_decimal(
+                    (portfolio_activity.get("net_security_contributions") or {}).get("ytd")
+                )
+                # Total movimientos = cash + security (si alguno existe)
+                if net_cash is not None or net_security is not None:
+                    net_contrib_total: Optional[Decimal] = (
+                        (net_cash or Decimal("0")) + (net_security or Decimal("0"))
+                    )
+                else:
+                    net_contrib_total = None
+                if net_cash_ytd is not None or net_security_ytd is not None:
+                    net_contrib_ytd_total: Optional[Decimal] = (
+                        (net_cash_ytd or Decimal("0")) + (net_security_ytd or Decimal("0"))
+                    )
+                else:
+                    net_contrib_ytd_total = None
+
                 income_dist = _safe_decimal(
                     (portfolio_activity.get("income_distributions") or {}).get("current_period")
                 )
@@ -3321,10 +3366,10 @@ class DataLoadingService:
                     values["beginning_value"] = beginning
                 if "ending_value" not in values and ending is not None:
                     values["ending_value"] = ending
-                if "change_investment" not in values and net_cash is not None:
-                    values["change_investment"] = net_cash
-                if "change_investment_ytd" not in values and net_cash_ytd is not None:
-                    values["change_investment_ytd"] = net_cash_ytd
+                if "change_investment" not in values and net_contrib_total is not None:
+                    values["change_investment"] = net_contrib_total
+                if "change_investment_ytd" not in values and net_contrib_ytd_total is not None:
+                    values["change_investment_ytd"] = net_contrib_ytd_total
                 if "income" not in values and (income_dist is not None or change_inv is not None):
                     values["income"] = (income_dist or Decimal("0")) + (change_inv or Decimal("0"))
                 if "income_ytd" not in values and (

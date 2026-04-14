@@ -1,6 +1,6 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-04-01 (GS Other Investments + context cleanup)
+Last updated: 2026-04-14 (pdf_report safeguard + UBS Miami 2024-12 fix)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -74,6 +74,7 @@ Do not scan the full repository unless needed.
   - `Emerging FI` contributes to HY where bank rule says so (UBS Miami)
   - `Alternativos = Private Equity + Real Estate`
 - Reprocessing a mandate cartola must refresh audited macros while preserving valid report enrichments for that month.
+- **Salvaguarda permanente en `_upsert_monthly_closing`**: si el documento entrante es `pdf_report` y el registro existente ya tiene `net_value IS NOT NULL`, los campos financieros (`net_value`, `total_assets`, `income`, `change_in_value`, `accrual`, `source_document_id`) se preservan del registro existente. Solo `asset_allocation_json` puede enriquecerse con los sub-splits del reporte. Esta misma protección aplica al `source_document_id` en `monthly_metrics_normalized`.
 
 ## 5.2) Canonical Breakdown for Detail View
 `Detalle > Detalle por Activo` must use canonical categories:
@@ -136,10 +137,8 @@ Mapping stays centralized in backend/taxonomy (not in frontend).
   no cartolas mensuales — son leídos por `report_mandato.py`, no por `custody.py`.
   El usuario debe localizar y subir las cartolas mensuales de custodia (pdf_cartola) para ese período.
 
-- **Isabel Izquierdo — Verificar saldos 2022 (Jan-Oct)**:
-  Los documentos de 2022 (Jan-Oct) muestran saldos de ~$17-19M, que corresponden a un período
-  anterior al traspaso a JPM. Confirmar con el usuario si esos datos son correctos o si requieren
-  revisión antes de usarlos en reportes.
+- **Isabel Izquierdo — Saldos 2022 (Jan-Oct)**:
+  Confirmado por el usuario como correcto (período anterior al traspaso a JPM). No requiere acción.
 
 ## 6) Key Paths
 - Backend entrypoint: `backend/main.py`

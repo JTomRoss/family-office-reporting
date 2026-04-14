@@ -69,7 +69,7 @@ def _parse_date_text(text: str) -> Optional[date]:
 class JPMorganBondsParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "bonds"
-    VERSION = "2.0.2"
+    VERSION = "2.0.3"
     DESCRIPTION = "Parser para cartolas Mandato Bonos JPMorgan (Investment Management PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -185,6 +185,7 @@ class JPMorganBondsParser(BaseParser):
             patterns = [
                 ("beginning_market_value", r"Beginning Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
                 ("net_cash_contributions", r"Net Cash Contributions\s*/?\s*Withdrawals\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
+                ("net_security_contributions", r"Net Security Contributions\s*/?\s*Withdrawals\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("income_distributions", r"Income and Distributions\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),
                 ("change_investment", r"Change in Investment Value\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})"),
                 ("ending_market_value", r"Ending Market Value\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})"),

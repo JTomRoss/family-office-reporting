@@ -496,6 +496,36 @@ def test_jpm_brokerage_reads_negative_net_contributions_with_minus_sign():
     assert _as_decimal(row["utilidad"]) == Decimal("0.00")
 
 
+def test_jpm_brokerage_split_format_sums_cash_and_security_contributions():
+    """Formato pre-2021: 'Net Cash Contributions' + 'Net Security Contributions' separados.
+    Ambos deben sumarse en net_contributions. net_security_contributions se preserva."""
+    parser = JPMorganBrokerageParser()
+    row = parser._parse_account_activity_page(
+        "\n".join(
+            [
+                "ACCT. 1483400",
+                "Account Summary",
+                "Portfolio Activity",
+                "Current Period Value Year-to-Date Value",
+                "Beginning Market Value 0.00 0.00",
+                "Net Cash Contributions / Withdrawals 17,258,517.10 17,258,517.10",
+                "Net Security Contributions / Withdrawals 41,165,290.85 41,165,290.85",
+                "Income and Distributions 6,709.65 6,709.65",
+                "Change in Investment Value 1,123,632.08 1,123,632.08",
+                "Ending Market Value 59,554,149.68 59,554,149.68",
+            ]
+        ),
+        "1483400",
+    )
+    assert row is not None
+    # net_contributions debe ser la suma de Cash + Security
+    assert _as_decimal(row["net_contributions"]) == Decimal("58423807.95")
+    assert _as_decimal(row["net_contributions_ytd"]) == Decimal("58423807.95")
+    # net_security_contributions se almacena por separado para trazabilidad
+    assert _as_decimal(row["net_security_contributions"]) == Decimal("41165290.85")
+    assert _as_decimal(row["utilidad"]) == Decimal("1130341.73")
+
+
 def test_jpm_brokerage_reads_net_contributions_when_amounts_wrap_to_next_line():
     parser = JPMorganBrokerageParser()
     row = parser._parse_account_activity_page(

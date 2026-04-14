@@ -62,7 +62,7 @@ _ACTIVITY_VALUE_RE = re.compile(r"-?\(?\$?[\d,]+\.\d{2}\)?")
 class JPMorganBrokerageParser(BaseParser):
     BANK_CODE = "jpmorgan"
     ACCOUNT_TYPE = "brokerage"
-    VERSION = "2.1.3"
+    VERSION = "2.1.4"
     DESCRIPTION = "Parser para cartolas Brokerage JPMorgan (Consolidated Statement PDF)"
     SUPPORTED_EXTENSIONS = [".pdf"]
 
@@ -73,6 +73,8 @@ class JPMorganBrokerageParser(BaseParser):
     ]
     _ACTIVITY_ROW_PATTERNS = [
         r"Beginning\s+Market\s+Value",
+        r"Net\s+Cash\s+Contributions\s*/\s*Withdrawals",      # formato split (pre-2021)
+        r"Net\s+Security\s+Contributions\s*/\s*Withdrawals",  # formato split (pre-2021)
         r"Net\s+Contributions\s*/\s*Withdrawals",
         r"Income\s*(?:&|and)\s*Distributions",
         r"Change\s+[Ii]n\s+Investment\s+Value",
@@ -386,6 +388,27 @@ class JPMorganBrokerageParser(BaseParser):
             interpretation_notes.append(
                 "Net Contributions/Withdrawals mensual en blanco interpretado como 0; YTD se conserva solo como control."
             )
+
+        # Formato split (pre-2021): dos filas separadas "Net Cash…" + "Net Security…"
+        # Solo se activa si el formato unificado no produjo dato.
+        if net_contributions is None:
+            net_cash, net_cash_ytd, _ = self._extract_activity_values(
+                activity_text,
+                r"Net\s+Cash\s+Contributions\s*/\s*Withdrawals",
+                single_value_means_ytd=False,
+            )
+            net_security, net_security_ytd, _ = self._extract_activity_values(
+                activity_text,
+                r"Net\s+Security\s+Contributions\s*/\s*Withdrawals",
+                single_value_means_ytd=False,
+            )
+            if net_cash is not None or net_security is not None:
+                net_contributions = (net_cash or Decimal("0")) + (net_security or Decimal("0"))
+                if net_cash_ytd is not None or net_security_ytd is not None:
+                    net_contributions_ytd = (net_cash_ytd or Decimal("0")) + (net_security_ytd or Decimal("0"))
+                net_blank_current = False
+                if net_security is not None and net_security != Decimal("0"):
+                    data["net_security_contributions"] = str(net_security)
 
         income_distributions, income_distributions_ytd, income_blank_current = self._extract_activity_values(
             activity_text,
