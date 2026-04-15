@@ -169,18 +169,24 @@ class AlternativesExcelParser(BaseExcelParser):
         ].copy()
         metadata = metadata[~metadata["entity_name"].isin(self._EXCLUDED_SOCIETIES)].copy()
 
+        # Build a set of (nemo, entity) pairs that have a USD counterpart,
+        # so any non-USD column with the same nemo+entity can be excluded.
+        # This handles EUR columns adjacent to USD (original logic) and also
+        # non-adjacent non-USD columns (e.g. GBP funds where GBP and USD
+        # columns are not immediately consecutive in the sheet).
+        usd_nemo_entity = set(
+            zip(
+                metadata.loc[metadata["currency"].str.upper() == "USD", "nemo"].astype(str),
+                metadata.loc[metadata["currency"].str.upper() == "USD", "entity_name"].astype(str),
+            )
+        )
         keep_mask = []
         for row in metadata.itertuples(index=False):
             keep = True
-            if str(row.currency).upper() == "EUR":
-                next_match = metadata[metadata["col_idx"] == int(row.col_idx) + 1]
-                if not next_match.empty:
-                    next_row = next_match.iloc[0]
-                    if (
-                        str(next_row["nemo"]) == str(row.nemo)
-                        and str(next_row["currency"]).upper() == "USD"
-                    ):
-                        keep = False
+            if str(row.currency).upper() != "USD":
+                nemo_key = (str(row.nemo), str(row.entity_name))
+                if nemo_key in usd_nemo_entity:
+                    keep = False
             keep_mask.append(keep)
         metadata = metadata.loc[keep_mask].copy()
 

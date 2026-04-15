@@ -244,7 +244,7 @@ def _render_movements_table(rows: list[dict], *, height: int = 360) -> None:
             for row in ordered_rows
         ]
     )
-    st.dataframe(df, hide_index=True, use_container_width=True, height=height)
+    render_table(df, label_col="Fecha", bold_row_labels={"Total"})
 
 
 def _render_detail_table(
@@ -462,9 +462,11 @@ def _render_detail_section(
         for idx, row in enumerate(composition)
     } if fallback_palette else {}
 
-    left, middle, right = st.columns([3, 3, 4])
+    left, middle, right = st.columns([4, 3, 3])
 
     with left:
+        if chart_spacer_px:
+            st.markdown(f"<div style='height:{chart_spacer_px}px'></div>", unsafe_allow_html=True)
         if table_rows:
             _render_detail_table(
                 view_key=view_key,
@@ -642,7 +644,7 @@ def render():
         )
     with bottom_f2:
         selected_people = st.multiselect(
-            "Nombre",
+            "Personas",
             options=person_options,
             key="detalle_nombre",
         )

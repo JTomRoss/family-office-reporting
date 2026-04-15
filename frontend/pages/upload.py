@@ -1021,10 +1021,16 @@ def render():
                         )
 
                     if result.get("is_duplicate"):
-                        if excel_type == "excel_master":
-                            st.info("🔄 Maestro ya existía, se reprocesaron las cuentas.")
+                        _reprocess_types = {"excel_master", "excel_alternatives"}
+                        if excel_type in _reprocess_types and result.get("process_result"):
+                            proc = result.get("process_result", {})
+                            ls = proc.get("loading_stats", {})
+                            st.info(
+                                f"🔄 Archivo ya existía — reprocesado correctamente. "
+                                f"{ls.get('normalized_rows', ls.get('accounts_updated', ''))} filas actualizadas."
+                            )
                         else:
-                            st.warning(f"⚠️ Archivo duplicado: ya existe en el sistema")
+                            st.warning("⚠️ Archivo duplicado: ya existe en el sistema")
                     else:
                         proc = result.get("process_result", {})
                         proc_status = proc.get("status", "")

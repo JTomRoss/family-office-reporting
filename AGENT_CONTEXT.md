@@ -1,6 +1,6 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-04-14 (pdf_report safeguard + UBS Miami 2024-12 fix)
+Last updated: 2026-04-15 (Alternativos GBP filter + person_name + Wellington parser)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -46,6 +46,9 @@ Do not scan the full repository unless needed.
 - `monthly_closings` is historical source + allowed fallback only.
 - If normalized data exists, normalized wins over fallback.
 - `Alternativos.xlsx` is an independent source and loads only into `monthly_metrics_normalized`.
+- Alternativos parser excludes any non-USD column (EUR, GBP, etc.) that has a USD counterpart with the same nemo+entity; this prevents ghost accounts and double-counting.
+- Alternativos loader reads `Documentos/Excel/Excel Cuentas Contables.xlsx` to resolve `person_name` per entity (fuzzy match, cutoff 0.85) — no code change needed when new persons are added, only update the Excel.
+- `excel_alternatives` upload always reprocesses (never blocks as duplicate), and auto-deletes prior raw_documents for `bank_code=alternativos` after successful load.
 - Identity control is mandatory: `ending_current - movements - profit = ending_previous`.
 - YTD is control-only, never used to auto-fill monthly movements or profit.
 - If identity/YTD controls fail, reporting must alert and must not mutate persisted values.
@@ -89,7 +92,13 @@ Do not scan the full repository unless needed.
 
 Mapping stays centralized in backend/taxonomy (not in frontend).
 
-## 5.3) Stable Bank Rules (selected)
+## 5.3) Wellington Rules
+- `parsers/wellington/custody.py` (`WellingtonCustodyParser` v1.0.0): multi-fund PDF, sums `Closing Balance` across all pages via regex on plain text (pdfplumber returns no tables for this format).
+- Detection normalizes to lowercase+no-spaces to handle pdfplumber word-collapsing.
+- Account must exist in master accounts (Excel Cuentas Contables, `banco=wellington`) before loading cartolas.
+- Completely isolated: no shared code with any other parser.
+
+## 5.3b) Stable Bank Rules (selected)
 - JPM `brokerage/etf`: blank current-period values remain monthly `0`/`None`; YTD remains control-only.
 - JPM `brokerage` (v2.1.3): skip Table-of-Contents pages that reference "Portfolio Activity" as a page number (detected by absence of real data markers: `Ending Market Value`, `Ending Cash Balance`, etc.). Cash-only accounts (e.g. E74997009) use "Ending Cash Balance" as the ending value and have no `net_contributions`/`income_distributions`; parser returns data if any ending value is found.
 - JPM `custody`: `Net Security Contributions` counts in monthly movements when present.

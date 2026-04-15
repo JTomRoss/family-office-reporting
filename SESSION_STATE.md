@@ -612,7 +612,87 @@ Validation:
 - monthly_metrics_normalized 2024-12: ending_with_accrual=81,813,518.43 ✓ | source=pdf_cartola ✓
 - Suite: **73 passed, 1 skipped** (loader_contracts + specific_cartola_extraction, -k not goldman) ✓
 
-## 22) Pending — Próxima sesión
+## 22) Closed Block - 2026-04-14 (GS tests falso positivo — entorno Python)
+
+Goal:
+- Investigar 13 tests GS fallando reportados en Block 22 pendiente.
+
+Root cause:
+- No era un bug de código. El comando `python -m pytest` usaba el Python del **sistema** (sin venv), que no tiene `fitz` (PyMuPDF) instalado.
+- El Python del venv (`.venv\Scripts\python.exe`) sí tiene `fitz` v1.27.1 y todas las dependencias del proyecto.
+- Con `.venv\Scripts\python.exe -m pytest`: **260 passed, 1 skipped**. Suite completamente verde.
+
+Fix aplicado:
+- Regla en `.cursor/rules/parsers-y-despliegue.mdc` actualizada: el comando de tests es siempre `.\.venv\Scripts\python.exe -m pytest tests/ -x -q`.
+- No hubo cambios en código de parsers ni tests.
+
+## 23) Closed Block - 2026-04-15 (Alternativos GBP filter + UI mejoras Detalle)
+
+Goal:
+- Corregir que fondos GBP de Alternativos creaban cuentas fantasma y se sumaban doble.
+- Mejorar UI: tabla "Detalle últimos 12 meses", tamaño gráficos, alineación vertical tabla por cuenta.
+- Renombrar filtro "Nombre" → "Personas" en Detalle y Detalle Cartola.
+
+Root causes:
+- `parsers/excel/alternatives.py`: el filtro para excluir columnas no-USD estaba codificado solo para EUR (columna adyacente). Las columnas GBP de HF (VC) y Admoai (VC) no son adyacentes a sus pares USD → no se filtraban → cuenta GBP fantasma se creaba con NAV en libras, produciendo total ~1.8M en vez de ~1.04M.
+- El loader de Alternativos no propagaba `person_name` a las cuentas creadas.
+- El mismo Excel cargado múltiples veces acumulaba raw_documents sin limpiar los anteriores.
+
+Code changes:
+- `parsers/excel/alternatives.py`:
+  - Reemplazado el check `if currency == EUR and next_col same nemo USD` por lookup basado en nemo+entity: cualquier columna no-USD que tenga un par USD con mismo nemo+entity queda excluida automáticamente (cubre EUR, GBP y cualquier otra moneda).
+- `backend/services/data_loading_service.py`:
+  - `load_alternatives_result`: nuevo bloque `entity_to_person` que lee `Excel Cuentas Contables.xlsx` para construir el mapeo Sociedad → Nombre persona, con fallback fuzzy (`difflib`, cutoff 0.85) para diferencias tipográficas entre fuentes.
+  - Auto-limpieza post-carga: al procesar exitosamente un Excel Alternativos, se eliminan automáticamente los raw_documents anteriores de `bank_code=alternativos` (solo queda el más reciente).
+- `backend/routers/documents.py`:
+  - `upload-and-process`: `excel_alternatives` (igual que `excel_master`) siempre reprocesa aunque el hash sea duplicado, en vez de bloquear con "Archivo duplicado".
+- `frontend/pages/personal.py`:
+  - Tabla "Detalle últimos 12 meses": usa `render_table` (mismo estilo que otras tablas del tab).
+  - Columnas `[3,3,4]` → `[4,3,3]` para evitar scroll lateral al 100% de zoom.
+  - Spacer vertical en tabla Detalle por Cuenta para alinear con gráficos.
+  - Filtro "Nombre" → "Personas".
+- `frontend/pages/summary.py`:
+  - Filtro "Nombre" → "Personas".
+- `frontend/pages/upload.py`:
+  - Mensaje de duplicado corregido: si es `excel_alternatives` y hay `process_result`, muestra "Reprocesado correctamente" en vez de "Archivo duplicado".
+
+Data operations:
+- Eliminadas cuentas GBP fantasma (account_id=83, 85) y sus filas MMN.
+- Reprocesado `Alternativos.xlsx` (doc 1994/1996) con parser corregido.
+- North Habor (id=90): `person_name = Francisco Matte Izq.` propagado via fuzzy match con "North Habror" (JPMorgan).
+
+Validation:
+- 0 cuentas no-USD en `bank_code=alternativos`.
+- REF Internacional 2026-04: 1,039,804.74 USD (correcto, sin doble conteo GBP).
+- Suite: **86 passed, 1 skipped** (loader_contracts + specific_cartola_extraction).
+
+## 24) Closed Block - 2026-04-15 (Wellington custody parser v1.0.0)
+
+Goal:
+- Agregar soporte para leer cartolas PDF de Wellington Management Funds (Client Statement, multi-fondo).
+
+Parser creado:
+- `parsers/wellington/custody.py` — `WellingtonCustodyParser` v1.0.0.
+- `BANK_CODE = "wellington"`, `ACCOUNT_TYPE = "custody"`.
+- Se registra automáticamente vía `auto_discover()` del registry.
+- **Completamente aislado**: no comparte código ni imports con ningún otro motor.
+
+Lógica de extracción:
+- PDF multi-fondo: N páginas, cada página = un fondo del mismo cliente.
+- Texto plano (pdfplumber no extrae tablas en este formato).
+- Regex `Closing Balance[^\n]*\s([\d,]+\.\d{2})\s*$` (MULTILINE) captura el Balance USD de cada fondo. El `\s` pre-grupo ancla sobre el número completo evitando capturar solo los últimos dígitos.
+- Suma todos los Closing Balances de todas las páginas → `result.closing_balance`.
+- Header: AccountNumber, ClientName, StatementPeriod (formato `01-Feb-2022to28-Feb-2022`, sin espacios) extraídos con regex adaptados al colapso de palabras de pdfplumber.
+- Detección: normaliza texto a minúsculas sin espacios; requiere "clientstatement" + "wellingtonmanagementfunds"; sube confianza con "wellingtonglobalta"/"statestreet" y nombre de archivo.
+
+Prerequisito operativo:
+- La cuenta Wellington (ej. Boatview, acct 576371) debe existir en `Excel Cuentas Contables.xlsx` con `banco=wellington` para que el loader la encuentre al cargar la cartola.
+
+Validation:
+- Auto-discovery: registrado sin errores. Total parsers: 22.
+- Suite: **86 passed, 1 skipped** (sin regresiones).
+
+## 25) Pending — Próxima sesión
 
 - **UBS Miami Boatview cartolas P2 2021-04 a 2023-09**: Si existen cartolas de custodia para ese período del P2 (account_id=77), se deben cargar.
-- **GS tests pre-existentes fallando** (12 tests): Parsers GS tienen tests fallando, presumiblemente por PDFs no disponibles. Investigar si es necesario.
+- **Wellington — primera carga**: Verificar que cuenta Wellington está en Excel Cuentas Contables antes de cargar cartolas. Probar carga de una cartola PDF real.

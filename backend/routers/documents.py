@@ -548,14 +548,16 @@ async def upload_and_process(
         )
 
         if is_duplicate:
-            # Aunque sea duplicado, si es maestro, reprocesar
-            if file_type == "excel_master":
+            # Para tipos "operativos" que se reemplazan con cada carga, reprocesar
+            # aunque el hash coincida con un documento anterior.
+            _always_reprocess = {"excel_master", "excel_alternatives"}
+            if file_type in _always_reprocess:
                 process_result = service.process_document(doc.id)
                 return {
                     "id": doc.id,
                     "filename": doc.filename,
                     "is_duplicate": True,
-                    "message": "Maestro duplicado, reprocesado",
+                    "message": "Reprocesado correctamente",
                     "process_result": process_result,
                 }
             return {

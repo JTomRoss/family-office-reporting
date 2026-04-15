@@ -1030,6 +1030,36 @@ class DataLoadingService:
                 MonthlyMetricNormalized.account_id.in_(managed_ids)
             ).delete(synchronize_session=False)
 
+        # Lookup person_name por entity_name desde "Excel Cuentas Contables.xlsx"
+        # (Sociedad → Nombre persona). Match exacto primero; si falla, match fuzzy
+        # con difflib (umbral 0.85) para tolerar pequeñas diferencias tipográficas.
+        import difflib as _difflib
+        from pathlib import Path as _Path
+        import pandas as _pd
+
+        entity_to_person: dict[str, str] = {}
+        try:
+            _cc_path = _Path(__file__).parents[2] / "Documentos" / "Excel" / "Excel Cuentas Contables.xlsx"
+            if _cc_path.exists():
+                _cc_df = _pd.read_excel(_cc_path, sheet_name="Hoja1", header=0)
+                for _, _row in _cc_df.iterrows():
+                    _sociedad = str(_row.get("Sociedad") or "").strip()
+                    _persona = str(_row.get("Nombre persona") or "").strip()
+                    if _sociedad and _persona and _persona.lower() not in ("nan", "none", ""):
+                        entity_to_person[_sociedad] = _persona
+        except Exception as _exc:
+            self._log("load", "warning", f"No se pudo leer Excel Cuentas Contables para mapeo persona: {_exc}")
+
+        _known_entities = list(entity_to_person.keys())
+
+        def _resolve_person(entity_name: str) -> str | None:
+            if entity_name in entity_to_person:
+                return entity_to_person[entity_name]
+            matches = _difflib.get_close_matches(
+                entity_name, _known_entities, n=1, cutoff=0.85
+            )
+            return entity_to_person[matches[0]] if matches else None
+
         seen_account_numbers: set[str] = set()
         created_account_numbers: set[str] = set()
         updated_account_numbers: set[str] = set()
@@ -1080,6 +1110,7 @@ class DataLoadingService:
                     entity_type="sociedad",
                     currency=currency,
                     country="",
+                    person_name=_resolve_person(entity_name),
                     metadata_json=metadata_json,
                     source_file_hash=result.source_file_hash or raw_document.sha256_hash,
                 )
@@ -1097,6 +1128,9 @@ class DataLoadingService:
                 account.entity_name = entity_name
                 account.entity_type = "sociedad"
                 account.currency = currency
+                resolved = _resolve_person(entity_name)
+                if resolved is not None:
+                    account.person_name = resolved
                 account.metadata_json = metadata_json
                 account.source_file_hash = result.source_file_hash or raw_document.sha256_hash
                 if account_number not in created_account_numbers:
@@ -1141,6 +1175,40 @@ class DataLoadingService:
         stats["accounts_updated"] = len(updated_account_numbers)
 
         self.db.commit()
+
+        # Auto-limpiar documentos Alternativos anteriores: solo se conserva el más
+        # reciente (raw_document.id). Los demás son versiones supersedidas del mismo
+        # Excel operativo y no aportan valor de trazabilidad.
+        try:
+            old_ids = [
+                row[0]
+                for row in self.db.query(RawDocument.id)
+                .filter(
+                    RawDocument.bank_code == _ALTERNATIVES_BANK_CODE,
+                    RawDocument.id != raw_document.id,
+                )
+                .all()
+            ]
+            if old_ids:
+                self.db.query(MonthlyMetricNormalized).filter(
+                    MonthlyMetricNormalized.source_document_id.in_(old_ids)
+                ).update(
+                    {"source_document_id": None},
+                    synchronize_session=False,
+                )
+                self.db.query(RawDocument).filter(
+                    RawDocument.id.in_(old_ids)
+                ).delete(synchronize_session=False)
+                self.db.commit()
+                self._log(
+                    "load",
+                    "info",
+                    f"Auto-limpieza alternativos: {len(old_ids)} documento(s) anterior(es) eliminado(s)",
+                    raw_document.id,
+                )
+        except Exception as _exc:
+            self._log("load", "warning", f"Auto-limpieza alternativos falló (no crítico): {_exc}")
+
         self._log(
             "load",
             "info",

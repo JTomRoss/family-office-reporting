@@ -288,7 +288,7 @@ def render():
         )
     with c4:
         selected_people = st.multiselect(
-            "Nombre",
+            "Personas",
             options=person_options,
             key="summary_person_names",
         )

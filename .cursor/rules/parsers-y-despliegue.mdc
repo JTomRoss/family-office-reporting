@@ -9,7 +9,7 @@ alwaysApply: true
 
 - **Lenguaje**: Python 3.12.8. **Backend**: FastAPI + Uvicorn 0.104+. **Frontend**: Streamlit 1.29+. **ORM/BD**: SQLAlchemy 2.0 + SQLite WAL. **Migraciones**: Alembic. **PDF**: pdfplumber (principal) + PyMuPDF/fitz (fallback GS). **Excel**: pandas + openpyxl. **HTTP**: httpx. **Charts**: Plotly. **Schemas**: Pydantic v2. **Tests**: pytest + hypothesis.
 - **Moneda en BD**: `Numeric(20,4)` — **NUNCA Float**.
-- **Entorno**: venv `.venv/`. Instalar: `pip install -e ".[dev]"`. Iniciar: `.\scripts\start.ps1` (backend 8000, frontend 8501, **SIN --reload**). Detener: `.\scripts\stop.ps1`. Reiniciar: `.\scripts\stop.ps1 ; .\scripts\start.ps1`. Tests: `python -m pytest tests/ -x -q`.
+- **Entorno**: venv `.venv/`. Instalar: `pip install -e ".[dev]"`. Iniciar: `.\scripts\start.ps1` (backend 8000, frontend 8501, **SIN --reload**). Detener: `.\scripts\stop.ps1`. Reiniciar: `.\scripts\stop.ps1 ; .\scripts\start.ps1`. Tests: `.\.venv\Scripts\python.exe -m pytest tests/ -x -q` (**SIEMPRE con el Python del venv**, nunca `python -m pytest` a secas — el Python del sistema no tiene las dependencias del proyecto, incluyendo `fitz`/PyMuPDF).
 - **NUNCA** usar `--reload` ni `--log-level debug`.
 
 ---
