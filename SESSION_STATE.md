@@ -692,7 +692,60 @@ Validation:
 - Auto-discovery: registrado sin errores. Total parsers: 22.
 - Suite: **86 passed, 1 skipped** (sin regresiones).
 
-## 25) Pending — Próxima sesión
+## 25) Closed Block - 2026-04-15 (Wellington v1.1.0 → v1.2.0 — movimientos, fees y asset allocation)
+
+Goal:
+- Completar integración Wellington: extraer flujos de capital, identificar comisiones del gestor y clasificar activos por sub-fondo.
+
+Parser `parsers/wellington/custody.py` → v1.2.0:
+- **v1.1.0**: Clasificación de flujos netos:
+  - `|net| >= $1M` → `change_in_value` (Subscription inicial / Redemption final).
+  - `0 < |net| < $1M` → `income` negativo (fee deducida de la cartera como redención de participaciones).
+  - Threshold `_MIN_CONTRIBUTION = Decimal("1_000_000")`.
+  - Fee months: se emite `net_contributions=0` explícito para que el loader limpie `change_in_value` previo.
+  - Fee registrada en `qualitative_data["management_fee_usd"]` para trazabilidad.
+- **v1.2.0**: Asset allocation por sub-fondo:
+  - Nueva función `_fund_asset_class(fund_name)` mapea cada fondo al bucket canónico:
+    - "WellingtonGlobal CreditPlusFund" → Investment Grade Fixed Income
+    - "WellingtonOpportunisticFixedIncomeFund" → High Yield Fixed Income
+    - "WellingtonEmergingMarketDevelopmentFund" → Equities
+    - "WellingtonWorldBondFund" → Investment Grade Fixed Income
+    - "WellingtonGlobal ResearchEquityFund" → Equities
+  - `result.qualitative_data["asset_allocation"]` = `{bucket: {"value": X, "unit": "USD"}}` sumado por clase.
+  - Total asset_allocation == closing_balance (verificado).
+
+Loader `backend/services/data_loading_service.py`:
+- Wellington con `account_type="mandato"`: usa `macro_only=False` (no colapsar IG+HY en "Fixed Income").
+- `monthly_closings.asset_allocation_json` ahora persiste IG, HY, Fixed Income (suma) y Equities por separado.
+
+Frontend `frontend/pages/mandates.py`:
+- Nueva función `_get_active_banks(banks_rows, selected_year)`:
+  - Banks en `ALWAYS_SHOW` (BBH, GS, JPM, UBS, UBS Miami) siempre visibles.
+  - Wellington solo si tiene datos para el año seleccionado (key `{year}-*` en `bank_month_data`).
+- `_build_bank_kpi_table` y `_build_bank_month_tables` aceptan parámetro `banks`.
+- `active_banks` calculado una vez en `render()` y pasado a todas las funciones y gráficos.
+- Gráfico YTD y gráfico % activos por banco usan `active_banks`.
+- Color Wellington en gráficos: `#9467bd` (violeta).
+
+Frontend `frontend/pages/personal.py`:
+- Tabla "Detalle últimos 12 meses" agrega columna "Utilidad" (comisiones Wellington visibles como negativo).
+- Backend: `_build_personal_returns_panel` ahora incluye `"utilidad"` en cada fila.
+- Acentos corregidos: "últimos", "Evolución" en personal.py, etf.py, summary.py, mandates.py.
+
+Fees identificadas en BD (Wellington 576371):
+- 2022-08: income = -$54,090.93
+- 2022-11: income = -$176,784.69
+- 2023-06: income = -$174,048.14
+- 2023-10: income = -$9.00 (residual menor)
+- 2024-02: income = -$274,408.21
+
+Data operations:
+- Reprocesados docs 1998..2030 (todas las cartolas Wellington) x3 veces durante desarrollo.
+- asset_allocation verificada en BD (Feb-2022): IG=$44.3M, HY=$16.3M, Equities=$37.4M, total=$98.0M ✓
+
+Validation:
+- Suite: 260 passed, 1 skipped (en curso al cierre del bloque).
+
+## 26) Pending — Próxima sesión
 
 - **UBS Miami Boatview cartolas P2 2021-04 a 2023-09**: Si existen cartolas de custodia para ese período del P2 (account_id=77), se deben cargar.
-- **Wellington — primera carga**: Verificar que cuenta Wellington está en Excel Cuentas Contables antes de cargar cartolas. Probar carga de una cartola PDF real.

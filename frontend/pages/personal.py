@@ -240,6 +240,7 @@ def _render_movements_table(rows: list[dict], *, height: int = 360) -> None:
                 "Fecha": _fecha_label(str(row.get("fecha") or "")),
                 "Monto USD": _fmt_or_blank(row.get("ending_value")),
                 "Movimientos": _fmt_or_blank(row.get("movimientos")),
+                "Utilidad": _fmt_or_blank(row.get("utilidad")),
             }
             for row in ordered_rows
         ]
@@ -720,7 +721,7 @@ def render():
     top_left, top_right = st.columns([2, 1])
     returns_rows = data.get("returns_panel", {}).get("rows", [])
     with top_left:
-        st.subheader("Rentabilidad ultimos 12 meses (%)")
+        st.subheader("Rentabilidad últimos 12 meses (%)")
         if returns_rows:
             x_labels = [_fecha_label(str(row.get("fecha") or "")) for row in returns_rows]
             monthly_values = [_to_float(row.get("rent_mensual_pct")) for row in returns_rows]
@@ -774,7 +775,7 @@ def render():
         else:
             st.info("Sin datos para la rentabilidad.")
     with top_right:
-        st.subheader("Detalle ultimos 12 meses")
+        st.subheader("Detalle últimos 12 meses")
         _render_movements_table(returns_rows, height=360)
 
     detail_views = data.get("detail_views", {})

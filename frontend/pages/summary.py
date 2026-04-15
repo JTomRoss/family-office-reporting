@@ -409,7 +409,7 @@ def render():
             f"{visible_scope_summary}. Revisa 'Detalle Cartolas' para el valor por ID."
         )
 
-    st.subheader("Evolucion 12 meses")
+    st.subheader("Evolución 12 meses")
 
     if applied_fecha:
         end_key = applied_fecha

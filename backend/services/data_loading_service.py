@@ -2113,10 +2113,13 @@ class DataLoadingService:
             account_values=account_values,
         )
         if account.account_type == "mandato":
+            # Wellington custody cartolas entregan el split IG/HY/RV real
+            # por sub-fondo → no usar macro_only para preservar el detalle.
+            _macro = account.bank_code != "wellington"
             asset_alloc = _normalize_mandate_asset_allocation(
                 raw_asset_alloc,
                 bank_code=account.bank_code or "",
-                macro_only=True,
+                macro_only=_macro,
             )
         elif account.bank_code == "jpmorgan" and account.account_type == "brokerage":
             asset_alloc = self._derive_jpm_brokerage_asset_allocation(

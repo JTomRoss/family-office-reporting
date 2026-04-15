@@ -3577,6 +3577,7 @@ def _build_personal_returns_panel(
                 "rent_mensual_pct": _to_float(source_row.get("rent_mensual_pct")),
                 "rent_ytd_pct": ytd_by_month.get(fecha),
                 "movimientos": _to_float(source_row.get("movimientos")),
+                "utilidad": _to_float(source_row.get("utilidad")),
             }
         )
 

@@ -30,6 +30,7 @@ FIXED_BANKS = [
     ("jpmorgan", "JPMorgan"),
     ("ubs", "UBS Suiza"),
     ("ubs_miami", "UBS Miami"),
+    ("wellington", "Wellington"),
 ]
 
 ASSET_SERIES = [
@@ -149,6 +150,27 @@ def _prev_month_key(fecha: str) -> str:
     return f"{year}-{month - 1:02d}"
 
 
+def _get_active_banks(banks_rows: list[dict], selected_year: int) -> list[tuple[str, str]]:
+    """
+    Devuelve FIXED_BANKS filtrado: bancos con datos en `selected_year`.
+    Wellington (y cualquier banco que se agregue en el futuro con datos
+    limitados en el tiempo) se oculta si no hay ningún registro para el año.
+    El resto de los bancos siempre se muestra.
+    """
+    ALWAYS_SHOW = {"bbh", "goldman_sachs", "jpmorgan", "ubs", "ubs_miami"}
+    year_prefix = f"{selected_year}-"
+    bank_month_data = _aggregate_bank_month_data(banks_rows)
+    result = []
+    for code, label in FIXED_BANKS:
+        if code in ALWAYS_SHOW:
+            result.append((code, label))
+        else:
+            has_data = any(k.startswith(year_prefix) for k in bank_month_data.get(code, {}))
+            if has_data:
+                result.append((code, label))
+    return result
+
+
 def _aggregate_bank_month_data(banks_rows: list[dict]) -> dict[str, dict[str, dict[str, float]]]:
     bank_month_data: dict[str, dict[str, dict[str, float]]] = {}
     for row in banks_rows:
@@ -185,6 +207,7 @@ def _build_bank_kpi_table(
     etf_total_returns: dict,
     effective_fecha: str | None,
     sin_caja: bool,
+    banks: list[tuple[str, str]] | None = None,
 ) -> pd.DataFrame:
     if not effective_fecha:
         return pd.DataFrame(
@@ -192,6 +215,7 @@ def _build_bank_kpi_table(
         )
 
     bank_month_data = _aggregate_bank_month_data(banks_rows)
+    active_banks = banks if banks is not None else FIXED_BANKS
 
     returns_by_bank = {str(r.get("bank_code") or ""): r for r in returns_table}
     monthly_key = f"{effective_fecha}_monthly"
@@ -206,7 +230,7 @@ def _build_bank_kpi_table(
     total_series_by_key: dict[str, dict[str, float]] = {}
     prev_key = _prev_month_key(effective_fecha)
 
-    for bank_code, bank_label in FIXED_BANKS:
+    for bank_code, bank_label in active_banks:
         month_series = bank_month_data.get(bank_code, {})
         month_vals = month_series.get(effective_fecha, {})
         ret_row = returns_by_bank.get(bank_code, {})
@@ -363,9 +387,11 @@ def _build_bank_month_tables(
     returns_table: list[dict],
     selected_year: int,
     sin_caja: bool,
+    banks: list[tuple[str, str]] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     month_keys = [f"{m:02d}" for m in range(1, 13)]
-    fixed_codes = [code for code, _ in FIXED_BANKS]
+    active_banks = banks if banks is not None else FIXED_BANKS
+    fixed_codes = [code for code, _ in active_banks]
     bank_month_data = _aggregate_bank_month_data(banks_rows)
 
     montos_by_bank = {code: {mk: 0.0 for mk in month_keys} for code in fixed_codes}
@@ -409,7 +435,7 @@ def _build_bank_month_tables(
 
     monto_rows: list[dict] = []
     mov_rows: list[dict] = []
-    for code, label in FIXED_BANKS:
+    for code, label in active_banks:
         monto_row = {"Banco": label}
         mov_row = {"Banco": label}
         for mk in month_keys:
@@ -429,7 +455,7 @@ def _build_bank_month_tables(
     returns_by_bank = {str(r.get("bank_code") or ""): r for r in returns_table}
     ret_m_rows: list[dict] = []
     ret_y_rows: list[dict] = []
-    for code, label in FIXED_BANKS:
+    for code, label in active_banks:
         rr = returns_by_bank.get(code, {})
         row_m = {"Banco": label}
         row_y = {"Banco": label}
@@ -591,6 +617,7 @@ def render():
 
     effective_fecha = data.get("selected_fecha") or applied_fecha
     chart_year = _year_from_fecha(effective_fecha)
+    active_banks = _get_active_banks(table_data.get("banks_by_month", []), chart_year)
     chart_month = int(effective_fecha[5:7]) if effective_fecha and len(effective_fecha) >= 7 else 12
 
     render_health_warning(
@@ -619,6 +646,7 @@ def render():
         etf_total_returns=table_data.get("etf_total_returns", {}),
         effective_fecha=effective_fecha,
         sin_caja=applied_sin_caja,
+        banks=active_banks,
     )
     if not kpi_df.empty:
         sort_col_left, sort_col_right = st.columns([2, 1])
@@ -669,8 +697,8 @@ def render():
     else:
         st.info("Sin datos para Mandato por Banco.")
 
-    # Evolucion mensual YTD (5 bancos mandato + total ETF), con 12 meses fijos.
-    st.subheader(f"Evolucion Mensual de Rentabilidad YTD ({chart_year})")
+    # Evolución mensual YTD (bancos mandato + total ETF), con 12 meses fijos.
+    st.subheader(f"Evolución Mensual de Rentabilidad YTD ({chart_year})")
     ytd_month_keys = [f"{chart_year}-{m:02d}" for m in range(1, 13)]
     returns_by_bank = {
         str(r.get("bank_code") or ""): r for r in table_data.get("returns_table", [])
@@ -683,9 +711,10 @@ def render():
         "jpmorgan": "#2ca02c",
         "ubs": "#d62728",
         "ubs_miami": "#17becf",
+        "wellington": "#9467bd",
         "etf_total": "#8C564B",
     }
-    for bank_code, bank_label in FIXED_BANKS:
+    for bank_code, bank_label in active_banks:
         row = returns_by_bank.get(bank_code, {})
         y_vals = [row.get(f"{mk}_ytd") for mk in ytd_month_keys]
         fig_ytd.add_trace(
@@ -753,7 +782,7 @@ def render():
     with col2:
         month_caption = effective_fecha or "Mes seleccionado"
         st.subheader(f"% por Tipo de Activo en cada Banco ({month_caption})")
-        asset_bank_labels = FIXED_BANKS + [("etf_portfolio", "Portafolio ETF")]
+        asset_bank_labels = active_banks + [("etf_portfolio", "Portafolio ETF")]
         bank_x = [label for _, label in asset_bank_labels]
         fig = go.Figure()
         for asset_key, label, color in ASSET_SERIES:
@@ -787,6 +816,7 @@ def render():
         returns_table=series_data.get("returns_table", []),
         selected_year=chart_year,
         sin_caja=applied_sin_caja,
+        banks=active_banks,
     )
 
     st.subheader(f"Mandato por Banco {chart_year}")

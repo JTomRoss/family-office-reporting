@@ -277,7 +277,7 @@ def render():
         etf_summary = {"consolidated_rows": []}
     etf_consolidated = etf_summary.get("consolidated_rows", [])
 
-    st.subheader("Rentabilidad ultimos 12 meses (%)")
+    st.subheader("Rentabilidad últimos 12 meses (%)")
     chart_map = {str(row.get("fecha")): row for row in etf_consolidated if row.get("fecha")}
     if chart_map:
         end_key = str(applied_fecha) if applied_fecha in chart_map else max(chart_map.keys())
@@ -590,7 +590,7 @@ def render():
     st.markdown("---")
 
     year_label = str(selected_year) if selected_year else ""
-    st.subheader(f"Evolucion del Portafolio ETF por sociedad {year_label}")
+    st.subheader(f"Evolución del Portafolio ETF por sociedad {year_label}")
     st.caption("Sociedades x Meses. Afectado por filtros Fecha, Banco, Sociedad, Con/Sin Caja y Sin Personal.")
 
     if society_montos_table:
