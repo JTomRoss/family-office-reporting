@@ -4191,7 +4191,7 @@ def get_normalization_quality(
 # ╚══════════════════════════════════════════════════════════════════╝
 
 _BICE_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-_BICE_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "BICE", "banchile": "Banchile"}
+_BICE_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "banchile": "Banchile"}
 
 
 def _bice_f(val) -> Optional[float]:
@@ -4209,7 +4209,7 @@ def _bice_month_label(year: int, month: int) -> str:
 
 class BiceFilterParams(FilterParams):
     """Filtros para la pestaña Detalle Bice."""
-    pass
+    only_sociedades: bool = False
 
 
 @router.post("/bice")
@@ -4267,6 +4267,8 @@ def get_bice(
         q = q.filter(Account.entity_name.in_(filters.entity_names))
     if filters.person_names:
         q = q.filter(Account.person_name.in_(filters.person_names))
+    if filters.only_sociedades:
+        q = q.filter(Account.entity_type == "sociedad")
 
     rows = q.order_by(
         BiceMonthlySnapshot.year,

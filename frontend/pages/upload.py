@@ -32,6 +32,7 @@ BANCOS = {
     "goldman_sachs": "Goldman Sachs",
     "bbh": "BBH (Brown Brothers Harriman)",
     "bice": "BICE",
+    "bice_inversiones": "Bice Inversiones",
     "alternativos": "Alternativos",
     "wellington": "Wellington",
 }

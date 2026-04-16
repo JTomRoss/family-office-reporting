@@ -23,6 +23,7 @@ BANK_DISPLAY_NAMES: dict[str, str] = {
     "goldman_sachs": "Goldman Sachs",
     "bbh": "BBH",
     "bice": "BICE",
+    "bice_inversiones": "Bice Inversiones",
     "alternativos": "Alternativos",
 }
 

@@ -32,7 +32,7 @@ from frontend.components.table_utils import render_table
 
 MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "BICE", "banchile": "Banchile"}
+_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "banchile": "Banchile"}
 _ASSET_COLORS = {
     "Caja": "#D5DEE9",
     "Renta Fija": "#2D6FB7",
@@ -375,7 +375,7 @@ def render() -> None:
     _sanitize_multiselect_state("bice_persona", available_personas)
 
     st.markdown("### Filtros")
-    f1, f2, f3, f4 = st.columns(4)
+    f1, f2, f3, f4, f5 = st.columns(5)
 
     with f1:
         selected_bancos = st.multiselect(
@@ -391,12 +391,19 @@ def render() -> None:
             key="bice_sociedad",
         )
     with f3:
+        selected_consolidado = st.selectbox(
+            "Consolidado",
+            options=["", "Todas las sociedades"],
+            format_func=lambda x: x or "Sin consolidado",
+            key="bice_consolidado",
+        )
+    with f4:
         if fecha_options:
             selected_fecha = st.selectbox("Fecha", options=fecha_options, key="bice_fecha")
         else:
             selected_fecha = None
             st.selectbox("Fecha", options=["Sin datos"], disabled=True, key="bice_fecha_empty")
-    with f4:
+    with f5:
         selected_personas = st.multiselect(
             "Personas",
             options=available_personas,
@@ -408,6 +415,7 @@ def render() -> None:
         current_filters={
             "bank_codes": list(selected_bancos),
             "entity_names": list(selected_sociedades),
+            "consolidado": selected_consolidado,
             "fecha": selected_fecha,
             "person_names": list(selected_personas),
         },
@@ -415,13 +423,18 @@ def render() -> None:
 
     applied_bancos = list(applied_filters.get("bank_codes", []))
     applied_sociedades = list(applied_filters.get("entity_names", []))
+    applied_consolidado = applied_filters.get("consolidado", "")
     applied_fecha = applied_filters.get("fecha")
     applied_personas = list(applied_filters.get("person_names", []))
 
     selected_year = int(applied_fecha[:4]) if applied_fecha else None
     selected_month = int(applied_fecha[5:7]) if applied_fecha else None
+    only_sociedades = applied_consolidado == "Todas las sociedades"
 
-    has_filter = bool(applied_bancos or applied_sociedades or applied_personas or applied_fecha)
+    if only_sociedades:
+        st.caption("Consolidado activo: Solo sociedades (excluye cuentas personales)")
+
+    has_filter = bool(applied_bancos or applied_sociedades or applied_personas or applied_fecha or only_sociedades)
 
     # ── Cargar datos ──────────────────────────────────────────────────────────
     data: dict = {}
@@ -432,6 +445,7 @@ def render() -> None:
             "bank_codes": applied_bancos,
             "entity_names": applied_sociedades,
             "person_names": applied_personas,
+            "only_sociedades": only_sociedades,
         }
         try:
             data = api_client.post("/data/bice", json=payload)
@@ -454,20 +468,21 @@ def render() -> None:
     st.subheader("Saldo")
     k1, k2, k3, k4 = st.columns(4)
     with k1:
-        st.metric("Total $ (CLP)", fmt_currency(kpi_clp.get("ending", 0), decimals=0, symbol="$"))
+        st.metric("Total $ (CLP)", fmt_currency(kpi_clp.get("ending", 0), decimals=0))
     with k2:
-        st.metric("Total US$", fmt_currency(kpi_usd.get("ending", 0), decimals=2, symbol="US$"))
+        usd_ending = kpi_usd.get("ending", 0)
+        st.metric("Total US$", f"US${fmt_number(usd_ending, decimals=2)}")
     with k3:
         clp_profit = kpi_clp.get("profit")
         st.metric(
             "Utilidad mes $ (CLP)",
-            fmt_currency(clp_profit, decimals=0, symbol="$") if clp_profit is not None else "—",
+            fmt_currency(clp_profit, decimals=0) if clp_profit is not None else "—",
         )
     with k4:
         usd_profit = kpi_usd.get("profit")
         st.metric(
             "Utilidad mes US$",
-            fmt_currency(usd_profit, decimals=2, symbol="US$") if usd_profit is not None else "—",
+            f"US${fmt_number(usd_profit, decimals=2)}" if usd_profit is not None else "—",
         )
 
     # ── Rentabilidad ──────────────────────────────────────────────────────────
