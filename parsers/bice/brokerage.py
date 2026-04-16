@@ -55,7 +55,7 @@ from parsers.base import BaseParser, ParseResult, ParsedRow, ParserStatus
 
 # ── Versión ──────────────────────────────────────────────────────────────────
 
-VERSION = "3.1.0"
+VERSION = "3.3.0"
 
 # ── Regex ────────────────────────────────────────────────────────────────────
 
@@ -64,12 +64,18 @@ _RE_PERIOD = re.compile(
 )
 _RE_RUT = re.compile(r"Rut:\s*([\d.]+-[\dkK])")
 _RE_CLIENT = re.compile(r"Cliente:\s+(.+?)\s+Rut:")
-_RE_APORTES = re.compile(r"Compras/Aportes\(D\)\s+([\d.,]+)")
-_RE_RETIROS = re.compile(r"Ventas/Rescates\s*\(E\)\s+([\d.,]+)")
+_RE_ABONOS_RETIROS = re.compile(r"Abonos/Retiros\s*\(B\)\s+([-\d.,]+)")
 _RE_DIVIDENDOS = re.compile(r"Dividendos y Otros\(F\)\s+([\d.,]+)")
+# DAP: extrae (inicio_G, fin_J) de la fila padre "Depósitos a Plazo BICE" en la tabla resumen
+_RE_DAP_ROW = re.compile(
+    r"Dep[oó]sitos a Plazo BICE[^\d\n]*"   # nombre (puede tener " (1)")
+    r"([\d]+(?:\.[\d]{3})*)"                # col G: saldo inicio
+    r"(?:\s+[\d.,]+){3}"                    # cols H, I, cambio (ignorar)
+    r"\s+([\d]+(?:\.[\d]{3})*(?:,\d+)?)"   # col J: saldo fin
+)
 _RE_CODE_PREFIX = re.compile(r"^([A-Z0-9][A-Z0-9\-]+)")
 _RE_TITULO_DATE = re.compile(r"^\d{2}-\d{2}-\d{4}")
-_RE_TITULO_MONTO = re.compile(r"([\d]+(?:\.[\d]{3})*(?:,[\d]+)?)\s*$")  # código antes del primer espacio/(
+_RE_TITULO_MONTO = re.compile(r"([\d]+(?:\.[\d]{3})*(?:,[\d]+)?)\s*$")
 
 # ── Constantes de clasificación ───────────────────────────────────────────────
 
@@ -394,26 +400,40 @@ def _extract_investments(
 
 def _extract_movements(page_text: str) -> dict:
     """
-    Extrae movimientos de la sección "Resumen de Movimientos Caja" usando
-    regex sobre el texto de la página (más robusto que parsear la tabla
-    de navegación de 22 columnas).
+    Extrae flujos externos netos desde el resumen de la cartola (pág. 2 CLP / pág. 3 USD).
 
-    Campos buscados:
-      Compras/Aportes(D)   → aportes
-      Ventas/Rescates (E)  → retiros
-      Dividendos y Otros(F)→ dividendos_otros
+    Fuente primaria: "Abonos/Retiros (B)" — flujo neto externo de caja.
+      B negativo → el cliente retiró dinero.
+      B positivo → el cliente depositó dinero.
+
+    Caso especial — Depósitos a Plazo BICE (DAP):
+      BICE excluye los vencimientos de DAP tanto de B como de Ganancia/Pérdida (nota 1).
+      Cuando un DAP vence, el saldo del portfolio cae sin que se registre como retiro en B.
+      Se detecta midiendo la caída en el saldo de DAP entre la columna G (inicio) y J (fin)
+      de la fila "Depósitos a Plazo BICE" en la tabla resumen; esa caída se suma a retiros.
+
+    Dividendos y Otros (F) se extrae separadamente.
     """
     aportes = Decimal("0")
     retiros = Decimal("0")
     dividendos = Decimal("0")
 
-    m = _RE_APORTES.search(page_text)
+    m = _RE_ABONOS_RETIROS.search(page_text)
     if m:
-        aportes = _parse_cl(m.group(1))
+        net_flow = _parse_cl(m.group(1))
+        if net_flow < 0:
+            retiros = -net_flow
+        else:
+            aportes = net_flow
 
-    m = _RE_RETIROS.search(page_text)
-    if m:
-        retiros = _parse_cl(m.group(1))
+    # Vencimiento implícito de DAP: caída de saldo no capturada en B
+    m_dap = _RE_DAP_ROW.search(page_text)
+    if m_dap:
+        dap_inicio = _parse_cl(m_dap.group(1))
+        dap_fin = _parse_cl(m_dap.group(2))
+        dap_matured = dap_inicio - dap_fin
+        if dap_matured > Decimal("0"):
+            retiros += dap_matured
 
     m = _RE_DIVIDENDOS.search(page_text)
     if m:
@@ -602,7 +622,7 @@ class BICEBrokerageParser(BaseParser):
             else:
                 result.warnings.append("No se encontró tabla de inversiones USD (pág. 3)")
 
-        # ── Movimientos CLP (pág. 2 text) — solo dividendos_otros ────
+        # ── Movimientos CLP (pág. 2) — Abonos/Retiros(B) + Dividendos(F) ──
         clp_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
@@ -612,7 +632,7 @@ class BICEBrokerageParser(BaseParser):
         if n_pages >= 2:
             clp_movements = _extract_movements(pages_text[1])
 
-        # ── Movimientos USD (pág. 3 text) — solo dividendos_otros ────
+        # ── Movimientos USD (pág. 3) — Abonos/Retiros(B) + Dividendos(F) ──
         usd_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
@@ -621,23 +641,6 @@ class BICEBrokerageParser(BaseParser):
         }
         if n_pages >= 3:
             usd_movements = _extract_movements(pages_text[2])
-
-        # ── Flujos reales CLP/USD desde pág. 6 "Movimientos de Títulos" ──
-        # Reemplaza aportes/retiros de pág. 2-3 (que incluyen mov. intra-cuenta).
-        # Fuente confiable: RESCATE FM y INVERSION FM sobre TESORERIA / LIQUIDEZ DOLAR.
-        if n_pages >= 6:
-            clp_flows = _extract_real_flows(pages_text[5], "TESORERIA")
-            usd_flows = _extract_real_flows(pages_text[5], "LIQUIDEZ DOLAR")
-            clp_movements["aportes"] = clp_flows["aportes"]
-            clp_movements["retiros"] = clp_flows["retiros"]
-            clp_movements["neto"] = clp_flows["neto"]
-            usd_movements["aportes"] = usd_flows["aportes"]
-            usd_movements["retiros"] = usd_flows["retiros"]
-            usd_movements["neto"] = usd_flows["neto"]
-        else:
-            result.warnings.append(
-                "Pág. 6 no encontrada; aportes/retiros quedan en 0 (no se pudo leer Movimientos de Títulos)"
-            )
 
         # ── Poblar result ──────────────────────────────────────────────
         result.closing_balance = p1_summary["patrimonio_clp"] or p1_summary["total_activos_clp"]
