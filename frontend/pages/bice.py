@@ -32,7 +32,7 @@ from frontend.components.table_utils import render_table
 
 MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "banchile": "Banchile"}
+_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "bice_asesorias": "Bice Asesorias", "banchile": "Banchile"}
 _ASSET_COLORS = {
     "Caja": "#D5DEE9",
     "Renta Fija": "#2D6FB7",

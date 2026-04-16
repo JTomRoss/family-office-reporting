@@ -4191,7 +4191,7 @@ def get_normalization_quality(
 # ╚══════════════════════════════════════════════════════════════════╝
 
 _BICE_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-_BICE_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "banchile": "Banchile"}
+_BICE_BANK_DISPLAY = {"bice": "BICE", "bice_inversiones": "Bice Inversiones", "bice_asesorias": "Bice Asesorias", "banchile": "Banchile"}
 
 
 def _bice_f(val) -> Optional[float]:
@@ -4228,13 +4228,13 @@ def get_bice(
     # ── Opciones de filtro ──────────────────────────────────────────
     all_accounts_q = (
         db.query(Account)
-        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "banchile"]))
+        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "bice_asesorias", "banchile"]))
         .all()
     )
     all_snaps_q = (
         db.query(BiceMonthlySnapshot, Account)
         .join(Account, BiceMonthlySnapshot.account_id == Account.id)
-        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "banchile"]))
+        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "bice_asesorias", "banchile"]))
         .all()
     )
 
@@ -4260,7 +4260,7 @@ def get_bice(
     q = (
         db.query(BiceMonthlySnapshot, Account)
         .join(Account, BiceMonthlySnapshot.account_id == Account.id)
-        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "banchile"]))
+        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "bice_asesorias", "banchile"]))
     )
 
     if selected_year:
@@ -4433,7 +4433,7 @@ def get_bice(
     hq = (
         db.query(BiceMonthlySnapshot, Account)
         .join(Account, BiceMonthlySnapshot.account_id == Account.id)
-        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "banchile"]))
+        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "bice_asesorias", "banchile"]))
         .filter(BiceMonthlySnapshot.year.in_(history_years))
     )
     if filters.bank_codes:

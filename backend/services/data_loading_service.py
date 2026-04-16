@@ -701,7 +701,7 @@ class DataLoadingService:
         for account in accounts:
             try:
                 # Rama BICE: flujo de inversiones nacionales → bice_monthly_snapshot
-                if (raw_document.bank_code or result.bank_code or "").lower() in {"bice", "bice_inversiones"}:
+                if (raw_document.bank_code or result.bank_code or "").lower() in {"bice", "bice_inversiones", "bice_asesorias"}:
                     # 1) ParsedStatement (trazabilidad)
                     ps_ok = self._upsert_parsed_statement(
                         result, raw_document, account, parser_version_id
