@@ -21,6 +21,7 @@ from calculations.reconciliation import reconcile_monthly
 from etf_instrument_dictionary import CASH_INSTRUMENTS, INSTRUMENT_ORDER, normalize_etf_instrument
 from backend.db.models import (
     Account,
+    BiceMonthlySnapshot,
     DailyPosition,
     EtfComposition,
     MonthlyClosing,
@@ -4182,5 +4183,349 @@ def get_normalization_quality(
             for mc, acct in missing_rows
         ],
         "mismatch_examples": mismatches,
+    }
+
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  BICE — Inversiones nacionales                                  ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+_BICE_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+_BICE_BANK_DISPLAY = {"bice": "BICE", "banchile": "Banchile"}
+
+
+def _bice_f(val) -> Optional[float]:
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except Exception:
+        return None
+
+
+def _bice_month_label(year: int, month: int) -> str:
+    return f"{_BICE_MONTHS[month - 1]} {str(year)[-2:]}"
+
+
+class BiceFilterParams(FilterParams):
+    """Filtros para la pestaña Detalle Bice."""
+    pass
+
+
+@router.post("/bice")
+def get_bice(
+    filters: BiceFilterParams,
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna datos para la pestaña Detalle Bice (inversiones nacionales).
+    Saldos y movimientos en CLP y USD completamente separados.
+    No hay conversión de moneda.
+    """
+    selected_year = max(filters.years) if filters.years else None
+    selected_month = max(filters.months) if filters.months else None
+
+    # ── Opciones de filtro ──────────────────────────────────────────
+    all_accounts_q = (
+        db.query(Account)
+        .filter(Account.bank_code.in_(["bice", "banchile"]))
+        .all()
+    )
+    all_snaps_q = (
+        db.query(BiceMonthlySnapshot, Account)
+        .join(Account, BiceMonthlySnapshot.account_id == Account.id)
+        .filter(Account.bank_code.in_(["bice", "banchile"]))
+        .all()
+    )
+
+    available_years = sorted({s.year for s, _ in all_snaps_q}, reverse=True)
+    available_bancos = sorted({a.bank_code for a in all_accounts_q})
+    available_sociedades = sorted({a.entity_name for a in all_accounts_q})
+    available_personas = sorted({a.person_name for a in all_accounts_q if a.person_name})
+
+    filter_options = {
+        "years": available_years,
+        "bancos": available_bancos,
+        "sociedades": available_sociedades,
+        "personas": available_personas,
+    }
+
+    # ── Construir query con filtros aplicados ───────────────────────
+    q = (
+        db.query(BiceMonthlySnapshot, Account)
+        .join(Account, BiceMonthlySnapshot.account_id == Account.id)
+        .filter(Account.bank_code.in_(["bice", "banchile"]))
+    )
+
+    if selected_year:
+        q = q.filter(BiceMonthlySnapshot.year == selected_year)
+    if selected_month:
+        q = q.filter(BiceMonthlySnapshot.month == selected_month)
+    if filters.bank_codes:
+        q = q.filter(Account.bank_code.in_(filters.bank_codes))
+    if filters.entity_names:
+        q = q.filter(Account.entity_name.in_(filters.entity_names))
+    if filters.person_names:
+        q = q.filter(Account.person_name.in_(filters.person_names))
+
+    rows = q.order_by(
+        BiceMonthlySnapshot.year,
+        BiceMonthlySnapshot.month,
+        Account.entity_name,
+    ).all()
+
+    if not rows:
+        return {
+            "filter_options": filter_options,
+            "selected_fecha": None,
+            "kpis": {"clp": {}, "usd": {}},
+            "by_asset": {"clp": [], "usd": []},
+            "by_bank": {"clp": [], "usd": []},
+            "by_sociedad": {"clp": [], "usd": []},
+            "by_account": {"clp": [], "usd": []},
+            "monthly_detail": {"months": [], "rows": []},
+            "returns_panel": {"months": [], "rows": []},
+            "message": "Sin datos para los filtros seleccionados",
+        }
+
+    # ── Mes seleccionado (último disponible si no hay filtro de mes) ─
+    latest_year = max(s.year for s, _ in rows)
+    latest_month = max(s.month for s, _ in rows if s.year == latest_year)
+    display_year = selected_year or latest_year
+    display_month = selected_month or latest_month
+    selected_fecha = f"{display_year}-{display_month:02d}"
+
+    current_rows = [
+        (s, a) for s, a in rows
+        if s.year == display_year and s.month == display_month
+    ]
+
+    # ── KPIs del mes seleccionado ────────────────────────────────────
+    kpi_clp = {"ending": 0.0, "aportes": 0.0, "retiros": 0.0, "dividendos": 0.0, "profit": None}
+    kpi_usd = {"ending": 0.0, "aportes": 0.0, "retiros": 0.0, "dividendos": 0.0, "profit": None}
+    profit_clp_list: list[float] = []
+    profit_usd_list: list[float] = []
+    for s, _ in current_rows:
+        kpi_clp["ending"] += _bice_f(s.ending_clp) or 0.0
+        kpi_clp["aportes"] += _bice_f(s.aportes_clp) or 0.0
+        kpi_clp["retiros"] += _bice_f(s.retiros_clp) or 0.0
+        kpi_clp["dividendos"] += _bice_f(s.dividendos_clp) or 0.0
+        kpi_usd["ending"] += _bice_f(s.ending_usd) or 0.0
+        kpi_usd["aportes"] += _bice_f(s.aportes_usd) or 0.0
+        kpi_usd["retiros"] += _bice_f(s.retiros_usd) or 0.0
+        kpi_usd["dividendos"] += _bice_f(s.dividendos_usd) or 0.0
+        if s.profit_clp is not None:
+            profit_clp_list.append(_bice_f(s.profit_clp) or 0.0)
+        if s.profit_usd is not None:
+            profit_usd_list.append(_bice_f(s.profit_usd) or 0.0)
+    if profit_clp_list:
+        kpi_clp["profit"] = sum(profit_clp_list)
+    if profit_usd_list:
+        kpi_usd["profit"] = sum(profit_usd_list)
+
+    # ── Por Activo ───────────────────────────────────────────────────
+    asset_clp = {"Caja": 0.0, "Renta Fija": 0.0, "Equities": 0.0}
+    asset_usd = {"Caja": 0.0, "Renta Fija": 0.0, "Equities": 0.0}
+    for s, _ in current_rows:
+        asset_clp["Caja"] += _bice_f(s.caja_clp) or 0.0
+        asset_clp["Renta Fija"] += _bice_f(s.renta_fija_clp) or 0.0
+        asset_clp["Equities"] += _bice_f(s.equities_clp) or 0.0
+        asset_usd["Caja"] += _bice_f(s.caja_usd) or 0.0
+        asset_usd["Renta Fija"] += _bice_f(s.renta_fija_usd) or 0.0
+        asset_usd["Equities"] += _bice_f(s.equities_usd) or 0.0
+
+    by_asset_clp = [{"name": k, "value": round(v, 4)} for k, v in asset_clp.items() if v > 0]
+    by_asset_usd = [{"name": k, "value": round(v, 4)} for k, v in asset_usd.items() if v > 0]
+
+    # ── Por Banco ────────────────────────────────────────────────────
+    bank_clp: dict[str, float] = {}
+    bank_usd: dict[str, float] = {}
+    for s, a in current_rows:
+        bk = a.bank_code
+        bank_clp[bk] = bank_clp.get(bk, 0.0) + (_bice_f(s.ending_clp) or 0.0)
+        bank_usd[bk] = bank_usd.get(bk, 0.0) + (_bice_f(s.ending_usd) or 0.0)
+    by_bank_clp = [{"name": _BICE_BANK_DISPLAY.get(k, k), "bank_code": k, "value": round(v, 4)} for k, v in bank_clp.items()]
+    by_bank_usd = [{"name": _BICE_BANK_DISPLAY.get(k, k), "bank_code": k, "value": round(v, 4)} for k, v in bank_usd.items()]
+
+    # ── Por Sociedad ─────────────────────────────────────────────────
+    soc_clp: dict[str, dict] = {}
+    soc_usd: dict[str, dict] = {}
+    for s, a in current_rows:
+        en = a.entity_name
+        if en not in soc_clp:
+            soc_clp[en] = {"ending": 0.0, "aportes": 0.0, "retiros": 0.0, "profit": None, "_profits": []}
+            soc_usd[en] = {"ending": 0.0, "aportes": 0.0, "retiros": 0.0, "profit": None, "_profits": []}
+        soc_clp[en]["ending"] += _bice_f(s.ending_clp) or 0.0
+        soc_clp[en]["aportes"] += _bice_f(s.aportes_clp) or 0.0
+        soc_clp[en]["retiros"] += _bice_f(s.retiros_clp) or 0.0
+        if s.profit_clp is not None:
+            soc_clp[en]["_profits"].append(_bice_f(s.profit_clp) or 0.0)
+        soc_usd[en]["ending"] += _bice_f(s.ending_usd) or 0.0
+        soc_usd[en]["aportes"] += _bice_f(s.aportes_usd) or 0.0
+        soc_usd[en]["retiros"] += _bice_f(s.retiros_usd) or 0.0
+        if s.profit_usd is not None:
+            soc_usd[en]["_profits"].append(_bice_f(s.profit_usd) or 0.0)
+
+    for d in (soc_clp, soc_usd):
+        for v in d.values():
+            v["profit"] = sum(v.pop("_profits")) if v["_profits"] else None
+            v.pop("_profits", None)
+
+    by_sociedad_clp = [{"name": k, **v} for k, v in sorted(soc_clp.items())]
+    by_sociedad_usd = [{"name": k, **v} for k, v in sorted(soc_usd.items())]
+
+    # ── Por Cuenta ───────────────────────────────────────────────────
+    by_account_clp = []
+    by_account_usd = []
+    for s, a in sorted(current_rows, key=lambda x: x[1].entity_name):
+        clp_row = {
+            "account_number": a.account_number,
+            "entity_name": a.entity_name,
+            "bank_code": a.bank_code,
+            "ending": _bice_f(s.ending_clp),
+            "caja": _bice_f(s.caja_clp),
+            "renta_fija": _bice_f(s.renta_fija_clp),
+            "equities": _bice_f(s.equities_clp),
+            "aportes": _bice_f(s.aportes_clp),
+            "retiros": _bice_f(s.retiros_clp),
+            "dividendos": _bice_f(s.dividendos_clp),
+            "profit": _bice_f(s.profit_clp),
+        }
+        usd_row = {
+            "account_number": a.account_number,
+            "entity_name": a.entity_name,
+            "bank_code": a.bank_code,
+            "ending": _bice_f(s.ending_usd),
+            "caja": _bice_f(s.caja_usd),
+            "renta_fija": _bice_f(s.renta_fija_usd),
+            "equities": _bice_f(s.equities_usd),
+            "aportes": _bice_f(s.aportes_usd),
+            "retiros": _bice_f(s.retiros_usd),
+            "dividendos": _bice_f(s.dividendos_usd),
+            "profit": _bice_f(s.profit_usd),
+        }
+        by_account_clp.append(clp_row)
+        by_account_usd.append(usd_row)
+
+    # ── Detalle últimos 12 meses ─────────────────────────────────────
+    # Armar lista de meses: los 12 meses anteriores al mes seleccionado (inclusive)
+    detail_months: list[tuple[int, int]] = []
+    y, m = display_year, display_month
+    for _ in range(12):
+        detail_months.insert(0, (y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+
+    month_labels = [_bice_month_label(y, m) for y, m in detail_months]
+
+    # Agrupar snaps por (account_id) para armar series
+    snap_index: dict[int, dict[tuple[int, int], tuple]] = {}
+    all_account_ids = {a.id for _, a in rows}
+    for s, a in rows:
+        if a.id not in snap_index:
+            snap_index[a.id] = {}
+        snap_index[a.id][(s.year, s.month)] = (s, a)
+
+    monthly_rows: list[dict] = []
+    account_meta: dict[int, "Account"] = {}
+    for _, a in rows:
+        account_meta[a.id] = a
+
+    for acct_id in sorted(all_account_ids, key=lambda i: account_meta[i].entity_name):
+        acct = account_meta[acct_id]
+        clp_series = []
+        usd_series = []
+        for ym in detail_months:
+            entry = snap_index.get(acct_id, {}).get(ym)
+            if entry:
+                s_row = entry[0]
+                clp_series.append({
+                    "ending": _bice_f(s_row.ending_clp),
+                    "aportes": _bice_f(s_row.aportes_clp),
+                    "retiros": _bice_f(s_row.retiros_clp),
+                    "profit": _bice_f(s_row.profit_clp),
+                })
+                usd_series.append({
+                    "ending": _bice_f(s_row.ending_usd),
+                    "aportes": _bice_f(s_row.aportes_usd),
+                    "retiros": _bice_f(s_row.retiros_usd),
+                    "profit": _bice_f(s_row.profit_usd),
+                })
+            else:
+                clp_series.append(None)
+                usd_series.append(None)
+        monthly_rows.append({
+            "label": acct.entity_name,
+            "account_number": acct.account_number,
+            "bank_code": acct.bank_code,
+            "clp": clp_series,
+            "usd": usd_series,
+        })
+
+    # ── Panel de retornos (rentabilidad mensual) ─────────────────────
+    # Retorno % = profit / ending_mes_anterior * 100
+    # Solo calculable cuando hay ending_mes_anterior disponible (profit no es None)
+    returns_rows: list[dict] = []
+    for acct_id in sorted(all_account_ids, key=lambda i: account_meta[i].entity_name):
+        acct = account_meta[acct_id]
+        returns_clp: list[Optional[float]] = []
+        returns_usd: list[Optional[float]] = []
+        for idx, ym in enumerate(detail_months):
+            entry = snap_index.get(acct_id, {}).get(ym)
+            if entry is None:
+                returns_clp.append(None)
+                returns_usd.append(None)
+                continue
+            s_row = entry[0]
+            # Buscar ending del mes anterior
+            prev_ym = detail_months[idx - 1] if idx > 0 else None
+            prev_entry = snap_index.get(acct_id, {}).get(prev_ym) if prev_ym else None
+            if prev_entry is None:
+                # Buscar en BD directamente
+                prev_y = ym[0] if ym[1] > 1 else ym[0] - 1
+                prev_m = ym[1] - 1 if ym[1] > 1 else 12
+                prev_snap = (
+                    db.query(BiceMonthlySnapshot)
+                    .filter(
+                        BiceMonthlySnapshot.account_id == acct_id,
+                        BiceMonthlySnapshot.year == prev_y,
+                        BiceMonthlySnapshot.month == prev_m,
+                    )
+                    .first()
+                )
+                prev_ending_clp = _bice_f(prev_snap.ending_clp) if prev_snap else None
+                prev_ending_usd = _bice_f(prev_snap.ending_usd) if prev_snap else None
+            else:
+                prev_ending_clp = _bice_f(prev_entry[0].ending_clp)
+                prev_ending_usd = _bice_f(prev_entry[0].ending_usd)
+
+            def _ret(profit_val, prev_end) -> Optional[float]:
+                if profit_val is None or prev_end is None or prev_end == 0:
+                    return None
+                return round(profit_val / prev_end * 100, 4)
+
+            returns_clp.append(_ret(_bice_f(s_row.profit_clp), prev_ending_clp))
+            returns_usd.append(_ret(_bice_f(s_row.profit_usd), prev_ending_usd))
+
+        returns_rows.append({
+            "label": acct.entity_name,
+            "account_number": acct.account_number,
+            "bank_code": acct.bank_code,
+            "returns_clp": returns_clp,
+            "returns_usd": returns_usd,
+        })
+
+    return {
+        "filter_options": filter_options,
+        "selected_fecha": selected_fecha,
+        "kpis": {"clp": kpi_clp, "usd": kpi_usd},
+        "by_asset": {"clp": by_asset_clp, "usd": by_asset_usd},
+        "by_bank": {"clp": by_bank_clp, "usd": by_bank_usd},
+        "by_sociedad": {"clp": by_sociedad_clp, "usd": by_sociedad_usd},
+        "by_account": {"clp": by_account_clp, "usd": by_account_usd},
+        "monthly_detail": {"months": month_labels, "rows": monthly_rows},
+        "returns_panel": {"months": month_labels, "rows": returns_rows},
     }
 

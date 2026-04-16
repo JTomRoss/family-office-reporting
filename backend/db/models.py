@@ -709,7 +709,68 @@ class EtfComposition(Base):
 
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║  12. CACHE_METADATA – Control de cache pre-calculado            ║
+# ║  12. BICE_MONTHLY_SNAPSHOT – SSOT inversiones nacionales        ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+class BiceMonthlySnapshot(Base):
+    """
+    SSOT para inversiones nacionales (BICE, Banchile).
+
+    Las cartolas BICE tienen saldos y movimientos en CLP y USD por separado.
+    No hay tipo de cambio disponible en la app, por lo que ambas monedas
+    se almacenan de forma completamente independiente.
+
+    Profit = ending_mes - ending_mes_anterior - (aportes - retiros).
+    Los dividendos no afectan el profit porque quedan en Caja dentro de la
+    misma cuenta (efecto neto = 0 a nivel de cuenta agregada).
+    """
+    __tablename__ = "bice_monthly_snapshot"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    closing_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # ── Saldos CLP ──────────────────────────────────────────────────
+    ending_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    caja_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    renta_fija_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    equities_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+
+    # ── Movimientos CLP ─────────────────────────────────────────────
+    aportes_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    retiros_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    dividendos_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    profit_clp: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+
+    # ── Saldos USD ──────────────────────────────────────────────────
+    ending_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    caja_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    renta_fija_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    equities_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+
+    # ── Movimientos USD ─────────────────────────────────────────────
+    aportes_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    retiros_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    dividendos_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+    profit_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 4))
+
+    # ── Trazabilidad ────────────────────────────────────────────────
+    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("raw_documents.id"))
+    loaded_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    # Relationships
+    account: Mapped["Account"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("account_id", "year", "month", name="uq_bice_snapshot_acct_period"),
+        Index("ix_bice_snapshot_period", "year", "month"),
+    )
+
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  13. CACHE_METADATA – Control de cache pre-calculado            ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
 class CacheMetadata(Base):

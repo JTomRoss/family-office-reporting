@@ -49,6 +49,7 @@ from mandate_taxonomy import (
 )
 from backend.db.models import (
     Account,
+    BiceMonthlySnapshot,
     DailyMovement,
     DailyPosition,
     DailyPrice,
@@ -699,6 +700,21 @@ class DataLoadingService:
         # --- Para cada cuenta, crear registros ---
         for account in accounts:
             try:
+                # Rama BICE: flujo de inversiones nacionales → bice_monthly_snapshot
+                if (raw_document.bank_code or result.bank_code or "").lower() == "bice":
+                    # 1) ParsedStatement (trazabilidad)
+                    ps_ok = self._upsert_parsed_statement(
+                        result, raw_document, account, parser_version_id
+                    )
+                    if ps_ok:
+                        stats["parsed_statements"] += 1
+
+                    # 2) BiceMonthlySnapshot (SSOT inversiones nacionales)
+                    bice_ok = self._load_bice_snapshot(result, raw_document, account)
+                    if bice_ok:
+                        stats["monthly_closings"] += 1
+                    continue
+
                 # 1) ParsedStatement
                 ps_ok = self._upsert_parsed_statement(
                     result, raw_document, account, parser_version_id
@@ -750,6 +766,159 @@ class DataLoadingService:
         )
 
         return stats
+
+    # ─────────────────────────────────────────────────────────────────────
+    # BICE — Inversiones nacionales
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _load_bice_snapshot(
+        self,
+        result: ParseResult,
+        raw_document: "RawDocument",
+        account: "Account",
+    ) -> bool:
+        """
+        Persiste una cartola BICE en bice_monthly_snapshot (SSOT inversiones nacionales).
+
+        Profit CLP/USD = ending_mes - ending_mes_anterior - (aportes - retiros).
+        Los dividendos no afectan el profit: quedan en Caja dentro del mismo saldo.
+        Si no hay mes anterior en BD, profit queda NULL.
+        """
+        if not result.statement_date:
+            self._log("load", "warning", "BICE: sin statement_date, se omite carga", raw_document.id)
+            return False
+
+        year = result.statement_date.year
+        month = result.statement_date.month
+        closing_date = result.statement_date
+
+        balances = result.balances or {}
+        positions = balances.get("positions", {})
+        movements = balances.get("movements", {})
+
+        clp_pos = positions.get("CLP", {})
+        usd_pos = positions.get("USD", {})
+        clp_mov = movements.get("CLP", {})
+        usd_mov = movements.get("USD", {})
+
+        def _d(val) -> Optional[Decimal]:
+            if val is None:
+                return None
+            try:
+                return Decimal(str(val))
+            except Exception:
+                return None
+
+        ending_clp = _d(clp_pos.get("Total"))
+        ending_usd = _d(usd_pos.get("Total"))
+        aportes_clp = _d(clp_mov.get("aportes"))
+        retiros_clp = _d(clp_mov.get("retiros"))
+        aportes_usd = _d(usd_mov.get("aportes"))
+        retiros_usd = _d(usd_mov.get("retiros"))
+
+        # Calcular profit buscando el mes anterior en BD
+        def _calc_profit(ending, aportes, retiros, prev_ending) -> Optional[Decimal]:
+            if ending is None or prev_ending is None:
+                return None
+            net_mov = (aportes or Decimal("0")) - (retiros or Decimal("0"))
+            return ending - prev_ending - net_mov
+
+        prev = (
+            self.db.query(BiceMonthlySnapshot)
+            .filter(
+                BiceMonthlySnapshot.account_id == account.id,
+                BiceMonthlySnapshot.year == (year if month > 1 else year - 1),
+                BiceMonthlySnapshot.month == (month - 1 if month > 1 else 12),
+            )
+            .first()
+        )
+        prev_ending_clp = prev.ending_clp if prev else None
+        prev_ending_usd = prev.ending_usd if prev else None
+
+        profit_clp = _calc_profit(ending_clp, aportes_clp, retiros_clp, prev_ending_clp)
+        profit_usd = _calc_profit(ending_usd, aportes_usd, retiros_usd, prev_ending_usd)
+
+        existing = (
+            self.db.query(BiceMonthlySnapshot)
+            .filter(
+                BiceMonthlySnapshot.account_id == account.id,
+                BiceMonthlySnapshot.year == year,
+                BiceMonthlySnapshot.month == month,
+            )
+            .first()
+        )
+
+        if existing:
+            existing.closing_date = closing_date
+            existing.ending_clp = ending_clp
+            existing.caja_clp = _d(clp_pos.get("Caja"))
+            existing.renta_fija_clp = _d(clp_pos.get("Renta Fija"))
+            existing.equities_clp = _d(clp_pos.get("Equities"))
+            existing.aportes_clp = aportes_clp
+            existing.retiros_clp = retiros_clp
+            existing.dividendos_clp = _d(clp_mov.get("dividendos_otros"))
+            existing.profit_clp = profit_clp
+            existing.ending_usd = ending_usd
+            existing.caja_usd = _d(usd_pos.get("Caja"))
+            existing.renta_fija_usd = _d(usd_pos.get("Renta Fija"))
+            existing.equities_usd = _d(usd_pos.get("Equities"))
+            existing.aportes_usd = aportes_usd
+            existing.retiros_usd = retiros_usd
+            existing.dividendos_usd = _d(usd_mov.get("dividendos_otros"))
+            existing.profit_usd = profit_usd
+            existing.source_document_id = raw_document.id
+            existing.loaded_at = datetime.now(timezone.utc)
+            self._log("load", "info", f"BICE snapshot actualizado: acct={account.account_number} {year}-{month:02d}", raw_document.id, account.id)
+        else:
+            snap = BiceMonthlySnapshot(
+                account_id=account.id,
+                year=year,
+                month=month,
+                closing_date=closing_date,
+                ending_clp=ending_clp,
+                caja_clp=_d(clp_pos.get("Caja")),
+                renta_fija_clp=_d(clp_pos.get("Renta Fija")),
+                equities_clp=_d(clp_pos.get("Equities")),
+                aportes_clp=aportes_clp,
+                retiros_clp=retiros_clp,
+                dividendos_clp=_d(clp_mov.get("dividendos_otros")),
+                profit_clp=profit_clp,
+                ending_usd=ending_usd,
+                caja_usd=_d(usd_pos.get("Caja")),
+                renta_fija_usd=_d(usd_pos.get("Renta Fija")),
+                equities_usd=_d(usd_pos.get("Equities")),
+                aportes_usd=aportes_usd,
+                retiros_usd=retiros_usd,
+                dividendos_usd=_d(usd_mov.get("dividendos_otros")),
+                profit_usd=profit_usd,
+                source_document_id=raw_document.id,
+                loaded_at=datetime.now(timezone.utc),
+            )
+            self.db.add(snap)
+            self._log("load", "info", f"BICE snapshot creado: acct={account.account_number} {year}-{month:02d}", raw_document.id, account.id)
+
+        self.db.flush()
+
+        # Recalcular profit del mes siguiente si ya existe en BD
+        next_snap = (
+            self.db.query(BiceMonthlySnapshot)
+            .filter(
+                BiceMonthlySnapshot.account_id == account.id,
+                BiceMonthlySnapshot.year == (year if month < 12 else year + 1),
+                BiceMonthlySnapshot.month == (month + 1 if month < 12 else 1),
+            )
+            .first()
+        )
+        if next_snap:
+            next_snap.profit_clp = _calc_profit(
+                next_snap.ending_clp, next_snap.aportes_clp, next_snap.retiros_clp, ending_clp
+            )
+            next_snap.profit_usd = _calc_profit(
+                next_snap.ending_usd, next_snap.aportes_usd, next_snap.retiros_usd, ending_usd
+            )
+            self.db.flush()
+
+        return True
 
     def apply_manual_monthly_overrides(
         self,

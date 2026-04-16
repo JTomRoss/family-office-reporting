@@ -113,10 +113,11 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navegacion",
     [
-        "👤 Detalle",
+        "🇨🇱 Detalle Bice",
+        "👤 Detalle Internacional",
         "📑 Mandatos",
         "📈 ETF",
-        "📋 Detalle de Cartolas",
+        "📋 Detalle Cartolas",
         "📁 Carga",
         "⚙️ Operacional",
     ],
@@ -126,7 +127,10 @@ page = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("v0.1.0 | Uso interno")
 
-if page == "👤 Detalle":
+if page == "🇨🇱 Detalle Bice":
+    from frontend.pages.bice import render
+    render()
+elif page == "👤 Detalle Internacional":
     from frontend.pages.personal import render
     render()
 elif page == "📑 Mandatos":
@@ -135,7 +139,7 @@ elif page == "📑 Mandatos":
 elif page == "📈 ETF":
     from frontend.pages.etf import render
     render()
-elif page == "📋 Detalle de Cartolas":
+elif page == "📋 Detalle Cartolas":
     from frontend.pages.summary import render
     render()
 elif page == "📁 Carga":

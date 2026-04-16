@@ -557,7 +557,7 @@ def _render_detail_section(
 
 
 def render():
-    st.title("Detalle")
+    st.title("Detalle Internacional")
     st.markdown("---")
 
     try:
