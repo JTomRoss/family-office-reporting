@@ -29,6 +29,11 @@ Output en result.balances:
     "CLP": {"aportes": D, "retiros": D, "dividendos_otros": D, "neto": D},
     "USD": {"aportes": D, "retiros": D, "dividendos_otros": D, "neto": D},
   }
+  Aportes/retiros: calculados desde pág. 6 "Movimientos de Títulos en $/$US$".
+    retiro_neto = sum(RESCATE FM sobre TESORERIA/LIQUIDEZ DOLAR)
+               − sum(INVERSION FM sobre TESORERIA/LIQUIDEZ DOLAR)
+    >0 → retiro neto; <0 → aporte neto. Excluye VENCIMIENTO RF, CORCUP, etc.
+  Dividendos_otros: extraído de pág. 2-3 (regex Dividendos y Otros(F)).
   "total_activos_clp" / "total_activos_usd"  (pág. 1)
   "patrimonio_clp"    / "patrimonio_usd"      (pág. 1)
 
@@ -50,7 +55,7 @@ from parsers.base import BaseParser, ParseResult, ParsedRow, ParserStatus
 
 # ── Versión ──────────────────────────────────────────────────────────────────
 
-VERSION = "3.0.1"
+VERSION = "3.1.0"
 
 # ── Regex ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +67,9 @@ _RE_CLIENT = re.compile(r"Cliente:\s+(.+?)\s+Rut:")
 _RE_APORTES = re.compile(r"Compras/Aportes\(D\)\s+([\d.,]+)")
 _RE_RETIROS = re.compile(r"Ventas/Rescates\s*\(E\)\s+([\d.,]+)")
 _RE_DIVIDENDOS = re.compile(r"Dividendos y Otros\(F\)\s+([\d.,]+)")
-_RE_CODE_PREFIX = re.compile(r"^([A-Z0-9][A-Z0-9\-]+)")  # código antes del primer espacio/(
+_RE_CODE_PREFIX = re.compile(r"^([A-Z0-9][A-Z0-9\-]+)")
+_RE_TITULO_DATE = re.compile(r"^\d{2}-\d{2}-\d{4}")
+_RE_TITULO_MONTO = re.compile(r"([\d]+(?:\.[\d]{3})*(?:,[\d]+)?)\s*$")  # código antes del primer espacio/(
 
 # ── Constantes de clasificación ───────────────────────────────────────────────
 
@@ -420,6 +427,59 @@ def _extract_movements(page_text: str) -> dict:
     }
 
 
+def _extract_real_flows(page6_text: str, instrument_keyword: str) -> dict:
+    """
+    Extrae flujos reales de entrada/salida desde "Movimientos de Títulos en $/$US$"
+    (pág. 6), considerando SOLO operaciones RESCATE FM e INVERSION FM sobre el
+    fondo money market identificado por instrument_keyword:
+      - CLP: 'TESORERIA'
+      - USD: 'LIQUIDEZ DOLAR'
+
+    Lógica:
+      retiro_neto = sum(RESCATE FM) − sum(INVERSION FM)
+      > 0 → retiro neto (dinero salió de la cartera)
+      < 0 → aporte neto (dinero entró a la cartera)
+
+    Excluye por diseño: VENCIMIENTO RF, CORCUP, DIVIDENDO EN PESOS, INGRESO RV
+    y cualquier operación sobre instrumentos que no sean money market.
+    """
+    rescate = Decimal("0")
+    inversion = Decimal("0")
+    current_matches = False
+
+    keyword_upper = instrument_keyword.upper()
+    for raw_line in page6_text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        upper = line.upper()
+
+        # Cabecera de instrumento: contiene "BICE" e "INSTITUCIONAL" sin ser línea de datos.
+        # CLP termina en "FONDO:", USD termina en "CUENTA" — ambos detectables con esta regla.
+        if "BICE" in upper and "INSTITUCIONAL" in upper and not _RE_TITULO_DATE.match(line):
+            current_matches = keyword_upper in upper
+            continue
+
+        # Línea de datos: debe empezar con fecha y pertenecer al instrumento correcto
+        if not _RE_TITULO_DATE.match(line) or not current_matches:
+            continue
+
+        m_monto = _RE_TITULO_MONTO.search(line)
+        if not m_monto:
+            continue
+
+        amount = _parse_cl(m_monto.group(1))
+        if "RESCATE FM" in upper:
+            rescate += amount
+        elif "INVERSION FM" in upper:
+            inversion += amount
+
+    net_withdrawal = rescate - inversion
+    aportes = max(Decimal("0"), -net_withdrawal)
+    retiros = max(Decimal("0"), net_withdrawal)
+    return {"aportes": aportes, "retiros": retiros, "neto": aportes - retiros}
+
+
 # ── Parser ───────────────────────────────────────────────────────────────────
 
 class BICEBrokerageParser(BaseParser):
@@ -542,7 +602,7 @@ class BICEBrokerageParser(BaseParser):
             else:
                 result.warnings.append("No se encontró tabla de inversiones USD (pág. 3)")
 
-        # ── Movimientos CLP (pág. 2 text) ─────────────────────────────
+        # ── Movimientos CLP (pág. 2 text) — solo dividendos_otros ────
         clp_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
@@ -552,7 +612,7 @@ class BICEBrokerageParser(BaseParser):
         if n_pages >= 2:
             clp_movements = _extract_movements(pages_text[1])
 
-        # ── Movimientos USD (pág. 3 text) ─────────────────────────────
+        # ── Movimientos USD (pág. 3 text) — solo dividendos_otros ────
         usd_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
@@ -561,6 +621,23 @@ class BICEBrokerageParser(BaseParser):
         }
         if n_pages >= 3:
             usd_movements = _extract_movements(pages_text[2])
+
+        # ── Flujos reales CLP/USD desde pág. 6 "Movimientos de Títulos" ──
+        # Reemplaza aportes/retiros de pág. 2-3 (que incluyen mov. intra-cuenta).
+        # Fuente confiable: RESCATE FM y INVERSION FM sobre TESORERIA / LIQUIDEZ DOLAR.
+        if n_pages >= 6:
+            clp_flows = _extract_real_flows(pages_text[5], "TESORERIA")
+            usd_flows = _extract_real_flows(pages_text[5], "LIQUIDEZ DOLAR")
+            clp_movements["aportes"] = clp_flows["aportes"]
+            clp_movements["retiros"] = clp_flows["retiros"]
+            clp_movements["neto"] = clp_flows["neto"]
+            usd_movements["aportes"] = usd_flows["aportes"]
+            usd_movements["retiros"] = usd_flows["retiros"]
+            usd_movements["neto"] = usd_flows["neto"]
+        else:
+            result.warnings.append(
+                "Pág. 6 no encontrada; aportes/retiros quedan en 0 (no se pudo leer Movimientos de Títulos)"
+            )
 
         # ── Poblar result ──────────────────────────────────────────────
         result.closing_balance = p1_summary["patrimonio_clp"] or p1_summary["total_activos_clp"]
