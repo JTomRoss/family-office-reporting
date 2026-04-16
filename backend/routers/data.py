@@ -4242,12 +4242,18 @@ def get_bice(
     available_bancos = sorted({a.bank_code for a in all_accounts_q})
     available_sociedades = sorted({a.entity_name for a in all_accounts_q})
     available_personas = sorted({a.person_name for a in all_accounts_q if a.person_name})
+    # Fechas que efectivamente tienen datos (para el selector del frontend)
+    available_fechas = sorted(
+        {f"{s.year}-{s.month:02d}" for s, _ in all_snaps_q},
+        reverse=True,
+    )
 
     filter_options = {
         "years": available_years,
         "bancos": available_bancos,
         "sociedades": available_sociedades,
         "personas": available_personas,
+        "fechas": available_fechas,
     }
 
     # ── Construir query con filtros aplicados ───────────────────────
@@ -4422,10 +4428,32 @@ def get_bice(
 
     month_labels = [_bice_month_label(y, m) for y, m in detail_months]
 
-    # Agrupar snaps por (account_id) para armar series
+    # Query histórica ampliada: incluye el año anterior para cubrir 12 meses de historia
+    history_years = {display_year - 1, display_year}
+    hq = (
+        db.query(BiceMonthlySnapshot, Account)
+        .join(Account, BiceMonthlySnapshot.account_id == Account.id)
+        .filter(Account.bank_code.in_(["bice_inversiones", "bice", "banchile"]))
+        .filter(BiceMonthlySnapshot.year.in_(history_years))
+    )
+    if filters.bank_codes:
+        hq = hq.filter(Account.bank_code.in_(filters.bank_codes))
+    if filters.entity_names:
+        hq = hq.filter(Account.entity_name.in_(filters.entity_names))
+    if filters.person_names:
+        hq = hq.filter(Account.person_name.in_(filters.person_names))
+    if filters.only_sociedades:
+        hq = hq.filter(Account.entity_type == "sociedad")
+    history_rows = hq.order_by(
+        BiceMonthlySnapshot.year,
+        BiceMonthlySnapshot.month,
+        Account.entity_name,
+    ).all()
+
+    # Agrupar snaps por (account_id) para armar series — usando history_rows
     snap_index: dict[int, dict[tuple[int, int], tuple]] = {}
     all_account_ids = {a.id for _, a in rows}
-    for s, a in rows:
+    for s, a in history_rows:
         if a.id not in snap_index:
             snap_index[a.id] = {}
         snap_index[a.id][(s.year, s.month)] = (s, a)

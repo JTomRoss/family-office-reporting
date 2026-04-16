@@ -77,14 +77,9 @@ def _fecha_label(fecha_str: str) -> str:
     return f"{MONTHS[month - 1]} {parts[0][-2:]}"
 
 
-def _build_fecha_options(years: list[int]) -> list[str]:
-    if not years:
-        return []
-    values: list[str] = []
-    for year in sorted(set(int(y) for y in years), reverse=True):
-        for month in range(12, 0, -1):
-            values.append(f"{year}-{month:02d}")
-    return values
+def _build_fecha_options(fechas: list[str]) -> list[str]:
+    """Devuelve las fechas disponibles ordenadas de más reciente a más antigua."""
+    return sorted(set(fechas), reverse=True)
 
 
 def _sanitize_multiselect_state(key: str, valid_options: list[str]) -> list[str]:
@@ -360,15 +355,17 @@ def render() -> None:
     except Exception:
         filter_opts = {}
 
-    available_years = [int(y) for y in filter_opts.get("years", [])]
     available_bancos = filter_opts.get("bancos", [])
     available_sociedades = filter_opts.get("sociedades", [])
     available_personas = filter_opts.get("personas", [])
 
-    fecha_options = _build_fecha_options(available_years)
+    fecha_options = _build_fecha_options(filter_opts.get("fechas", []))
+
+    # Default: último mes con datos reales
+    default_fecha = fecha_options[0] if fecha_options else None
 
     if "bice_fecha" not in st.session_state or st.session_state.get("bice_fecha") not in fecha_options:
-        st.session_state["bice_fecha"] = fecha_options[0] if fecha_options else None
+        st.session_state["bice_fecha"] = default_fecha
 
     _sanitize_multiselect_state("bice_banco", available_bancos)
     _sanitize_multiselect_state("bice_sociedad", available_sociedades)

@@ -113,7 +113,7 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navegacion",
     [
-        "🇨🇱 Detalle Bice",
+        "🏦 Detalle Bice",
         "👤 Detalle Internacional",
         "📑 Mandatos",
         "📈 ETF",
@@ -127,7 +127,7 @@ page = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("v0.1.0 | Uso interno")
 
-if page == "🇨🇱 Detalle Bice":
+if page == "🏦 Detalle Bice":
     from frontend.pages.bice import render
     render()
 elif page == "👤 Detalle Internacional":
