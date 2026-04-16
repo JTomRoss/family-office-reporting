@@ -50,7 +50,7 @@ from parsers.base import BaseParser, ParseResult, ParsedRow, ParserStatus
 
 # ── Versión ──────────────────────────────────────────────────────────────────
 
-VERSION = "3.0.0"
+VERSION = "3.0.1"
 
 # ── Regex ────────────────────────────────────────────────────────────────────
 
@@ -423,7 +423,7 @@ def _extract_movements(page_text: str) -> dict:
 # ── Parser ───────────────────────────────────────────────────────────────────
 
 class BICEBrokerageParser(BaseParser):
-    BANK_CODE = "bice"
+    BANK_CODE = "bice_inversiones"
     ACCOUNT_TYPE = "brokerage"
     VERSION = VERSION
     DESCRIPTION = (
