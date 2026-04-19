@@ -514,6 +514,7 @@ class DocumentService:
     def delete_document(self, document_id: int) -> bool:
         """Elimina un documento, sus registros dependientes, y su archivo raw."""
         from backend.db.models import (
+            BiceMonthlySnapshot,
             MonthlyClosing,
             MonthlyMetricNormalized,
             EtfComposition,
@@ -525,6 +526,9 @@ class DocumentService:
             return False
 
         # Eliminar registros que referencian este documento (orden por FK)
+        self.db.query(BiceMonthlySnapshot).filter(
+            BiceMonthlySnapshot.source_document_id == document_id
+        ).delete(synchronize_session=False)
         self.db.query(Reconciliation).filter(
             Reconciliation.monthly_closing_id.in_(
                 self.db.query(MonthlyClosing.id).filter(

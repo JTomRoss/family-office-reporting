@@ -59,6 +59,11 @@ base_css = """
         text-align: left !important;
         justify-content: flex-start !important;
       }
+      div[data-testid="stDataEditor"] [role="columnheader"] {
+        background-color: #7A838F !important;
+        color: white !important;
+        font-weight: 700 !important;
+      }
 
       /* st.table: primera columna izquierda, resto derecha */
       div[data-testid="stTable"] table {

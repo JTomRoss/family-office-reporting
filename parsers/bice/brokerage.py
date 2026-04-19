@@ -6,13 +6,13 @@ Identificadores del documento:
   - "biceinversiones.cl" en pie de página
   - Formato chileno (puntos=miles, coma=decimal)
 
-Estructura del PDF (7 páginas fijas):
-  Pág. 1  : Resumen general ($, US$, Patrimonio)
-  Pág. 2  : Detalle inversiones en $ – "Resumen de sus inversiones en $"
-  Pág. 3  : Detalle inversiones en US$ – "Resumen de sus inversiones en US$"
-  Pág. 4  : Detalle de carteras (Renta Fija, Renta Variable, Fondos Mutuos)
-  Pág. 5-6: Detalle de movimientos
-  Pág. 7  : Glosario (se ignora)
+Estructura del PDF (variable; secciones detectadas por título, no por número de página):
+  Portada              : Resumen general ($, US$, Patrimonio)
+  DETALLE DE INVERSIONES EN $   : posiciones CLP + movimientos caja CLP
+  DETALLE DE INVERSIONES EN US$ : posiciones USD + movimientos caja USD
+  DETALLE DE CARTERAS  : detalle de instrumentos RF / RV / FM (puede ser 1-N páginas)
+  DETALLE DE MOVIMIENTOS: movimientos de caja y de títulos (puede ser 1-N páginas)
+  GLOSARIO             : se ignora
 
 Clasificación de instrumentos (orden estricto per spec):
   1. Caja       → nombre contiene "LIQUIDEZ" o "TESORERIA"
@@ -55,7 +55,7 @@ from parsers.base import BaseParser, ParseResult, ParsedRow, ParserStatus
 
 # ── Versión ──────────────────────────────────────────────────────────────────
 
-VERSION = "3.1.0"
+VERSION = "3.4.0"
 
 # ── Regex ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +103,16 @@ _OPERATIONAL_PARENTS = frozenset({
     "forward (resultado neto)", "venta corta",
     "patrimonio custodia pershing", "simultaneas",
 })
+
+
+# ── Claves de sección (normalizadas, sin tildes) ─────────────────────────────
+
+_SEC_SUMMARY  = "_summary"                        # portada / cover
+_SEC_INV_CLP  = "detalle de inversiones en $"
+_SEC_INV_USD  = "detalle de inversiones en us$"
+_SEC_CARTERAS = "detalle de carteras"
+_SEC_MOV      = "detalle de movimientos"
+_SEC_APR      = "aportes y retiros patrimoniales"  # si existe
 
 
 # ── Helpers locales ──────────────────────────────────────────────────────────
@@ -194,6 +204,48 @@ def _classify_instrument(
 
     # Catch-all → Equities (incluye Acciones, Fondos Mutuos no identificados)
     return "Equities"
+
+
+# ── Indexación por sección ────────────────────────────────────────────────────
+
+def _get_section_key(page_text: str) -> Optional[str]:
+    """
+    Retorna la clave de sección normalizada de una página con barra de
+    navegación, o None para la portada (sin barra).
+
+    Barra de navegación: primera línea no vacía empieza con
+    'RESUMEN DE SUS INVERSIONES' (normalizado).
+    Clave de sección: tercera línea no vacía de la página.
+    """
+    lines = [ln.strip() for ln in page_text.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    if _norm(lines[0]).startswith("resumen de sus inversiones"):
+        return _norm(lines[2]) if len(lines) >= 3 else None
+    return None  # portada
+
+
+def _build_section_index(
+    pages_text: list[str],
+    pages_tables: list[list[list]],
+) -> dict[str, dict]:
+    """
+    Agrupa páginas por su título de sección. Las páginas sin barra de
+    navegación (portada) se colectan bajo la clave sintética '_summary'.
+    Las páginas de la misma sección acumulan tablas como lista plana,
+    permitiendo secciones de N páginas.
+
+    Retorna: {section_key: {"texts": [...], "tables": [...]}}
+    """
+    idx: dict[str, dict] = {}
+    for i, text in enumerate(pages_text):
+        key = _get_section_key(text)
+        bucket = key if key is not None else _SEC_SUMMARY
+        if bucket not in idx:
+            idx[bucket] = {"texts": [], "tables": []}
+        idx[bucket]["texts"].append(text)
+        idx[bucket]["tables"].extend(pages_tables[i])
+    return idx
 
 
 # ── Funciones de extracción ──────────────────────────────────────────────────
@@ -318,7 +370,7 @@ def _extract_investments(
       col 6: % del activo
 
     Retorna (buckets, rows):
-      buckets: {Caja, Renta Fija, Equities, Total, unclassified}
+      buckets: {Caja, Renta Fija, Equities, Total, unclassified, instruments}
       rows:    ParsedRow por instrumento individual
     """
     buckets: dict = {
@@ -327,6 +379,7 @@ def _extract_investments(
         "Equities": Decimal("0"),
         "unclassified": [],
     }
+    instrument_details: dict = {"Caja": [], "Renta Fija": [], "Equities": []}
     rows: list[ParsedRow] = []
     page_num = 3 if is_usd else 2
     current_parent = ""
@@ -357,6 +410,7 @@ def _extract_investments(
 
         if classification in buckets and classification != "unclassified":
             buckets[classification] += closing_val
+            instrument_details[classification].append({"name": col0, "amount": closing_val})
         else:
             buckets["unclassified"].append(
                 {"name": col0, "amount": str(closing_val)}
@@ -383,12 +437,27 @@ def _extract_investments(
         )
 
     total = buckets["Caja"] + buckets["Renta Fija"] + buckets["Equities"]
+
+    # Calcular % de cada instrumento sobre el total de su moneda
+    for cat_items in instrument_details.values():
+        for item in cat_items:
+            item["pct_of_total"] = (
+                (item["amount"] / total * 100).quantize(Decimal("0.01"))
+                if total > 0 else Decimal("0")
+            )
+
+    # Omitir categorías sin instrumentos
+    instruments_out = {
+        cat: items for cat, items in instrument_details.items() if items
+    }
+
     return {
         "Caja": buckets["Caja"],
         "Renta Fija": buckets["Renta Fija"],
         "Equities": buckets["Equities"],
         "Total": total,
         "unclassified": buckets["unclassified"],
+        "instruments": instruments_out,
     }, rows
 
 
@@ -427,40 +496,47 @@ def _extract_movements(page_text: str) -> dict:
     }
 
 
-def _extract_real_flows(page6_text: str, instrument_keyword: str) -> dict:
+def _extract_real_flows(
+    mov_text: str, instrument_keyword: str
+) -> tuple[dict, list[dict]]:
     """
-    Extrae flujos reales de entrada/salida desde "Movimientos de Títulos en $/$US$"
-    (pág. 6), considerando SOLO operaciones RESCATE FM e INVERSION FM sobre el
-    fondo money market identificado por instrument_keyword:
-      - CLP: 'TESORERIA'
-      - USD: 'LIQUIDEZ DOLAR'
+    Extrae flujos reales de entrada/salida desde la sección "DETALLE DE MOVIMIENTOS",
+    considerando SOLO RESCATE FM e INVERSION FM sobre el fondo money market
+    identificado por instrument_keyword ('TESORERIA' para CLP, 'LIQUIDEZ DOLAR' para USD).
 
-    Lógica:
-      retiro_neto = sum(RESCATE FM) − sum(INVERSION FM)
-      > 0 → retiro neto (dinero salió de la cartera)
-      < 0 → aporte neto (dinero entró a la cartera)
+    Retorna (totals_dict, transactions_list).
+      totals_dict: {"aportes", "retiros", "neto"}
+      transactions_list: lista de movimientos individuales con
+        {fecha, instrumento, monto, moneda, tipo_operacion, categoria_auto, es_warning}
 
-    Excluye por diseño: VENCIMIENTO RF, CORCUP, DIVIDENDO EN PESOS, INGRESO RV
-    y cualquier operación sobre instrumentos que no sean money market.
+    Convención de signo:
+      INVERSION FM → monto > 0 (aporte, dinero ingresó a cartera)
+      RESCATE FM   → monto < 0 (retiro, dinero salió de cartera)
     """
     rescate = Decimal("0")
     inversion = Decimal("0")
+    transactions: list[dict] = []
     current_matches = False
-
+    current_instrument = ""
+    moneda = "USD" if "DOLAR" in instrument_keyword.upper() else "CLP"
     keyword_upper = instrument_keyword.upper()
-    for raw_line in page6_text.split("\n"):
+
+    for raw_line in mov_text.split("\n"):
         line = raw_line.strip()
         if not line:
             continue
         upper = line.upper()
 
-        # Cabecera de instrumento: contiene "BICE" e "INSTITUCIONAL" sin ser línea de datos.
-        # CLP termina en "FONDO:", USD termina en "CUENTA" — ambos detectables con esta regla.
+        # Cabecera de instrumento money market
         if "BICE" in upper and "INSTITUCIONAL" in upper and not _RE_TITULO_DATE.match(line):
             current_matches = keyword_upper in upper
+            if current_matches:
+                # Extraer nombre limpio: hasta "INSTITUCIONAL"
+                idx = upper.find("INSTITUCIONAL")
+                current_instrument = line[:idx].strip() if idx > 0 else line.strip()
             continue
 
-        # Línea de datos: debe empezar con fecha y pertenecer al instrumento correcto
+        # Línea de transacción: debe empezar con fecha y pertenecer al instrumento correcto
         if not _RE_TITULO_DATE.match(line) or not current_matches:
             continue
 
@@ -469,15 +545,104 @@ def _extract_real_flows(page6_text: str, instrument_keyword: str) -> dict:
             continue
 
         amount = _parse_cl(m_monto.group(1))
+        fecha_str = line[:10]  # DD-MM-YYYY
+
         if "RESCATE FM" in upper:
             rescate += amount
+            transactions.append({
+                "fecha": fecha_str,
+                "instrumento": current_instrument or instrument_keyword,
+                "monto": -float(amount),   # negativo = retiro
+                "moneda": moneda,
+                "tipo_operacion": "RESCATE FM",
+                "categoria_auto": "Retiro",
+                "es_warning": False,
+            })
         elif "INVERSION FM" in upper:
             inversion += amount
+            transactions.append({
+                "fecha": fecha_str,
+                "instrumento": current_instrument or instrument_keyword,
+                "monto": float(amount),    # positivo = aporte
+                "moneda": moneda,
+                "tipo_operacion": "INVERSION FM",
+                "categoria_auto": "Aporte",
+                "es_warning": False,
+            })
 
     net_withdrawal = rescate - inversion
     aportes = max(Decimal("0"), -net_withdrawal)
     retiros = max(Decimal("0"), net_withdrawal)
-    return {"aportes": aportes, "retiros": retiros, "neto": aportes - retiros}
+    totals = {"aportes": aportes, "retiros": retiros, "neto": aportes - retiros}
+    return totals, transactions
+
+
+def _extract_dap_events(mov_text: str) -> list[dict]:
+    """
+    Detecta movimientos de Depósitos a Plazo (DAP) en la sección de movimientos.
+    Marcados con es_warning=True por ser detección heurística (la cartola no siempre
+    los registra explícitamente en esta sección).
+    """
+    events: list[dict] = []
+    current_is_dap = False
+    current_instrument = ""
+
+    for raw_line in mov_text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        upper = line.upper()
+
+        # Cabecera de instrumento: no es línea de datos y contiene marcadores DAP
+        if not _RE_TITULO_DATE.match(line) and (
+            "DEPOSITO" in upper or " DAP " in f" {upper} " or upper.startswith("DAP")
+        ):
+            # Excluir cabeceras de fondos money market ya procesadas arriba
+            if "INSTITUCIONAL" in upper and "TESORERIA" not in upper and "LIQUIDEZ DOLAR" not in upper:
+                current_is_dap = False
+                continue
+            if "BICE" in upper and ("INSTITUCIONAL" not in upper):
+                current_is_dap = True
+                current_instrument = line.strip()
+            elif "DEPOSITO" in upper or "DAP" in upper:
+                current_is_dap = True
+                current_instrument = line.strip()
+            continue
+
+        if not _RE_TITULO_DATE.match(line):
+            # Si no empieza con fecha, puede resetear el contexto
+            if line and not line[0].isdigit():
+                current_is_dap = False
+            continue
+
+        if not current_is_dap:
+            continue
+
+        m_monto = _RE_TITULO_MONTO.search(line)
+        if not m_monto:
+            continue
+
+        amount = _parse_cl(m_monto.group(1))
+        fecha_str = line[:10]
+
+        if "VENCIMIENTO" in upper or ("RESCATE" in upper and "FM" not in upper):
+            cat, tipo, monto = "Retiro", "VENCIMIENTO DAP", -float(amount)
+        elif "CAPTACION" in upper or "CONSTITUCION" in upper or "APERTURA" in upper:
+            cat, tipo, monto = "Aporte", "CAPTACION DAP", float(amount)
+        else:
+            cat, tipo, monto = "Sin clasificar", "DAP", float(amount)
+
+        events.append({
+            "fecha": fecha_str,
+            "instrumento": current_instrument or "DAP",
+            "monto": monto,
+            "moneda": "CLP",
+            "tipo_operacion": tipo,
+            "categoria_auto": cat,
+            "es_warning": True,
+        })
+
+    return events
 
 
 # ── Parser ───────────────────────────────────────────────────────────────────
@@ -537,7 +702,6 @@ class BICEBrokerageParser(BaseParser):
         # ── Abrir PDF ──────────────────────────────────────────────────
         try:
             with pdfplumber.open(filepath) as pdf:
-                n_pages = len(pdf.pages)
                 pages_text: list[str] = []
                 pages_tables: list[list[list]] = []
                 for page in pdf.pages:
@@ -555,88 +719,109 @@ class BICEBrokerageParser(BaseParser):
 
         result.raw_text_preview = pages_text[0][:500]
 
-        # ── Cabecera (pág. 1) ──────────────────────────────────────────
-        self._extract_header(pages_text[0], result)
+        # ── Indexar secciones por título (independiente del nº de página) ─
+        sections = _build_section_index(pages_text, pages_tables)
 
-        # ── Resumen general (pág. 1) ───────────────────────────────────
-        p1_summary = _extract_page1_summary(pages_tables[0])
+        def _sec_tables(key: str) -> list[list]:
+            return sections.get(key, {}).get("tables", [])
 
-        # ── Códigos RF desde pág. 4 ────────────────────────────────────
+        def _sec_text(key: str) -> str:
+            return "\n".join(sections.get(key, {}).get("texts", []))
+
+        # ── Cabecera (portada) ─────────────────────────────────────────
+        self._extract_header(_sec_text(_SEC_SUMMARY), result)
+
+        # ── Resumen general (portada) ──────────────────────────────────
+        p1_summary = _extract_page1_summary(_sec_tables(_SEC_SUMMARY))
+
+        # ── Códigos RF desde "DETALLE DE CARTERAS" ────────────────────
         rf_codes: frozenset[str] = frozenset()
-        if n_pages >= 4:
-            rf_codes = _build_rf_codes(pages_tables[3])
+        if _SEC_CARTERAS in sections:
+            rf_codes = _build_rf_codes(_sec_tables(_SEC_CARTERAS))
+        else:
+            result.warnings.append("Sección 'DETALLE DE CARTERAS' no encontrada")
 
-        # ── Holdings CLP (pág. 2) ──────────────────────────────────────
+        # ── Holdings CLP ("DETALLE DE INVERSIONES EN $") ──────────────
         clp_buckets: dict = {
             "Caja": Decimal("0"),
             "Renta Fija": Decimal("0"),
             "Equities": Decimal("0"),
             "Total": Decimal("0"),
             "unclassified": [],
+            "instruments": {},
         }
-        if n_pages >= 2:
-            clp_table = _find_investments_table(pages_tables[1], expect_usd=False)
+        if _SEC_INV_CLP in sections:
+            clp_table = _find_investments_table(_sec_tables(_SEC_INV_CLP), expect_usd=False)
             if clp_table:
                 clp_buckets, clp_rows = _extract_investments(
                     clp_table, rf_codes, is_usd=False
                 )
                 result.rows.extend(clp_rows)
             else:
-                result.warnings.append("No se encontró tabla de inversiones CLP (pág. 2)")
+                result.warnings.append("No se encontró tabla de inversiones CLP")
+        else:
+            result.warnings.append("Sección 'DETALLE DE INVERSIONES EN $' no encontrada")
 
-        # ── Holdings USD (pág. 3) ──────────────────────────────────────
+        # ── Holdings USD ("DETALLE DE INVERSIONES EN US$") ────────────
         usd_buckets: dict = {
             "Caja": Decimal("0"),
             "Renta Fija": Decimal("0"),
             "Equities": Decimal("0"),
             "Total": Decimal("0"),
             "unclassified": [],
+            "instruments": {},
         }
-        if n_pages >= 3:
-            usd_table = _find_investments_table(pages_tables[2], expect_usd=True)
+        if _SEC_INV_USD in sections:
+            usd_table = _find_investments_table(_sec_tables(_SEC_INV_USD), expect_usd=True)
             if usd_table:
                 usd_buckets, usd_rows = _extract_investments(
                     usd_table, rf_codes, is_usd=True
                 )
                 result.rows.extend(usd_rows)
             else:
-                result.warnings.append("No se encontró tabla de inversiones USD (pág. 3)")
+                result.warnings.append("No se encontró tabla de inversiones USD")
+        else:
+            result.warnings.append("Sección 'DETALLE DE INVERSIONES EN US$' no encontrada")
 
-        # ── Movimientos CLP (pág. 2 text) — solo dividendos_otros ────
+        # ── Movimientos CLP/USD (dividendos_otros) ─────────────────────
+        # Extraídos del texto de las secciones de inversiones respectivas.
         clp_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
             "dividendos_otros": Decimal("0"),
             "neto": Decimal("0"),
         }
-        if n_pages >= 2:
-            clp_movements = _extract_movements(pages_text[1])
-
-        # ── Movimientos USD (pág. 3 text) — solo dividendos_otros ────
         usd_movements: dict = {
             "aportes": Decimal("0"),
             "retiros": Decimal("0"),
             "dividendos_otros": Decimal("0"),
             "neto": Decimal("0"),
         }
-        if n_pages >= 3:
-            usd_movements = _extract_movements(pages_text[2])
+        if _SEC_INV_CLP in sections:
+            clp_movements = _extract_movements(_sec_text(_SEC_INV_CLP))
+        if _SEC_INV_USD in sections:
+            usd_movements = _extract_movements(_sec_text(_SEC_INV_USD))
 
-        # ── Flujos reales CLP/USD desde pág. 6 "Movimientos de Títulos" ──
-        # Reemplaza aportes/retiros de pág. 2-3 (que incluyen mov. intra-cuenta).
-        # Fuente confiable: RESCATE FM y INVERSION FM sobre TESORERIA / LIQUIDEZ DOLAR.
-        if n_pages >= 6:
-            clp_flows = _extract_real_flows(pages_text[5], "TESORERIA")
-            usd_flows = _extract_real_flows(pages_text[5], "LIQUIDEZ DOLAR")
+        # ── Flujos reales CLP/USD desde "DETALLE DE MOVIMIENTOS" ──────
+        # Reemplaza aportes/retiros (que incluyen mov. intra-cuenta).
+        # Fuente: RESCATE FM e INVERSION FM sobre TESORERIA / LIQUIDEZ DOLAR.
+        # Concatena todas las páginas de la sección (puede abarcar N páginas).
+        all_transactions: list[dict] = []
+        if _SEC_MOV in sections:
+            mov_text = _sec_text(_SEC_MOV)
+            clp_flows, clp_txs = _extract_real_flows(mov_text, "TESORERIA")
+            usd_flows, usd_txs = _extract_real_flows(mov_text, "LIQUIDEZ DOLAR")
+            dap_events = _extract_dap_events(mov_text)
             clp_movements["aportes"] = clp_flows["aportes"]
             clp_movements["retiros"] = clp_flows["retiros"]
             clp_movements["neto"] = clp_flows["neto"]
             usd_movements["aportes"] = usd_flows["aportes"]
             usd_movements["retiros"] = usd_flows["retiros"]
             usd_movements["neto"] = usd_flows["neto"]
+            all_transactions = clp_txs + usd_txs + dap_events
         else:
             result.warnings.append(
-                "Pág. 6 no encontrada; aportes/retiros quedan en 0 (no se pudo leer Movimientos de Títulos)"
+                "Sección 'DETALLE DE MOVIMIENTOS' no encontrada; aportes/retiros quedan en 0"
             )
 
         # ── Poblar result ──────────────────────────────────────────────
@@ -652,6 +837,7 @@ class BICEBrokerageParser(BaseParser):
                     "Equities": clp_buckets["Equities"],
                     "Total": clp_buckets["Total"],
                     "unclassified": clp_buckets["unclassified"],
+                    "instruments": clp_buckets["instruments"],
                 },
                 "USD": {
                     "Caja": usd_buckets["Caja"],
@@ -659,6 +845,7 @@ class BICEBrokerageParser(BaseParser):
                     "Equities": usd_buckets["Equities"],
                     "Total": usd_buckets["Total"],
                     "unclassified": usd_buckets["unclassified"],
+                    "instruments": usd_buckets["instruments"],
                 },
             },
             "movements": {
@@ -679,6 +866,8 @@ class BICEBrokerageParser(BaseParser):
             "rf_codes_detected": sorted(rf_codes),
             "unclassified_clp": clp_buckets["unclassified"],
             "unclassified_usd": usd_buckets["unclassified"],
+            "sections_found": sorted(k for k in sections if not k.startswith("_")),
+            "transactions": all_transactions,
         })
 
         # Advertir si hay instrumentos sin clasificar

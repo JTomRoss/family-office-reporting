@@ -1,6 +1,6 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-04-15 (Alternativos GBP filter + person_name + Wellington parser)
+Last updated: 2026-04-17 (BICE Asesorías parser v1.2.0 + Detalle Bice UI + reprocess_bice fix)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
@@ -97,6 +97,17 @@ Mapping stays centralized in backend/taxonomy (not in frontend).
 - Detection normalizes to lowercase+no-spaces to handle pdfplumber word-collapsing.
 - Account must exist in master accounts (Excel Cuentas Contables, `banco=wellington`) before loading cartolas.
 - Completely isolated: no shared code with any other parser.
+
+## 5.3c) BICE Rules (stable)
+- **Parser isolation**: `parsers/bice/brokerage.py` (BICE Inversiones) and `parsers/bice_asesorias/wealth_management.py` (BICE Asesorías) are completely isolated — no shared code, no cross-imports.
+- **Never modify** `parsers/bice/brokerage.py` without explicit user approval (DAP vencimiento issue is unresolved, stand-by).
+- **BICE Asesorías parser v1.2.0** (`BANK_CODE = "bice_asesorias"`, `ACCOUNT_TYPE = "wealth_management"`):
+  - Aportes/retiros source: table "FLUJO PATRIMONIAL (Últimos Movimientos)" on page 2. Filter only rows whose date falls within the statement month/year.
+  - Individual flow rows exposed as `qualitative_data["transactions"]` (format: `fecha`, `operacion`, `instrumento`, `monto`, `monto_raw`, `moneda`, `categoria_auto`).
+  - Page 13 transactions retained in `qualitative_data["transactions_p13"]` as reference only (not used for totals).
+  - Account identifier format: `C0000-XXXX` (extracted from cover page).
+- **`scripts/reprocess_bice.py`**: only deletes/recreates snapshots for the `bank_code` being reprocessed (`bice`/`bice_inversiones`). Does NOT touch other bank snapshots (e.g. `bice_asesorias`). Each bank's reprocess is independent.
+- **BICE snapshot storage**: both BICE Inversiones and BICE Asesorías use `bice_monthly_snapshot` (shared table). Reprocess scripts must filter by `account_id IN (accounts of target bank_code)`, never delete all rows blindly.
 
 ## 5.3b) Stable Bank Rules (selected)
 - JPM `brokerage/etf`: blank current-period values remain monthly `0`/`None`; YTD remains control-only.

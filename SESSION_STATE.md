@@ -1,6 +1,6 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-04-09
+Last updated: 2026-04-17
 Owner: JTROSS + Codex
 Branch: master
 
@@ -746,6 +746,119 @@ Data operations:
 Validation:
 - Suite: 260 passed, 1 skipped (en curso al cierre del bloque).
 
-## 26) Pending — Próxima sesión
+## 26) Closed Block - 2026-04-17 (BICE brokerage v3.1.0 + BICE Asesorías parser v1.0.0)
+
+Goal:
+- Leer aportes/retiros desde pág. 6 Movimientos de Títulos en parser BICE brokerage.
+- Crear e integrar parser BICE Asesorías (Cartola Administración de Activos).
+- UX fixes en pestaña Detalle Bice.
+
+Code changes:
+- `parsers/bice/brokerage.py` → v3.1.0:
+  - Aportes y retiros leídos desde pág. 6 "Movimientos de Títulos" (RESCATE/INVERSION FM).
+  - Intentada v3.3.0 (Abonos/Retiros(B) + vencimiento DAP como retiro implícito) pero revertida por problemas.
+  - Estado actual: v3.1.0, mantenido estable.
+- `parsers/bice_asesorias/__init__.py` + `parsers/bice_asesorias/wealth_management.py` → v1.0.0:
+  - `BANK_CODE = "bice_asesorias"`, `ACCOUNT_TYPE = "wealth_management"`.
+  - Completamente aislado.
+  - Extrae: cabecera (cuenta C0000-XXXX, fecha, cliente), balance pág. 2 (summary_p2), posiciones CLP/USD clasificadas por Caja/Renta Fija/Equities desde págs. 9-11, movimientos money-market desde pág. 13.
+  - Integrado en: loader `DataLoadingService`, endpoint `/data/bice`, filtros frontend, display names.
+- UX fixes aplicados (frontend/pages/bice_detail.py o equivalente):
+  - Filtro fecha: solo muestra meses con datos reales.
+  - Default = último mes cargado.
+  - Historial 12 meses incluye año anterior.
+  - Ícono navegación: 🏦 Detalle Bice.
+- BD: cuenta "Tmp" (id=50) eliminada.
+
+Commits (en orden):
+- `38f4aef` feat(parser): BICE brokerage v3.1.0
+- `19ad14f` fix: reproceso BICE v3.1.0 + UX fixes
+- `8318c60` fix(parser): BICE v3.3.0 (REVERTIDO)
+- `34e83d9` revert(parser): BICE brokerage restaurado a v3.1.0
+- `764d9ec` feat: integrar parser bice_asesorias
+
+Known issue — DAP BICE brokerage (stand-by):
+- Cuando vencen Depósitos a Plazo BICE, la cartola NO los registra en Abonos/Retiros (B) ni en Ganancia/Pérdida.
+- Esto produce utilidades absurdas (ej. Ecoterra SpA Dic 2025: ~−83B CLP).
+- No modificar `parsers/bice/brokerage.py` sin aprobación explícita del usuario.
+
+## 27) Closed Block - 2026-04-17 (Detalle Bice — 5 cambios de UI + parser + BD)
+
+Goal:
+- CAMBIO 1: Renombrar "Saldo" → "Saldo Consolidado", reducir font 20%, reemplazar Utilidad mes por Movimientos mes, agregar breakdown por sociedad y banco.
+- CAMBIO 2: Sección gráficos en 2 columnas (Evolución saldo + Rentabilidad), tabs CLP/USD.
+- CAMBIO 3: Nueva sección "Detalle Transacciones" con tabla editable, categorías persistentes.
+- CAMBIO 4: Sección inferior reorganizada: 12m table | Detalle por Activo (estructura fija).
+- CAMBIO 5: Todos los cambios respetan tabs CLP / US$.
+
+Code changes:
+- `parsers/bice_asesorias/wealth_management.py` → v1.0.0 + subcategory + transactions:
+  - `_extract_transactions_p13` devuelve (totals, transactions_list) con filas individuales.
+  - `_subcategory_for_instrument`: clasifica en Money Market / Depósitos a Plazo / Bonos / Fondos Mutuos RF / Fondos de Inversión.
+  - `ParsedRow` incluye campo `subcategory`.
+  - `qualitative_data["transactions"]` con filas {folio, fecha, operacion, instrumento, moneda, monto, monto_raw, categoria_auto}.
+- `backend/db/models.py`:
+  - `BiceMonthlySnapshot.transaction_overrides_json` (Text, nullable) para overrides de categorías.
+- `alembic/versions/20260417_0005_add_bice_transaction_overrides.py`: migración aplicada.
+- `backend/routers/data.py`:
+  - `by_bank_merged` + `by_sociedad_merged`: CLP + USD + aportes/retiros por entidad en un dict.
+  - `by_asset_detail`: subcategorías calculadas desde `ParsedStatement.parsed_data_json`.
+  - `transactions` + `transaction_overrides`: desde ParsedStatement + BiceMonthlySnapshot.
+  - `BiceOverrideParams` + endpoint `POST /data/bice/overrides`.
+  - `from pydantic import BaseModel` agregado.
+- `frontend/pages/bice.py`: reescritura completa.
+  - Removidas: "Detalle por Sociedad", "Detalle por Banco" (reemplazadas por breakdown en KPI).
+  - `_render_saldo_consolidado`: HTML custom con font 1.35rem + breakdown condicional.
+  - `_render_charts_section`: 2 columnas (saldo chart + return chart).
+  - `_render_transactions_section`: st.data_editor con SelectboxColumn, guardar via API.
+  - `_render_fixed_asset_table`: árbol fijo CAJA/RF/RV con subcategorías.
+  - `_render_12m_compact`: movida a sección inferior izquierda.
+  - Overrides en session_state afectan KPIs en tiempo real.
+
+DB operations:
+- `alembic upgrade head` ejecutado: columna `transaction_overrides_json` agregada a `bice_monthly_snapshot`.
+
+Tests:
+- `test_loader_contracts.py` + `test_normalized_reporting_layer.py`: 72 passed.
+
+Notes:
+- Detalle Transacciones solo visible para `bice_asesorias` (bice_inversiones no tiene filas individuales).
+- Subcategorías en "Detalle por Activo" se calculan en runtime desde ParsedStatement; para cartolas ya cargadas requieren reproceso para que aparezcan.
+
+## 28) Closed Block - 2026-04-17 (BICE Asesorías parser v1.2.0 + Detalle Bice UI full + reprocess fix)
+
+Goal:
+- Completar Detalle Bice UI (5 cambios: Saldo Consolidado, gráficos, Detalle Transacciones, Detalle por Activo, tabs CLP/USD).
+- Corregir extracción de aportes/retiros en BICE Asesorías (fuente incorrecta, pág. 13 no aplica para esta cuenta).
+- Exponer filas individuales de FLUJO PATRIMONIAL como transactions en UI.
+- Corregir bug crítico en `scripts/reprocess_bice.py` que borraba snapshots de todos los bancos.
+- Fix eliminación de documentos con FK constraint en `document_service.py`.
+
+Code changes:
+- `parsers/bice_asesorias/wealth_management.py` v1.0.0 → v1.2.0:
+  - v1.1.0: nueva función `_extract_flujo_patrimonial_p2(p2_tables, statement_date)`. Fuente primaria de aportes/retiros: tabla "FLUJO PATRIMONIAL" pág. 2. Filtra filas por mes/año del statement. Retorna (totals, transactions_list).
+  - v1.2.0: filas individuales del período guardadas en `qualitative_data["transactions"]` (formato estándar compatible con UI). Transacciones de pág. 13 movidas a `qualitative_data["transactions_p13"]`.
+- `scripts/reprocess_bice.py`: bug fix. Antes borraba TODOS los snapshots de `bice_monthly_snapshot` (incluyendo bice_asesorias). Ahora filtra `account_id IN (cuentas del banco a reprocesar)` antes de borrar.
+- `backend/services/document_service.py`: al eliminar un documento, primero elimina los `BiceMonthlySnapshot` con `source_document_id = document_id` para evitar FK constraint violation.
+- `frontend/pages/bice.py`: reescritura completa (5 cambios UI detallados en bloque 27).
+- `backend/routers/data.py`: endpoint `POST /data/bice/overrides`, `by_bank_merged`, `by_sociedad_merged`, `by_asset_detail` con instruments, transactions desde ParsedStatement.
+- `backend/db/models.py`: `BiceMonthlySnapshot.transaction_overrides_json` (Text nullable).
+- `alembic/versions/20260417_0005_add_bice_transaction_overrides.py`: migración aplicada.
+
+Data operations:
+- Reprocesados 11 documentos de Asesorías Izquierdo (2025-05 → 2026-03) con parser v1.2.0.
+- Fix de documentos huérfanos (account_id=None): docs 2032 (Ecoterra Internacional 2026-03) y 2033 (Inversiones Las Raíces SCC) vinculados manualmente.
+- Reprocesados todos los snapshots BICE Inversiones con reprocess_bice.py corregido.
+
+Validation:
+- Aportes/retiros verificados contra 4 cartolas de ejemplo (mayo 2025 → marzo 2026): coincidencia exacta con resumen pág. 2.
+- 11 snapshots Asesorías Izquierdo OK tras reproceso.
+- Suite: **260 passed, 1 skipped** ✓
+
+Known residuals:
+- BICE brokerage DAP: problema de vencimientos no reportados en cartola produce utilidades absurdas. Stand-by.
+
+## 29) Pending — Próxima sesión
 
 - **UBS Miami Boatview cartolas P2 2021-04 a 2023-09**: Si existen cartolas de custodia para ese período del P2 (account_id=77), se deben cargar.
+- **BICE brokerage DAP**: Problema conocido pendiente de resolver (vencimientos DAP no reportados en cartola). Resolver con usuario antes de tocar el parser.

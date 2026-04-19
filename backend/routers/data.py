@@ -30,6 +30,7 @@ from backend.db.models import (
     Reconciliation,
 )
 from backend.db.session import get_db
+from pydantic import BaseModel
 from backend.schemas import FilterParams, HealthAuditParams
 from backend.services.normalized_reporting_payload import (
     cash_from_asset_allocation_json,
@@ -4212,6 +4213,53 @@ class BiceFilterParams(FilterParams):
     only_sociedades: bool = False
 
 
+class BiceOverrideParams(BaseModel):
+    account_id: int
+    year: int
+    month: int
+    overrides: dict  # {tx_key: categoria}
+    manual_rows: list = []  # filas agregadas manualmente
+
+
+def _load_tx_v2(raw_json: str) -> dict:
+    """Lee transaction_overrides_json; retorna dict v2 {overrides:{}, manual_rows:[]}."""
+    if not raw_json:
+        return {"__v": 2, "overrides": {}, "manual_rows": []}
+    try:
+        data = json.loads(raw_json)
+    except Exception:
+        return {"__v": 2, "overrides": {}, "manual_rows": []}
+    if "__v" not in data:
+        # v1: dict plano de overrides
+        return {"__v": 2, "overrides": data, "manual_rows": []}
+    return data
+
+
+@router.post("/bice/overrides")
+def save_bice_overrides(
+    params: BiceOverrideParams,
+    db: Session = Depends(get_db),
+):
+    """Persiste overrides de categoría + filas manuales para un snapshot BICE."""
+    snap = (
+        db.query(BiceMonthlySnapshot)
+        .filter(
+            BiceMonthlySnapshot.account_id == params.account_id,
+            BiceMonthlySnapshot.year == params.year,
+            BiceMonthlySnapshot.month == params.month,
+        )
+        .first()
+    )
+    if not snap:
+        return {"ok": False, "error": "Snapshot no encontrado"}
+    existing = _load_tx_v2(snap.transaction_overrides_json)
+    existing["overrides"] = params.overrides
+    existing["manual_rows"] = params.manual_rows
+    snap.transaction_overrides_json = json.dumps(existing, ensure_ascii=False, default=str)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/bice")
 def get_bice(
     filters: BiceFilterParams,
@@ -4288,11 +4336,17 @@ def get_bice(
             "selected_fecha": None,
             "kpis": {"clp": {}, "usd": {}},
             "by_asset": {"clp": [], "usd": []},
+            "by_asset_detail": {"clp": {}, "usd": {}},
             "by_bank": {"clp": [], "usd": []},
+            "by_bank_merged": [],
             "by_sociedad": {"clp": [], "usd": []},
+            "by_sociedad_merged": [],
             "by_account": {"clp": [], "usd": []},
             "monthly_detail": {"months": [], "rows": []},
             "returns_panel": {"months": [], "rows": []},
+            "transactions": [],
+            "transaction_overrides": {},
+            "manual_rows": [],
             "message": "Sin datos para los filtros seleccionados",
         }
 
@@ -4346,14 +4400,27 @@ def get_bice(
     by_asset_usd = [{"name": k, "value": round(v, 4)} for k, v in asset_usd.items() if v > 0]
 
     # ── Por Banco ────────────────────────────────────────────────────
-    bank_clp: dict[str, float] = {}
-    bank_usd: dict[str, float] = {}
+    bank_merged: dict[str, dict] = {}
     for s, a in current_rows:
         bk = a.bank_code
-        bank_clp[bk] = bank_clp.get(bk, 0.0) + (_bice_f(s.ending_clp) or 0.0)
-        bank_usd[bk] = bank_usd.get(bk, 0.0) + (_bice_f(s.ending_usd) or 0.0)
-    by_bank_clp = [{"name": _BICE_BANK_DISPLAY.get(k, k), "bank_code": k, "value": round(v, 4)} for k, v in bank_clp.items()]
-    by_bank_usd = [{"name": _BICE_BANK_DISPLAY.get(k, k), "bank_code": k, "value": round(v, 4)} for k, v in bank_usd.items()]
+        if bk not in bank_merged:
+            bank_merged[bk] = {
+                "ending_clp": 0.0, "aportes_clp": 0.0, "retiros_clp": 0.0,
+                "ending_usd": 0.0, "aportes_usd": 0.0, "retiros_usd": 0.0,
+            }
+        bank_merged[bk]["ending_clp"] += _bice_f(s.ending_clp) or 0.0
+        bank_merged[bk]["aportes_clp"] += _bice_f(s.aportes_clp) or 0.0
+        bank_merged[bk]["retiros_clp"] += _bice_f(s.retiros_clp) or 0.0
+        bank_merged[bk]["ending_usd"] += _bice_f(s.ending_usd) or 0.0
+        bank_merged[bk]["aportes_usd"] += _bice_f(s.aportes_usd) or 0.0
+        bank_merged[bk]["retiros_usd"] += _bice_f(s.retiros_usd) or 0.0
+    by_bank_merged = [
+        {"name": _BICE_BANK_DISPLAY.get(bk, bk), "bank_code": bk, **v}
+        for bk, v in bank_merged.items()
+    ]
+    # Legacy clp/usd lists kept for backward compat
+    by_bank_clp = [{"name": v["name"], "bank_code": v["bank_code"], "value": round(v["ending_clp"], 4)} for v in by_bank_merged]
+    by_bank_usd = [{"name": v["name"], "bank_code": v["bank_code"], "value": round(v["ending_usd"], 4)} for v in by_bank_merged]
 
     # ── Por Sociedad ─────────────────────────────────────────────────
     soc_clp: dict[str, dict] = {}
@@ -4381,6 +4448,20 @@ def get_bice(
 
     by_sociedad_clp = [{"name": k, **v} for k, v in sorted(soc_clp.items())]
     by_sociedad_usd = [{"name": k, **v} for k, v in sorted(soc_usd.items())]
+
+    # Merged: CLP + USD por sociedad en un solo dict para CAMBIO 1
+    by_sociedad_merged = [
+        {
+            "name": en,
+            "ending_clp": soc_clp[en]["ending"],
+            "aportes_clp": soc_clp[en]["aportes"],
+            "retiros_clp": soc_clp[en]["retiros"],
+            "ending_usd": soc_usd.get(en, {}).get("ending", 0.0),
+            "aportes_usd": soc_usd.get(en, {}).get("aportes", 0.0),
+            "retiros_usd": soc_usd.get(en, {}).get("retiros", 0.0),
+        }
+        for en in sorted(soc_clp.keys())
+    ]
 
     # ── Por Cuenta ───────────────────────────────────────────────────
     by_account_clp = []
@@ -4547,15 +4628,131 @@ def get_bice(
             "returns_usd": returns_usd,
         })
 
+    # ── Detalle por activo (subcategorías desde ParsedStatement) ────
+    account_ids_current = {a.id for _, a in current_rows}
+    stmts = (
+        db.query(ParsedStatement)
+        .filter(
+            ParsedStatement.account_id.in_(account_ids_current),
+            extract("year", ParsedStatement.statement_date) == display_year,
+            extract("month", ParsedStatement.statement_date) == display_month,
+        )
+        .all()
+    )
+
+    def _bice_subcategory_from_row(row_data: dict) -> str:
+        """Clasifica un instrumento en subcategoría para el árbol fijo de activos."""
+        subcategory = row_data.get("subcategory", "")
+        if subcategory:
+            return subcategory
+        classification = row_data.get("classification", "")
+        parent = (row_data.get("parent_category") or "").lower()
+        name_upper = (row_data.get("instrument") or row_data.get("name") or "").upper()
+        if "deposito" in parent or "depositos" in parent or "DAP" in name_upper:
+            return "Depósitos a Plazo"
+        if classification == "Caja" or "liquidez" in name_upper or "tesoreria" in name_upper:
+            return "Money Market"
+        if classification == "Renta Fija":
+            if parent == "fondos mutuos" or "fondo" in name_upper or " fm " in f" {name_upper} ":
+                return "Fondos Mutuos RF"
+            return "Bonos"
+        if classification == "Equities":
+            if parent == "acciones" or "accion" in name_upper:
+                return "Acciones"
+            return "Fondos de Inversión"
+        return "Otros"
+
+    asset_detail_clp: dict[str, dict] = {
+        "Caja": {"total": 0.0, "subcategories": {}, "instruments": {}},
+        "Renta Fija": {"total": 0.0, "subcategories": {}, "instruments": {}},
+        "Renta Variable": {"total": 0.0, "subcategories": {}, "instruments": {}},
+    }
+    asset_detail_usd: dict[str, dict] = {
+        "Caja": {"total": 0.0, "subcategories": {}, "instruments": {}},
+        "Renta Fija": {"total": 0.0, "subcategories": {}, "instruments": {}},
+        "Renta Variable": {"total": 0.0, "subcategories": {}, "instruments": {}},
+    }
+    _cls_to_parent = {"Caja": "Caja", "Renta Fija": "Renta Fija", "Equities": "Renta Variable"}
+
+    for stmt in stmts:
+        if not stmt.parsed_data_json:
+            continue
+        try:
+            payload = json.loads(stmt.parsed_data_json)
+        except Exception:
+            continue
+        for row_data in payload.get("rows", []):
+            cls = row_data.get("classification", "")
+            parent_key = _cls_to_parent.get(cls)
+            if not parent_key:
+                continue
+            # bice_asesorias: todos los montos están en CLP (amount_clp); siempre → CLP tree.
+            # bice_inversiones: closing_value está en la moneda del instrumento → usar campo currency.
+            if row_data.get("amount_clp"):
+                amount_raw = row_data["amount_clp"]
+                target = asset_detail_clp
+            else:
+                amount_raw = row_data.get("closing_value") or "0"
+                currency = (row_data.get("currency") or "CLP").upper()
+                target = asset_detail_usd if currency == "USD" else asset_detail_clp
+            try:
+                amount = float(amount_raw)
+            except (TypeError, ValueError):
+                continue
+            if amount <= 0:
+                continue
+            subcategory = _bice_subcategory_from_row(row_data)
+            target[parent_key]["total"] += amount
+            target[parent_key]["subcategories"][subcategory] = (
+                target[parent_key]["subcategories"].get(subcategory, 0.0) + amount
+            )
+            name = (row_data.get("instrument") or "").strip()
+            if name:
+                inst_list = target[parent_key]["instruments"].setdefault(subcategory, [])
+                inst_list.append({"name": name, "amount": amount})
+
+    # ── Transacciones y overrides ────────────────────────────────────
+    transactions_out: list[dict] = []
+    transaction_overrides_out: dict[str, str] = {}
+
+    for stmt in stmts:
+        if not stmt.parsed_data_json:
+            continue
+        try:
+            payload = json.loads(stmt.parsed_data_json)
+        except Exception:
+            continue
+        for tx in payload.get("qualitative_data", {}).get("transactions", []):
+            tx_with_acct = dict(tx)
+            tx_with_acct["account_id"] = stmt.account_id
+            transactions_out.append(tx_with_acct)
+
+    # Leer overrides + filas manuales guardados en snapshots (formato v1 o v2)
+    manual_rows_out: list[dict] = []
+    for s, _ in current_rows:
+        if s.transaction_overrides_json:
+            v2 = _load_tx_v2(s.transaction_overrides_json)
+            transaction_overrides_out.update(v2.get("overrides", {}))
+            for mr in v2.get("manual_rows", []):
+                mr_with_acct = dict(mr)
+                mr_with_acct["account_id"] = s.account_id
+                manual_rows_out.append(mr_with_acct)
+
     return {
         "filter_options": filter_options,
         "selected_fecha": selected_fecha,
         "kpis": {"clp": kpi_clp, "usd": kpi_usd},
         "by_asset": {"clp": by_asset_clp, "usd": by_asset_usd},
+        "by_asset_detail": {"clp": asset_detail_clp, "usd": asset_detail_usd},
         "by_bank": {"clp": by_bank_clp, "usd": by_bank_usd},
+        "by_bank_merged": by_bank_merged,
         "by_sociedad": {"clp": by_sociedad_clp, "usd": by_sociedad_usd},
+        "by_sociedad_merged": by_sociedad_merged,
         "by_account": {"clp": by_account_clp, "usd": by_account_usd},
         "monthly_detail": {"months": month_labels, "rows": monthly_rows},
         "returns_panel": {"months": month_labels, "rows": returns_rows},
+        "transactions": transactions_out,
+        "transaction_overrides": transaction_overrides_out,
+        "manual_rows": manual_rows_out,
     }
 

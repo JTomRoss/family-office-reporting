@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from backend.db.models import Account, BiceMonthlySnapshot, RawDocument
+from backend.db.models import Account, BiceMonthlySnapshot, ParsedStatement, RawDocument
 from backend.db.session import get_engine
 from backend.services.data_loading_service import DataLoadingService
 from parsers.bice.brokerage import BICEBrokerageParser
@@ -42,9 +42,16 @@ def main(dry_run: bool = False) -> None:
         .all()
     )
 
-    snap_count = db.query(BiceMonthlySnapshot).count()
+    # Solo contar snapshots del banco que se va a reprocesar (no tocar otros bancos)
+    account_ids = [a.id for _, a in docs]
+    snap_count = (
+        db.query(BiceMonthlySnapshot)
+        .filter(BiceMonthlySnapshot.account_id.in_(account_ids))
+        .count()
+        if account_ids else 0
+    )
     print(f"Documentos BICE encontrados : {len(docs)}")
-    print(f"Snapshots actuales en BD    : {snap_count}")
+    print(f"Snapshots del banco a reprocesar: {snap_count}")
 
     if dry_run:
         print("\n[DRY-RUN] No se realizaran cambios.")
@@ -54,9 +61,16 @@ def main(dry_run: bool = False) -> None:
         db.close()
         return
 
-    # 1. Borrar snapshots existentes
-    print("\nBorrando snapshots existentes...")
-    deleted = db.query(BiceMonthlySnapshot).delete()
+    # 1. Borrar SOLO los snapshots de las cuentas que se van a reprocesar
+    print("\nBorrando snapshots existentes (solo cuentas de este banco)...")
+    if account_ids:
+        deleted = (
+            db.query(BiceMonthlySnapshot)
+            .filter(BiceMonthlySnapshot.account_id.in_(account_ids))
+            .delete(synchronize_session=False)
+        )
+    else:
+        deleted = 0
     db.commit()
     print(f"  {deleted} filas eliminadas de bice_monthly_snapshot.")
 
@@ -80,6 +94,21 @@ def main(dry_run: bool = False) -> None:
                 continue
 
             svc._load_bice_snapshot(result, d, a)
+
+            # Actualizar parsed_data_json en ParsedStatement para que las
+            # transacciones individuales sean visibles en el endpoint /data/bice
+            if result.statement_date:
+                ps = (
+                    db.query(ParsedStatement)
+                    .filter(
+                        ParsedStatement.raw_document_id == d.id,
+                        ParsedStatement.account_id == a.id,
+                    )
+                    .first()
+                )
+                if ps:
+                    ps.parsed_data_json = svc._serialize_parse_result(result, a)
+
             db.commit()
             ok += 1
             sd = result.statement_date

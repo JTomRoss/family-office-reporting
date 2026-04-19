@@ -760,6 +760,9 @@ class BiceMonthlySnapshot(Base):
     source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("raw_documents.id"))
     loaded_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
+    # ── Overrides de categoría de transacciones (JSON: {tx_key: categoria}) ───
+    transaction_overrides_json: Mapped[Optional[str]] = mapped_column(Text)
+
     # Relationships
     account: Mapped["Account"] = relationship()
 
