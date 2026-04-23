@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 data/db/fo_reporting.db \"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\")",
+      "Bash(.venv/Scripts/python.exe -c ':*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Keys:', list\\(d.keys\\(\\)\\)\\); print\\('\\\\nbank_overrides banks:', list\\(d.get\\('bank_overrides',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe scripts/backfill_super_tabla_normalized.py)",
+      "Bash(ls scripts/*.ps1)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python.exe scripts/backfill_super_tabla_normalized.py)",
+      "Bash(powershell.exe -File scripts/stop.ps1)",
+      "Bash(powershell.exe:*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}
