@@ -55,3 +55,14 @@ documentos/
 
 # Secretos locales (API keys, etc.)
 .env
+
+# Runtime logs (backend, streamlit, frontend nuevo)
+*_runtime.log
+*_runtime.err
+fo_*.log
+
+# Config local de Claude Code
+.claude/
+
+# Test uploads de la Reporting APP (cartolas sensibles, nunca al repo)
+Reporting APP/uploads/

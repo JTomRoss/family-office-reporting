@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecoterra — Reporting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=26">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-logo"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+    <div class="brand-text">
+      <a href="#/dashboard" style="text-decoration:none;color:inherit"><span class="brand-name">Ecoterra</span></a>
+      <span class="brand-sub">Family Office · Reporting</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span>Cierre 31 Mar 2026</span>
+    <div class="theme-toggle" role="tablist" aria-label="Tema">
+      <button id="themeLight" class="active" aria-label="Light mode">Light</button>
+      <button id="themeDark" aria-label="Dark mode">Dark</button>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="view"></main>
+</div>
+
+<script src="assets/mock.js?v=17"></script>
+<script src="assets/api.js?v=26"></script>
+<script src="assets/dataSource.js?v=26"></script>
+<script src="assets/app.js?v=26"></script>
+</body>
+</html>

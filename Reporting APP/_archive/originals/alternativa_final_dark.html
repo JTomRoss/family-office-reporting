@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecoterra — Reporting (Dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1116;
+    --bg-2:#151A22;
+    --bg-3:#1B222C;
+    --bg-hover:#202935;
+    --line:#222A36;
+    --line-2:#2C3644;
+    --text:#E8ECF2;
+    --text-2:#AAB4C2;
+    --text-3:#6E7888;
+    --gold:#C9A96E;
+    --gold-dim:#8E7746;
+    --green:#5EBD8A;
+    --red:#E07B6B;
+    --blue:#7BA7D9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:'Geist',-apple-system,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'Geist Mono',monospace;font-variant-numeric:tabular-nums}
+
+  /* ===== TOP BAR ===== */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;border-bottom:1px solid var(--line);
+    background:var(--bg-2);
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-logo{width:26px;height:26px;border:1.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .brand-text{display:flex;flex-direction:column;line-height:1.1}
+  .brand-name{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);font-weight:500}
+  .brand-sub{font-size:8.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--text-3);margin-top:3px;font-weight:500}
+  .topbar-right{display:flex;align-items:center;gap:18px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);font-weight:500}
+
+  .theme-toggle{display:flex;background:var(--bg);border:1px solid var(--line-2);border-radius:6px;padding:3px}
+  .theme-toggle a{padding:4px 10px;font-size:10px;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;text-decoration:none}
+  .theme-toggle a.active{background:var(--bg-3);color:var(--text)}
+
+  /* ===== LAYOUT ===== */
+  .shell{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 57px)}
+  .sidebar{background:var(--bg-2);border-right:1px solid var(--line);padding:24px 16px}
+  .side-group{margin-bottom:24px}
+  .side-title{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--text-3);margin:0 12px 10px;font-weight:500}
+  .side-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 12px;font-size:13px;color:var(--text-2);cursor:pointer;
+    border-radius:6px;margin-bottom:1px;
+  }
+  .side-item:hover{background:var(--bg-hover);color:var(--text)}
+  .side-item.active{background:var(--bg-3);color:var(--text);box-shadow:inset 2px 0 0 var(--gold);font-weight:500}
+  .side-item .badge{font-family:'Geist Mono',monospace;font-size:10px;background:var(--line-2);color:var(--text-2);padding:1px 7px;border-radius:10px;min-width:20px;text-align:center}
+
+  .main{padding:0 28px 48px}
+
+  /* ===== TABS ===== */
+  .tabs{display:flex;gap:24px;padding:16px 0 0;border-bottom:1px solid var(--line)}
+  .tab{padding:10px 2px 12px;font-size:13px;color:var(--text-3);cursor:pointer;position:relative}
+  .tab.active{color:var(--text);font-weight:500}
+  .tab.active::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--gold)}
+
+  /* ===== FILTROS ===== */
+  .filter-bar{display:flex;align-items:center;gap:8px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .filter-label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3);margin-right:6px;font-weight:500}
+  .filter-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;font-size:12px;color:var(--text-2);cursor:pointer}
+  .filter-chip:hover{border-color:var(--line-2);background:var(--bg-3)}
+  .filter-chip .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+  .filter-chip .val{color:var(--text);font-weight:500}
+  .filter-chip .caret{font-size:9px;color:var(--text-3)}
+  .filter-chip.period{border-color:var(--gold-dim);background:var(--bg-3)}
+  .filter-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn-clear{font-size:12px;color:var(--text-3);cursor:pointer;padding:6px 10px}
+  .btn-clear:hover{color:var(--text)}
+  .btn-apply{font-size:12px;color:var(--bg);background:var(--gold);border:1px solid var(--gold);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:500}
+  .btn-apply:hover{background:#D8BC87}
+
+  /* ===== KPIs ===== */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px;margin-bottom:16px}
+  .kpi{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+  .kpi-label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;font-weight:500}
+  .kpi-value{font-family:'Instrument Serif',serif;font-size:38px;font-weight:400;letter-spacing:-.02em;color:var(--text);line-height:1.1;display:flex;align-items:baseline;gap:4px}
+  .kpi-value .cur{font-size:13px;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-left:4px}
+  .kpi-clp{font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-3);margin-top:6px}
+  .kpi-foot{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+  .kpi-delta{font-family:'Geist Mono',monospace;font-size:12px;color:var(--green);font-weight:500}
+  .kpi-delta.neg{color:var(--red)}
+  .kpi-note{font-size:10px;color:var(--text-3);letter-spacing:.05em;text-transform:uppercase}
+  .kpi-spark{margin-top:10px;height:26px}
+
+  /* ===== ROW ===== */
+  .row{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:16px}
+  .card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:22px 24px}
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+  .card-kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;font-weight:500}
+  .card-title{font-family:'Instrument Serif',serif;font-size:22px;color:var(--text);font-weight:400;letter-spacing:-.01em}
+  .segmented{display:flex;background:var(--bg);border-radius:6px;padding:3px;border:1px solid var(--line-2)}
+  .segmented span{padding:4px 12px;font-size:11px;color:var(--text-3);cursor:pointer;border-radius:4px;letter-spacing:.05em}
+  .segmented span.active{background:var(--bg-3);color:var(--text)}
+  .card-action{font-size:14px;color:var(--text-3);cursor:pointer}
+
+  .chart-wrap{height:260px;position:relative}
+
+  /* Donut */
+  .alloc-layout{display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:center}
+  .donut{width:150px;height:150px;position:relative}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+  .donut-center .label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-3);font-weight:500}
+  .donut-center .val{font-family:'Instrument Serif',serif;font-size:20px;color:var(--text);margin-top:3px}
+  .alloc-legend{display:flex;flex-direction:column}
+  .legend-row{display:grid;grid-template-columns:10px 1fr 60px 44px;align-items:center;gap:10px;font-size:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .legend-row:last-child{border-bottom:none}
+  .legend-row .sw{width:8px;height:8px;border-radius:2px}
+  .legend-row .name{color:var(--text-2)}
+  .legend-row .val{font-family:'Geist Mono',monospace;text-align:right;color:var(--text);font-size:11px}
+  .legend-row .pct{font-family:'Geist Mono',monospace;text-align:right;color:var(--gold);font-size:12px;font-weight:600}
+
+  /* ===== Mini cards con líneas ===== */
+  .row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+  .mini-kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:500;margin-bottom:14px}
+  .mini-row{display:grid;grid-template-columns:10px 1fr auto auto;gap:10px;padding:11px 0 15px;border-bottom:1px solid var(--line);font-size:12px;align-items:center}
+  .mini-row:last-child{border-bottom:none}
+  .mini-row .sw{width:8px;height:8px;border-radius:1px}
+  .mini-row .name{color:var(--text-2);position:relative;padding-bottom:0}
+  .mini-row .name::after{content:"";position:absolute;left:0;bottom:-11px;height:2px;background:var(--gold);width:var(--w,50%);opacity:.75}
+  .mini-row .val{font-family:'Geist Mono',monospace;color:var(--text);font-size:11px;margin-right:8px}
+  .mini-row .pct{font-family:'Geist Mono',monospace;color:var(--gold);font-size:12px;font-weight:600;min-width:42px;text-align:right}
+
+  /* ===== Footer ===== */
+  .foot-row{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text-3);text-align:left;padding:10px 10px 10px 0;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:12px 10px 12px 0;font-size:12px;border-bottom:1px solid var(--line);color:var(--text-2)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--bg-3)}
+  td.num{font-family:'Geist Mono',monospace;text-align:right;color:var(--text)}
+  td.num.neg{color:var(--red)}
+  td.num.pos{color:var(--green)}
+  td.num .cur{font-size:9px;color:var(--text-3);margin-left:4px;letter-spacing:.08em}
+  td.date{font-family:'Geist Mono',monospace;color:var(--text-3)}
+  .pill{display:inline-block;font-size:10px;padding:2px 9px;border-radius:10px;letter-spacing:.05em;font-weight:500}
+  .pill.buy{background:rgba(94,189,138,.12);color:var(--green)}
+  .pill.sell{background:rgba(224,123,107,.12);color:var(--red)}
+  .pill.coupon{background:rgba(123,167,217,.12);color:var(--blue)}
+  .pill.div{background:rgba(201,169,110,.14);color:var(--gold)}
+
+  .alert{display:grid;grid-template-columns:3px 1fr auto;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+  .alert:last-child{border-bottom:none}
+  .alert-bar{width:3px;background:var(--red);border-radius:2px;align-self:stretch;min-height:30px}
+  .alert-bar.warn{background:var(--gold)}
+  .alert-bar.info{background:var(--blue)}
+  .alert-title{font-size:12.5px;color:var(--text);margin-bottom:3px;font-weight:500}
+  .alert-meta{font-size:11px;color:var(--text-3)}
+  .alert-action{font-size:10px;color:var(--text-3);cursor:pointer;padding:4px 12px;border:1px solid var(--line-2);border-radius:4px;letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+  .alert-action:hover{color:var(--text);border-color:var(--gold)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-logo"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="#C9A96E" stroke-width="1.5"/></svg></div>
+    <div class="brand-text">
+      <span class="brand-name">Ecoterra</span>
+      <span class="brand-sub">Family Office · Reporting</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span>Cierre 31 Mar 2026</span>
+    <div class="theme-toggle">
+      <a href="alternativa_final_light.html">Light</a>
+      <a class="active">Dark</a>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-group">
+      <div class="side-title">Análisis</div>
+      <div class="side-item active">Dashboard</div>
+      <div class="side-item">Posiciones</div>
+      <div class="side-item">Movimientos</div>
+      <div class="side-item">Rentabilidades</div>
+    </div>
+    <div class="side-group">
+      <div class="side-title">Calidad</div>
+      <div class="side-item">Tabla normalizada</div>
+      <div class="side-item">Correcciones <span class="badge">5</span></div>
+      <div class="side-item">Alertas de calidad <span class="badge">8</span></div>
+    </div>
+    <div class="side-group">
+      <div class="side-title">Ingesta</div>
+      <div class="side-item">Importar</div>
+      <div class="side-item">Archivos</div>
+      <div class="side-item">Maestro de cuentas</div>
+      <div class="side-item">Diccionario</div>
+    </div>
+    <div class="side-group">
+      <div class="side-title">Sistema</div>
+      <div class="side-item">Auditoría</div>
+      <div class="side-item">Configuración</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="tabs">
+      <div class="tab active">Por entidad</div>
+      <div class="tab">Vistas ejecutivas</div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-label">Filtros</span>
+      <div class="filter-chip"><span class="lbl">Sociedad</span> <span class="val">Todas</span> <span class="caret">▾</span></div>
+      <div class="filter-chip"><span class="lbl">Banco</span> <span class="val">Todos</span> <span class="caret">▾</span></div>
+      <div class="filter-chip"><span class="lbl">Cuenta</span> <span class="val">Todas</span> <span class="caret">▾</span></div>
+      <div class="filter-chip"><span class="lbl">Tipo Cuenta</span> <span class="val">Todos</span> <span class="caret">▾</span></div>
+      <div class="filter-chip"><span class="lbl">Persona</span> <span class="val">Todas</span> <span class="caret">▾</span></div>
+      <div class="filter-chip period"><span class="lbl">Período</span> <span class="val">Mar 2026</span> <span class="caret">▾</span></div>
+      <div class="filter-actions">
+        <span class="btn-clear">Limpiar</span>
+        <button class="btn-apply">Aplicar</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Patrimonio Consolidado</div>
+        <div class="kpi-value">$ 58.74M <span class="cur">USD</span></div>
+        <div class="kpi-clp">CLP 57,08 MM</div>
+        <div class="kpi-foot"><span class="kpi-delta">+1.47%</span><span class="kpi-note">YTD 2026</span></div>
+        <svg class="kpi-spark" viewBox="0 0 200 26" preserveAspectRatio="none">
+          <path d="M0,22 L20,20 L40,21 L60,17 L80,15 L100,13 L120,9 L140,10 L160,7 L180,5 L200,3" fill="none" stroke="#C9A96E" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Variación del Periodo</div>
+        <div class="kpi-value">$ 311.3K <span class="cur">USD</span></div>
+        <div class="kpi-clp">CLP 302,1 MM</div>
+        <div class="kpi-foot"><span class="kpi-delta">+0.54%</span><span class="kpi-note">MoM</span></div>
+        <svg class="kpi-spark" viewBox="0 0 200 26" preserveAspectRatio="none">
+          <path d="M0,18 L20,16 L40,19 L60,14 L80,17 L100,12 L120,15 L140,10 L160,13 L180,8 L200,10" fill="none" stroke="#C9A96E" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Rentabilidad TWR</div>
+        <div class="kpi-value">1.47%</div>
+        <div class="kpi-foot" style="margin-top:26px"><span class="kpi-delta">+0.19%</span><span class="kpi-note">vs. benchmark</span></div>
+        <svg class="kpi-spark" viewBox="0 0 200 26" preserveAspectRatio="none">
+          <path d="M0,20 L20,22 L40,18 L60,20 L80,15 L100,17 L120,12 L140,14 L160,10 L180,12 L200,8" fill="none" stroke="#C9A96E" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Liquidez Disponible</div>
+        <div class="kpi-value">$ 3.23M <span class="cur">USD</span></div>
+        <div class="kpi-clp">CLP 3,14 MM</div>
+        <div class="kpi-foot"><span class="kpi-delta neg">−0.12%</span><span class="kpi-note">MoM</span></div>
+        <svg class="kpi-spark" viewBox="0 0 200 26" preserveAspectRatio="none">
+          <path d="M0,10 L20,12 L40,9 L60,14 L80,12 L100,16 L120,14 L140,18 L160,16 L180,20 L200,18" fill="none" stroke="#C9A96E" stroke-width="1"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">Evolución patrimonio</div>
+            <div class="card-title">Últimos 13 meses</div>
+          </div>
+          <div class="segmented"><span class="active">USD</span><span>CLP</span></div>
+        </div>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 720 260" width="100%" height="100%" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="gold-fade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#C9A96E" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#C9A96E" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g stroke="#222A36" stroke-width="1">
+              <line x1="0" y1="40" x2="720" y2="40"/>
+              <line x1="0" y1="100" x2="720" y2="100"/>
+              <line x1="0" y1="160" x2="720" y2="160"/>
+              <line x1="0" y1="220" x2="720" y2="220"/>
+            </g>
+            <g font-family="Geist Mono" font-size="9" fill="#6E7888">
+              <text x="4" y="37">59.0M</text>
+              <text x="4" y="97">58.2M</text>
+              <text x="4" y="157">56.5M</text>
+              <text x="4" y="217">54.8M</text>
+            </g>
+            <path d="M30,210 L90,200 L150,205 L210,180 L270,175 L330,160 L390,140 L450,120 L510,115 L570,95 L630,80 L690,55 L690,250 L30,250 Z" fill="url(#gold-fade)"/>
+            <path d="M30,210 L90,200 L150,205 L210,180 L270,175 L330,160 L390,140 L450,120 L510,115 L570,95 L630,80 L690,55" fill="none" stroke="#C9A96E" stroke-width="2"/>
+            <circle cx="690" cy="55" r="4" fill="#C9A96E"/>
+            <circle cx="690" cy="55" r="9" fill="#C9A96E" fill-opacity="0.25"/>
+            <g font-family="Geist Mono" font-size="9" fill="#6E7888">
+              <text x="30" y="245">Mar 25</text>
+              <text x="150" y="245">May 25</text>
+              <text x="270" y="245">Jul 25</text>
+              <text x="390" y="245">Sep 25</text>
+              <text x="510" y="245">Nov 25</text>
+              <text x="630" y="245">Ene 26</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">Asset allocation</div>
+            <div class="card-title">Por clase de activo</div>
+          </div>
+          <div class="card-action">↓</div>
+        </div>
+        <div class="alloc-layout">
+          <div class="donut">
+            <svg viewBox="0 0 120 120" width="150" height="150">
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#1B222C" stroke-width="14"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#C9A96E" stroke-width="14" stroke-dasharray="112 302" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#D8BC87" stroke-width="14" stroke-dasharray="90 302" stroke-dashoffset="-112" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#8E7746" stroke-width="14" stroke-dasharray="35 302" stroke-dashoffset="-202" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#7BA7D9" stroke-width="14" stroke-dasharray="27 302" stroke-dashoffset="-237" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#5EBD8A" stroke-width="14" stroke-dasharray="20 302" stroke-dashoffset="-264" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#6E7888" stroke-width="14" stroke-dasharray="17 302" stroke-dashoffset="-284" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="donut-center">
+              <div class="label">Total</div>
+              <div class="val">58.74M</div>
+            </div>
+          </div>
+          <div class="alloc-legend">
+            <div class="legend-row"><span class="sw" style="background:#C9A96E"></span><span class="name">Renta Fija Internacional</span><span class="val">21.85M</span><span class="pct">37.2%</span></div>
+            <div class="legend-row"><span class="sw" style="background:#D8BC87"></span><span class="name">Renta Variable Intl.</span><span class="val">17.62M</span><span class="pct">30.0%</span></div>
+            <div class="legend-row"><span class="sw" style="background:#8E7746"></span><span class="name">Renta Fija Local</span><span class="val">6.93M</span><span class="pct">11.8%</span></div>
+            <div class="legend-row"><span class="sw" style="background:#7BA7D9"></span><span class="name">Renta Variable Local</span><span class="val">3.82M</span><span class="pct">6.5%</span></div>
+            <div class="legend-row"><span class="sw" style="background:#5EBD8A"></span><span class="name">Alternativos</span><span class="val">5.29M</span><span class="pct">9.0%</span></div>
+            <div class="legend-row"><span class="sw" style="background:#6E7888"></span><span class="name">Caja &amp; Equivalentes</span><span class="val">3.23M</span><span class="pct">5.5%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-3">
+      <div class="card">
+        <div class="mini-kicker">Por sociedad</div>
+        <div class="mini-row"><span class="sw" style="background:#C9A96E"></span><span class="name" style="--w:100%">Boatview Limited</span><span class="val">32.62M</span><span class="pct">55.5%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#D8BC87"></span><span class="name" style="--w:34%">Ecoterra Internacional SpA</span><span class="val">11.22M</span><span class="pct">19.1%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#8E7746"></span><span class="name" style="--w:22%">Inversiones Las Raíces SCC</span><span class="val">7.42M</span><span class="pct">12.6%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#7BA7D9"></span><span class="name" style="--w:16%">Telmar Investments</span><span class="val">5.14M</span><span class="pct">8.8%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#6E7888"></span><span class="name" style="--w:7%">Ecoterra SpA</span><span class="val">2.34M</span><span class="pct">4.0%</span></div>
+      </div>
+      <div class="card">
+        <div class="mini-kicker">Por custodio</div>
+        <div class="mini-row"><span class="sw" style="background:#C9A96E"></span><span class="name" style="--w:100%">J.P. Morgan NY</span><span class="val">19.43M</span><span class="pct">33.1%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#D8BC87"></span><span class="name" style="--w:52%">UBS Switzerland</span><span class="val">10.14M</span><span class="pct">17.3%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#8E7746"></span><span class="name" style="--w:48%">Goldman Sachs</span><span class="val">9.32M</span><span class="pct">15.9%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#7BA7D9"></span><span class="name" style="--w:35%">UBS Miami</span><span class="val">6.72M</span><span class="pct">11.4%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#5EBD8A"></span><span class="name" style="--w:31%">BICE Inversiones</span><span class="val">5.91M</span><span class="pct">10.1%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#6E7888"></span><span class="name" style="--w:25%">BBH</span><span class="val">4.92M</span><span class="pct">8.4%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#AAB4C2"></span><span class="name" style="--w:12%">Altos Patrimonios</span><span class="val">2.30M</span><span class="pct">3.9%</span></div>
+      </div>
+      <div class="card">
+        <div class="mini-kicker">Por moneda</div>
+        <div class="mini-row"><span class="sw" style="background:#C9A96E"></span><span class="name" style="--w:100%">USD</span><span class="val">48.31M</span><span class="pct">82.2%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#D8BC87"></span><span class="name" style="--w:7%">EUR</span><span class="val">3.43M</span><span class="pct">5.8%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#8E7746"></span><span class="name" style="--w:10%">CLP</span><span class="val">4.82M</span><span class="pct">8.2%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#7BA7D9"></span><span class="name" style="--w:4%">UF</span><span class="val">1.84M</span><span class="pct">3.1%</span></div>
+        <div class="mini-row"><span class="sw" style="background:#6E7888"></span><span class="name" style="--w:1%">Otros</span><span class="val">335.0K</span><span class="pct">0.6%</span></div>
+      </div>
+    </div>
+
+    <div class="foot-row">
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title" style="font-size:20px">Últimos movimientos</div></div>
+          <span style="font-size:12px;color:var(--text-3);cursor:pointer">Ver todos ▾</span>
+        </div>
+        <table>
+          <thead><tr><th>Fecha</th><th>Cuenta</th><th>Tipo</th><th>Instrumento</th><th style="text-align:right">Monto</th></tr></thead>
+          <tbody>
+            <tr><td class="date">03-28</td><td>Boatview · JPM · 2600</td><td><span class="pill buy">Compra</span></td><td>US Treasury 5.00% 2054</td><td class="num neg">−480.8K<span class="cur">USD</span></td></tr>
+            <tr><td class="date">03-25</td><td>Boatview · UBS SW · 560…</td><td><span class="pill coupon">Cupón</span></td><td>BTP Italy 3.85% 2049</td><td class="num pos">+23.1K<span class="cur">USD</span></td></tr>
+            <tr><td class="date">03-22</td><td>Boatview · GS · 0914</td><td><span class="pill div">Dividendo</span></td><td>Apple Inc.</td><td class="num pos">+1,632<span class="cur">USD</span></td></tr>
+            <tr><td class="date">03-20</td><td>Telmar · BICE · 112</td><td><span class="pill sell">Venta</span></td><td>BCP 10 años</td><td class="num pos">+62.4K<span class="cur">USD</span></td></tr>
+            <tr><td class="date">03-18</td><td>Ecoterra Intl · UBS MIA</td><td><span class="pill sell">Rescate</span></td><td>Pimco Income Fund</td><td class="num pos">+125.0K<span class="cur">USD</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title" style="font-size:20px">Alertas</div></div>
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--line)">8</span>
+        </div>
+        <div class="alert">
+          <div class="alert-bar"></div>
+          <div>
+            <div class="alert-title">Rentabilidad anormal: Pimco Income Fund +18.4% mensual</div>
+            <div class="alert-meta">Boatview · UBS SW · 560552 · Mar 2026 · Supera umbral +15%</div>
+          </div>
+          <div class="alert-action">Ver</div>
+        </div>
+        <div class="alert">
+          <div class="alert-bar warn"></div>
+          <div>
+            <div class="alert-title">Identidad rota: saldo_ini + movs ≠ saldo_fin</div>
+            <div class="alert-meta">Boatview · JPM · 2600 · diff USD 412.18 · Revisar cupones acumulados</div>
+          </div>
+          <div class="alert-action">Ver</div>
+        </div>
+        <div class="alert">
+          <div class="alert-bar info"></div>
+          <div>
+            <div class="alert-title">Cartola pendiente: Boatview · GS · GS-9914</div>
+            <div class="alert-meta">Sin sincronización desde 03-15 · revisar conexión custodio</div>
+          </div>
+          <div class="alert-action">Ver</div>
+        </div>
+        <div class="alert">
+          <div class="alert-bar warn"></div>
+          <div>
+            <div class="alert-title">14 instrumentos con precio obsoleto &gt; 5 días</div>
+            <div class="alert-meta">Principalmente alternativos · fuente Bloomberg</div>
+          </div>
+          <div class="alert-action">Ver</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

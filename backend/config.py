@@ -41,8 +41,17 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
 
     # ── CORS ─────────────────────────────────────────────────────────
-    cors_origins: list[str] = ["http://localhost:8501", "http://127.0.0.1:8501"]
-    # En desarrollo local: Streamlit. Agregar más orígenes en .env si es necesario.
+    cors_origins: list[str] = [
+        # Streamlit legacy (app antigua)
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+        "http://192.168.200.134:8501",
+        # Reporting APP (frontend nuevo HTML estático, puerto 8701)
+        "http://localhost:8701",
+        "http://127.0.0.1:8701",
+        "http://192.168.200.134:8701",
+    ]
+    # Sobreescribible vía FO_CORS_ORIGINS en .env (JSON array).
 
     # ── Archivos ─────────────────────────────────────────────────────
     max_upload_size_mb: int = 100

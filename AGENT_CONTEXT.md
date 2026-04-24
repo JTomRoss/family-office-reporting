@@ -1,10 +1,10 @@
 # AGENT_CONTEXT - Quick Context (SSOT Lite)
 
-Last updated: 2026-04-17 (BICE Asesorías parser v1.2.0 + Detalle Bice UI + reprocess_bice fix)
+Last updated: 2026-04-24 (Reporting APP nueva + endpoints /api/v1/{master,dictionary,reporting,parity,quality,sources} + filtro Ámbito Internacional/BICE con bice_currency CLP/USD)
 
 ## 1) Scope
 Internal financial reporting system for a family office.
-Stack: FastAPI + Streamlit + SQLAlchemy + SQLite + Alembic + pytest.
+Stack: FastAPI + Streamlit + HTML/CSS/JS vanilla (frontend nuevo) + SQLAlchemy + SQLite + Alembic + pytest.
 
 This file is intentionally short. Long historical detail should live in `DEEP_CONTEXT.md`.
 
@@ -18,26 +18,82 @@ Do not scan the full repository unless needed.
 
 ## 3) Runtime / Ops Rules
 - Use scripts only, never manual uvicorn/streamlit commands.
-- Main app:
+- Main app (backend + Streamlit legacy):
   - Start: `./scripts/start.ps1`
   - Stop: `./scripts/stop.ps1`
-  - Ports: backend `8000`, frontend `8501`
+  - Ports: backend `8000`, Streamlit frontend `8501`
+- Reporting APP nueva (frontend HTML/CSS/JS vanilla, sin build):
+  - Start: `./scripts/start_new_frontend.ps1`
+  - Stop: `./scripts/stop_new_frontend.ps1`
+  - Port: `8701` (HTML estático servido con `python -m http.server`)
+  - Root: `Reporting APP/` (index.html + assets/{mock.js, api.js, dataSource.js, app.js, styles.css})
 - Preview app:
   - Start: `./scripts/start_preview.ps1`
   - Stop: `./scripts/stop_preview.ps1`
   - Sync DB: `./scripts/sync_preview_db.ps1`
-  - Ports: backend `8100`, frontend `8601`
+  - Ports: backend `8100`, Streamlit `8601`
 - Never run with `--reload`.
+- **Port guard** en `start.ps1`: detecta procesos ajenos al FO en 8000/8501 (ej. otros proyectos Claude Code corriendo uvicorn simultáneo) y los mata antes de arrancar, para evitar conflictos de puerto silenciosos.
 
 ## 4) Architecture Guardrails
-- `frontend/` is presentation only. No business logic.
-- Frontend accesses backend only via `frontend/api_client.py`.
+- `frontend/` (Streamlit) is presentation only. No business logic.
+- `Reporting APP/` (HTML/CSS/JS vanilla) is presentation only. No business logic. Consume REST via `assets/api.js` → `window.API`.
+- Frontend Streamlit accesses backend only via `frontend/api_client.py`.
 - `backend/` owns business logic and API endpoints.
 - `parsers/` are isolated plugins by bank and account type.
 - Monetary DB persistence must use `Numeric(20,4)` (no float persistence).
 - Use timezone-aware UTC datetimes.
 - Reporting endpoints are read-only consumers of persisted normalized data.
 - Reporting surfaces must not infer missing financial data at runtime from raw payloads.
+
+## 4.1) Normalized tables (SSOT para reporting) — 3 tablas, 2 mundos
+El frontend (Streamlit y Reporting APP) lee SOLO de estas tablas. Nunca recalcula cartola en runtime.
+
+### Mundo Internacional (USD)
+| Tabla | Rol | Qué guarda |
+|---|---|---|
+| `monthly_metrics_normalized` | **SSOT primaria** | Fila por (account_id, year, month) con 6 campos canónicos §1: `ending_value_with_accrual`, `ending_value_without_accrual`, `accrual_ending`, `cash_value`, `movements_net`, `profit_period` + `asset_allocation_json`. Poblada por `DataLoadingService` después de cada parser. |
+| `monthly_closings` | **Fallback histórico auditable** | Tabla original pre-normalized. Usada cuando `monthly_metrics_normalized` no tiene fila para una cuenta-mes. Contiene `net_value`, `total_assets`, `income`, `change_in_value`, `asset_allocation_json`. |
+
+Cubre: JPM (brokerage, bonds, custody, ETF, mandato), UBS Suiza, UBS Miami, Goldman Sachs, BBH, Wellington. Todas USD.
+
+### Mundo Nacional (CLP + USD separados)
+| Tabla | Rol | Qué guarda |
+|---|---|---|
+| `bice_monthly_snapshot` | **SSOT dedicada BICE** | Saldos y movimientos con columnas paralelas CLP / USD: `ending_*`, `caja_*`, `renta_fija_*`, `equities_*`, `aportes_*`, `retiros_*`, `dividendos_*`, `profit_*`. Los dos mundos son independientes: **no se convierten ni mezclan** entre sí (no hay FX oficial). |
+
+Cubre: BICE Inversiones Corredores de Bolsa (`bice_inversiones`) + BICE Asesorías / Altos Patrimonios (`bice_asesorias`).
+
+### Regla de consumo (no negociable)
+1. Routers para scope=international leen primero `monthly_metrics_normalized`; si falta → fallback a `monthly_closings`.
+2. Routers para scope=national leen `bice_monthly_snapshot` con query param `bice_currency` ∈ {CLP, USD}.
+3. UI nunca hace cálculos financieros; solo renderiza.
+
+## 4.2) Endpoints del frontend nuevo (Reporting APP)
+Read-only. No tocan `data.py` (usado por Streamlit legacy).
+
+| Endpoint | Descripción |
+|---|---|
+| `GET /api/v1/master/{accounts,societies,banks,parsers}` | Maestro de referencia. |
+| `GET /api/v1/dictionary/{buckets,etf,mandates}` | Diccionarios canónicos §6. |
+| `GET /api/v1/reporting/dashboard?period=&scope=&bice_currency=` | KPIs + serie 13m + allocation por bucket §6.1 + by-society/bank/currency. |
+| `GET /api/v1/reporting/positions?period=` | Foto de posiciones diarias (hoy vacío; pendiente Excel diario). |
+| `GET /api/v1/reporting/normalized?period=&scope=&bice_currency=` | Tabla canónica para auditoría. Fila por cuenta×mes. |
+| `GET /api/v1/reporting/returns?period=&scope=` | TWR consolidado + por sociedad. Scope=intl only (v1). |
+| `GET /api/v1/reporting/alternatives?period=` | PE/RE/VC desde cuentas con `bank_code='alternativos'`. |
+| `GET /api/v1/reporting/audit-log?limit=` | `ValidationLog` transformado para UI. |
+| `GET /api/v1/reporting/files?limit=&bank_code=&status=&file_type=` | Lista de `raw_documents` procesados. |
+| `GET /api/v1/reporting/coverage?months=&scope=` | Matriz cuenta × mes. Celda cubierta si existe fila en normalized/closings/bice_snapshot. |
+| `GET /api/v1/quality/alerts?period=&scope=&limit=` | Alertas combinadas (ValidationLog + heurísticas on-the-fly). |
+| `GET /api/v1/sources/{document_id}` | Metadata de doc fuente para drawer "Ver fuente" (trazabilidad §1.5). |
+| `GET /api/v1/parity/dashboard?period=&scope=&tolerance_usd=` | Auditor de paridad: compara `reporting/dashboard` contra lectura independiente de la BD. Aplica `__reporting_value_exclusion` §5.4. |
+
+## 4.3) Filtro Ámbito (frontend nuevo)
+- `state.filters.scope` ∈ {`international`, `national`} → chip "Ámbito" en filter bar (primer chip, azul).
+- `international` (default): USD, cuentas no-BICE.
+- `national`: BICE con toggle USD/CLP dentro del Dashboard (botones abajo del tab "Por entidad"). Persistido en `localStorage` como `ecoterra.scope` y `ecoterra.biceCcy`.
+- Cambiar scope o biceCurrency dispara `window.swapMockWithScope(scope, ccy)` que re-fetch completo al backend y repinta.
+- Los demás filtros (sociedad, banco, cuenta, tipo, persona) filtran en memoria tras apretar **Aplicar**.
 
 ## 5) Data / Reporting Rules
 - Bank statements (`pdf_cartola`) are auditable source of monthly closing values.

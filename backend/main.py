@@ -24,7 +24,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings, ensure_dirs
 from backend.db.init_db import init_database
-from backend.routers import health, documents, accounts, data, audit
+from backend.routers import (
+    health,
+    documents,
+    accounts,
+    data,
+    audit,
+    master,
+    dictionary,
+    reporting,
+    parity,
+    quality,
+    sources,
+)
 
 
 @asynccontextmanager
@@ -59,6 +71,13 @@ app.include_router(documents.router, prefix=settings.api_prefix)
 app.include_router(accounts.router, prefix=settings.api_prefix)
 app.include_router(data.router, prefix=settings.api_prefix)
 app.include_router(audit.router, prefix=settings.api_prefix)
+# Routers para el frontend nuevo ("Reporting APP"). Read-only.
+app.include_router(master.router, prefix=settings.api_prefix)
+app.include_router(dictionary.router, prefix=settings.api_prefix)
+app.include_router(reporting.router, prefix=settings.api_prefix)
+app.include_router(parity.router, prefix=settings.api_prefix)
+app.include_router(quality.router, prefix=settings.api_prefix)
+app.include_router(sources.router, prefix=settings.api_prefix)
 
 
 @app.get("/")

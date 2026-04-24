@@ -1,17 +1,31 @@
 # SESSION_STATE - Current Working State
 
-Last updated: 2026-04-17
-Owner: JTROSS + Codex
+Last updated: 2026-04-24
+Owner: JTROSS + Codex + Claude Opus 4.7 (Reporting APP)
 Branch: master
 
 ## 1) Current Snapshot
-- SSOT monthly reporting layer: `monthly_metrics_normalized`.
-- `monthly_closings` remains historical source and allowed fallback.
-- Frontend remains presentation-only.
+- SSOT monthly reporting layer:
+  - Internacional (USD): `monthly_metrics_normalized` (primaria) + `monthly_closings` (fallback).
+  - Nacional (BICE, CLP+USD paralelo): `bice_monthly_snapshot`. Mundos CLP/USD independientes, nunca se convierten.
+- **Reporting APP nueva** (HTML/CSS/JS vanilla) cableada al backend real. Sirve en puerto 8701. `data.py` (usado por Streamlit legacy) **no tocado**; los endpoints nuevos viven en `backend/routers/{master,dictionary,reporting,parity,quality,sources}.py` y consumen resolvers ya auditados.
+- Frontend remains presentation-only (Streamlit + Reporting APP).
 - Mandato parsing/merge contract is hardened:
   - Cartola provides auditable macro USD totals.
   - `report_mandato` provides only sub-asset splits and FI metrics.
   - Merge/normalization is centralized in backend.
+
+## 1.1) Reporting APP nueva — Estado
+- **Endpoints nuevos (10)** bajo `/api/v1`: `master/*`, `dictionary/*`, `reporting/{dashboard,positions,normalized,returns,alternatives,audit-log,files,coverage}`, `quality/alerts`, `sources/{id}`, `parity/dashboard`. Todos scope-aware donde corresponde (`international` | `national`).
+- **Filtro Ámbito**: chip "Internacional" / "BICE" en filter bar (Dashboard, Posiciones, Movimientos, Rentabilidades, Tabla Normalizada, Alertas, Archivos/Cobertura). Persistido en `localStorage`.
+- **Scope BICE**: Dashboard con toggle USD/CLP intra-página (debajo del tab "Por entidad"). Lee `bice_monthly_snapshot`. Nunca convierte monedas.
+- **Drawer "Ver fuente"**: botón `⊕` en Tabla Normalizada dispara fetch a `/sources/{doc_id}` y muestra drawer con archivo, SHA-256, parser+versión+source_hash, cuenta.
+- **Parity auditor**: `/api/v1/parity/dashboard` aplica regla §5.4 (`__reporting_value_exclusion`) en baseline. Resultado actual: OK · diff $0.00.
+- **Badge LIVE/MOCK**: abajo-derecha. Click abre modal con URL base + período + scope + error (si aplica).
+
+## 1.2) Service Level Guardrails
+- CORS orígenes default: `localhost:{8501,8701}` + `127.0.0.1:{8501,8701}` + `192.168.200.134:{8501,8701}`. Sobreescribible con `FO_CORS_ORIGINS`.
+- `backend/services/reporting_reads.py` es la fachada del frontend nuevo. Reusa resolvers de `data.py` (`_resolve_ending_with_accrual`, `_resolve_cash_value`, `_resolve_raw_movements`, `_resolve_raw_profit`) para garantizar paridad con Streamlit.
 
 ## 2) Guardrails To Keep
 - Strict PDF engine isolation by:

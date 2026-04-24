@@ -25,6 +25,35 @@ Write-Host ""
 Write-Host "[1/5] Deteniendo instancias previas..." -ForegroundColor Yellow
 & "$PSScriptRoot\stop.ps1"
 
+# ── 1b. Detectar otro backend "intruso" en puertos 8000/8501 ─
+# Salvaguarda: otro proyecto (p.ej. "Reporting empresas operativas") corre
+# uvicorn con --reload y vuelve a apoderarse del puerto. Si detectamos un
+# proceso Python en 8000/8501 cuyo cmdline NO menciona "backend.main",
+# "frontend/app.py" o este project root, lo matamos ANTES de levantar lo nuestro.
+$foRoot = $projectRoot
+foreach ($port in @(8000, 8501)) {
+    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    if ($conn) {
+        $pidnum = $conn.OwningProcess
+        $proc = Get-CimInstance Win32_Process -Filter "ProcessId = $pidnum" -ErrorAction SilentlyContinue
+        if ($proc) {
+            $cmd = $proc.CommandLine
+            $isFo = $cmd -and ($cmd -match "backend\.main" -or $cmd -match "frontend[/\\]app\.py" -or $cmd -match [regex]::Escape($foRoot))
+            if (-not $isFo) {
+                Write-Host "  Puerto ${port}: proceso ajeno al FO detectado (PID $pidnum). Cmd:" -ForegroundColor Yellow
+                Write-Host "    $cmd" -ForegroundColor DarkYellow
+                Write-Host "  Matando para liberar ${port}..." -ForegroundColor Red
+                Stop-Process -Id $pidnum -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+                # Matar también sus hijos Python (caso uvicorn --reload que spawnea child)
+                Get-CimInstance Win32_Process -Filter "ParentProcessId = $pidnum" -ErrorAction SilentlyContinue | ForEach-Object {
+                    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+}
+
 # ── 2. Verificar venv ────────────────────────────────────────
 Write-Host "[2/5] Verificando entorno virtual..." -ForegroundColor Yellow
 $pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"

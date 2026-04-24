@@ -1,0 +1,1776 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ecoterra · 3 direcciones visuales</title>
+<meta name="viewport" content="width=1920">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&family=GFS+Didot&family=Cormorant+Garamond:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ GLOBAL ============ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #e8e6e1;
+  font-family: "Inter Tight", system-ui, sans-serif;
+  min-width: 1920px;
+  -webkit-font-smoothing: antialiased;
+}
+.canvas {
+  padding: 60px 48px 80px;
+  max-width: 1920px;
+  margin: 0 auto;
+}
+.canvas-head {
+  margin-bottom: 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #bdbab3;
+}
+.canvas-title {
+  font-family: "Source Serif 4", serif;
+  font-size: 48px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1;
+}
+.canvas-sub {
+  font-size: 13px;
+  color: #5a5a5a;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 10px;
+}
+.canvas-meta {
+  font-size: 12px;
+  color: #7a7a7a;
+  text-align: right;
+  line-height: 1.6;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+.opt-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.opt-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 4px;
+}
+.opt-label h2 {
+  font-family: "Source Serif 4", serif;
+  font-weight: 400;
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: #1a1a1a;
+}
+.opt-label .pill {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6a6a6a;
+  padding: 4px 10px;
+  border: 1px solid #bdbab3;
+  border-radius: 999px;
+}
+.opt-label .sub {
+  font-size: 12px;
+  color: #6a6a6a;
+  margin-top: 2px;
+}
+.frame {
+  width: 100%;
+  aspect-ratio: 1 / 1.32;
+  border: 1px solid #bdbab3;
+  overflow: hidden;
+  position: relative;
+  background: white;
+}
+.frame-inner {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1280px;
+  height: 1690px;
+  transform-origin: top left;
+}
+
+/* ============================================================ */
+/* OPCIÓN 1 · EDITORIAL TIERRA                                  */
+/* ============================================================ */
+.ed-root {
+  --bg: #f3ede2;
+  --paper: #faf6ec;
+  --ink: #1a1a1a;
+  --ink-2: #5a544a;
+  --ink-3: #8a857a;
+  --line: #d4ccbc;
+  --line-2: #e5ddcc;
+  --accent: #7a3a1e;
+  --accent-2: #4a5a3e;
+  --gold: #a68a4e;
+  --pos: #3a5a3e;
+  --neg: #8a3030;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter Tight", sans-serif;
+  font-size: 13px;
+  width: 1280px;
+  min-height: 1690px;
+  padding: 36px 44px;
+  font-feature-settings: "ss01", "tnum";
+}
+.ed-root .serif { font-family: "Source Serif 4", serif; font-weight: 400; }
+.ed-root .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+.ed-root .num { font-variant-numeric: tabular-nums; }
+
+.ed-mast {
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 14px;
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.ed-mast .title {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ed-mast .title .name {
+  font-family: "Source Serif 4", serif;
+  font-size: 40px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.ed-mast .title .tag {
+  font-size: 10.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.ed-mast .meta {
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-2);
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+}
+.ed-mast .meta .big {
+  font-family: "Source Serif 4", serif;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.ed-hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  margin-bottom: 36px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.ed-hero-left .kicker {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+.ed-hero-left .headline {
+  font-family: "Source Serif 4", serif;
+  font-size: 76px;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+  margin: 14px 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+.ed-hero-left .headline .cur {
+  font-size: 22px;
+  color: var(--ink-3);
+  margin-left: 8px;
+  letter-spacing: 0;
+  font-style: italic;
+}
+.ed-hero-left .lede {
+  font-family: "Source Serif 4", serif;
+  font-size: 17px;
+  font-style: italic;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-weight: 300;
+  max-width: 480px;
+  margin-top: 8px;
+}
+.ed-hero-left .byline {
+  margin-top: 14px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: flex;
+  gap: 18px;
+}
+.ed-hero-left .byline span b { color: var(--ink); font-weight: 500; }
+
+.ed-hero-right {
+  border-left: 1px solid var(--line);
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  justify-content: center;
+}
+.ed-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 14px;
+  border-bottom: 1px dotted var(--line);
+}
+.ed-mini:last-child { border-bottom: 0; padding-bottom: 0; }
+.ed-mini .lbl {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  flex: 1;
+}
+.ed-mini .val {
+  font-family: "Source Serif 4", serif;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ed-mini .delta {
+  font-size: 11.5px;
+  margin-top: 4px;
+  font-style: italic;
+  font-family: "Source Serif 4", serif;
+}
+
+.ed-sect {
+  margin-bottom: 32px;
+}
+.ed-sect-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.ed-sect-head .num {
+  font-family: "Source Serif 4", serif;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--accent);
+  margin-right: 14px;
+}
+.ed-sect-head .ttl {
+  font-family: "Source Serif 4", serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  flex: 1;
+}
+.ed-sect-head .aside {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.ed-2col {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 36px;
+}
+
+/* Editorial chart */
+.ed-chart {
+  position: relative;
+  height: 280px;
+  padding-top: 18px;
+}
+.ed-chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.ed-annotation {
+  position: absolute;
+  font-family: "Source Serif 4", serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-2);
+  max-width: 140px;
+  line-height: 1.3;
+}
+
+.ed-alloc {
+  display: flex;
+  flex-direction: column;
+}
+.ed-alloc-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--line);
+  font-size: 13px;
+}
+.ed-alloc-row:last-child { border-bottom: 0; }
+.ed-alloc-row .sw {
+  width: 8px; height: 8px;
+  background: var(--accent);
+  margin-top: 6px;
+}
+.ed-alloc-row .name {
+  font-family: "Source Serif 4", serif;
+  font-size: 14px;
+}
+.ed-alloc-row .pct {
+  font-family: "Source Serif 4", serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  text-align: right;
+  min-width: 60px;
+}
+.ed-alloc-row .usd {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  text-align: right;
+  min-width: 96px;
+}
+
+/* Editorial table */
+.ed-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.ed-tbl th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.ed-tbl td {
+  padding: 11px 10px;
+  border-bottom: 1px dotted var(--line);
+  vertical-align: top;
+}
+.ed-tbl tr:last-child td { border-bottom: 0; }
+.ed-tbl .num { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+.ed-tbl .instr {
+  font-family: "Source Serif 4", serif;
+  font-size: 14px;
+}
+.ed-tbl .instr small {
+  display: block;
+  font-family: "Inter Tight", sans-serif;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.ed-quote {
+  background: var(--paper);
+  border-left: 2px solid var(--accent);
+  padding: 22px 28px;
+  margin-bottom: 32px;
+}
+.ed-quote p {
+  font-family: "Source Serif 4", serif;
+  font-size: 19px;
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--ink);
+  margin: 0;
+}
+.ed-quote cite {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 12px;
+}
+
+.ed-foot {
+  margin-top: 30px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ink);
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ============================================================ */
+/* OPCIÓN 2 · BLOOMBERG EJECUTIVO                               */
+/* ============================================================ */
+.bl-root {
+  --bg: #0e1114;
+  --panel: #151a1f;
+  --panel-2: #1b2127;
+  --line: #252c33;
+  --line-2: #2e3740;
+  --ink: #e8e4d6;
+  --ink-2: #a8a397;
+  --ink-3: #6f6a5f;
+  --accent: #c9a25b;
+  --accent-2: #8a7340;
+  --pos: #6aa36e;
+  --neg: #c86a5a;
+  --warn: #d4a85a;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Geist", sans-serif;
+  font-size: 12.5px;
+  width: 1280px;
+  min-height: 1690px;
+  padding: 28px 32px;
+  font-feature-settings: "tnum", "cv11";
+}
+.bl-root .mono { font-family: "Geist Mono", "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+.bl-root .serif { font-family: "Source Serif 4", serif; font-weight: 400; }
+
+.bl-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.bl-brand {
+  display: flex; align-items: center; gap: 14px;
+}
+.bl-brand .mk {
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  position: relative;
+}
+.bl-brand .mk::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+.bl-brand .name {
+  font-family: "Source Serif 4", serif;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.bl-brand .sep { color: var(--ink-3); margin: 0 8px; }
+.bl-brand .sec {
+  font-family: "Geist Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.bl-tick {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.bl-tick .it { display: flex; gap: 6px; align-items: baseline; }
+.bl-tick .it .k { color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; }
+.bl-tick .it .v { color: var(--ink); }
+.bl-tick .it .v.up { color: var(--pos); }
+.bl-tick .it .v.dn { color: var(--neg); }
+.bl-tick .clk {
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.bl-hero {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 2px;
+  background: var(--line);
+  margin-bottom: 2px;
+}
+.bl-hero > div { background: var(--bg); padding: 24px 28px; }
+.bl-hero .left .label {
+  font-family: "Geist Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.bl-hero .left .val {
+  font-family: "Geist", sans-serif;
+  font-weight: 300;
+  font-size: 72px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.bl-hero .left .val .u { color: var(--ink-3); font-size: 24px; margin-left: 10px; }
+.bl-hero .left .deltas {
+  display: flex;
+  gap: 32px;
+  margin-top: 18px;
+}
+.bl-hero .left .deltas .d .l {
+  font-family: "Geist Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.bl-hero .left .deltas .d .v {
+  font-family: "Geist Mono", monospace;
+  font-size: 18px;
+  margin-top: 4px;
+}
+.bl-hero .left .deltas .d .v.up { color: var(--pos); }
+.bl-hero .left .deltas .d .v.dn { color: var(--neg); }
+.bl-hero .right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bl-kpi {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bl-kpi:last-child { border-bottom: 0; }
+.bl-kpi .l {
+  font-family: "Geist Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.bl-kpi .v {
+  font-family: "Geist Mono", monospace;
+  font-size: 16px;
+  color: var(--ink);
+}
+.bl-kpi .v.accent { color: var(--accent); }
+.bl-kpi .v.up { color: var(--pos); }
+.bl-kpi .v.dn { color: var(--neg); }
+
+.bl-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2px;
+  background: var(--line);
+  margin-top: 2px;
+}
+.bl-grid > .panel { background: var(--bg); padding: 22px 24px; }
+
+.bl-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.bl-panel-head h3 {
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+}
+.bl-panel-head .meta {
+  font-family: "Geist Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bl-panel-head .tabs {
+  display: flex; gap: 2px; font-family: "Geist Mono", monospace;
+}
+.bl-panel-head .tabs span {
+  padding: 3px 8px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--line);
+}
+.bl-panel-head .tabs span.on { color: var(--accent); border-color: var(--accent-2); background: rgba(201,162,91,0.07); }
+
+/* bloomberg chart */
+.bl-chart svg { width: 100%; display: block; overflow: visible; }
+.bl-chart-wrap { height: 260px; }
+.bl-chart-wrap.small { height: 180px; }
+
+.bl-alloc {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  font-family: "Geist Mono", monospace;
+  font-size: 11.5px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--line);
+}
+.bl-alloc:last-child { border-bottom: 0; }
+.bl-alloc .nm { color: var(--ink); letter-spacing: 0.02em; display: flex; gap: 8px; align-items: center; }
+.bl-alloc .nm .sw { width: 10px; height: 10px; background: var(--accent); }
+.bl-alloc .pct { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; min-width: 52px; }
+.bl-alloc .amt { color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; min-width: 92px; }
+.bl-alloc .bar {
+  grid-column: 1 / -1;
+  height: 2px;
+  background: var(--line-2);
+  position: relative;
+}
+.bl-alloc .bar i { display: block; height: 100%; background: var(--accent); opacity: 0.8; }
+
+/* bloomberg table */
+.bl-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+}
+.bl-tbl th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.bl-tbl td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.bl-tbl tr:hover td { background: rgba(201,162,91,0.04); color: var(--ink); }
+.bl-tbl td.k { color: var(--ink); font-family: "Geist", sans-serif; }
+.bl-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bl-tbl td .t { color: var(--accent); }
+.bl-tbl td .up { color: var(--pos); }
+.bl-tbl td .dn { color: var(--neg); }
+.bl-tbl td .dot { width: 6px; height: 6px; display: inline-block; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+
+.bl-status {
+  margin-top: 2px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: var(--line);
+}
+.bl-status > div { background: var(--bg); padding: 14px 18px; }
+.bl-status .lbl {
+  font-family: "Geist Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.bl-status .v {
+  font-family: "Geist Mono", monospace;
+  font-size: 24px;
+  font-weight: 300;
+  margin-top: 6px;
+  color: var(--ink);
+}
+.bl-status .v.up { color: var(--pos); }
+.bl-status .v.dn { color: var(--neg); }
+.bl-status .v.accent { color: var(--accent); }
+.bl-status .s {
+  font-family: "Geist Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+.bl-sidebar-nav {
+  position: absolute;
+  left: 0; top: 100px;
+  width: 34px;
+  display: flex; flex-direction: column;
+  gap: 20px;
+  font-family: "Geist Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--ink-3);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 20px 0;
+  border-right: 1px solid var(--line);
+  text-transform: uppercase;
+  align-items: center;
+  text-align: center;
+}
+.bl-sidebar-nav span.on { color: var(--accent); }
+
+/* ============================================================ */
+/* OPCIÓN 3 · SUIZO MODERNO                                     */
+/* ============================================================ */
+.sw-root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --line: #e8e8e6;
+  --line-2: #f0efec;
+  --ink: #111111;
+  --ink-2: #555555;
+  --ink-3: #9a9a97;
+  --accent: #1f4d3f;
+  --pos: #1f4d3f;
+  --neg: #9a3328;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter Tight", sans-serif;
+  font-size: 13px;
+  width: 1280px;
+  min-height: 1690px;
+  padding: 48px 56px;
+  font-feature-settings: "ss01", "tnum", "cv11";
+}
+.sw-root .mono { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+.sw-root .num { font-variant-numeric: tabular-nums; }
+
+.sw-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--ink);
+  margin-bottom: 48px;
+}
+.sw-head .brand {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.sw-head .brand .mk {
+  width: 10px; height: 10px;
+  background: var(--accent);
+}
+.sw-head .brand .nm {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.sw-head .brand .sep { color: var(--ink-3); margin: 0 4px; }
+.sw-head .brand .tag {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 400;
+}
+.sw-head .crumbs {
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+  line-height: 1.7;
+}
+.sw-head .crumbs b { color: var(--ink); font-weight: 500; }
+
+.sw-hero {
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 80px;
+  margin-bottom: 80px;
+}
+.sw-hero .headline .meta {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 22px;
+}
+.sw-hero .headline .v {
+  font-weight: 300;
+  font-size: 128px;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.sw-hero .headline .v .u {
+  font-size: 36px;
+  color: var(--ink-3);
+  margin-left: 14px;
+  font-weight: 300;
+}
+.sw-hero .headline .sub {
+  margin-top: 26px;
+  display: flex;
+  gap: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.sw-hero .headline .sub .it { display: flex; flex-direction: column; gap: 4px; }
+.sw-hero .headline .sub .it .l { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); }
+.sw-hero .headline .sub .it .n { font-size: 20px; font-weight: 500; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+.sw-hero .side { display: flex; flex-direction: column; gap: 0; }
+.sw-hero .side .it {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sw-hero .side .it:first-child { padding-top: 0; }
+.sw-hero .side .it:last-child { border-bottom: 0; }
+.sw-hero .side .it .l {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 400;
+}
+.sw-hero .side .it .r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.sw-hero .side .it .r .d {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-3);
+  margin-top: 2px;
+  letter-spacing: 0;
+}
+
+.sw-sect {
+  margin-bottom: 72px;
+}
+.sw-sect-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 14px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--ink);
+}
+.sw-sect-head h3 {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.sw-sect-head .n {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sw-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+}
+
+.sw-chart svg { width: 100%; display: block; overflow: visible; }
+.sw-chart-wrap { height: 280px; }
+
+.sw-alloc-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+.sw-alloc-row:last-child { border-bottom: 0; }
+.sw-alloc-row .top {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.sw-alloc-row .name { font-size: 14px; font-weight: 500; }
+.sw-alloc-row .pct {
+  font-size: 20px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.sw-alloc-row .sub {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+.sw-alloc-row .bar {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--line);
+  margin-top: 10px;
+  position: relative;
+}
+.sw-alloc-row .bar i {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--ink);
+  height: 2px;
+  margin-top: -0.5px;
+}
+
+.sw-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.sw-tbl th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.sw-tbl td {
+  padding: 16px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.sw-tbl tr:last-child td { border-bottom: 0; }
+.sw-tbl .num { text-align: right; font-variant-numeric: tabular-nums; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.sw-tbl .nm { font-weight: 500; }
+.sw-tbl .nm small { display: block; font-weight: 400; color: var(--ink-3); font-size: 11px; letter-spacing: 0.02em; margin-top: 2px; }
+.sw-tbl .tag-mini {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.sw-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-bottom: 72px;
+}
+.sw-kpi {
+  background: var(--bg);
+  padding: 28px 24px;
+  min-height: 140px;
+}
+.sw-kpi .lbl {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.sw-kpi .v {
+  font-size: 38px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  margin-top: 18px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.sw-kpi .v .u { font-size: 16px; color: var(--ink-3); margin-left: 6px; }
+.sw-kpi .d {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.sw-kpi .d.up { color: var(--accent); }
+.sw-kpi .d.dn { color: var(--neg); }
+
+.sw-foot {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="canvas-head">
+    <div>
+      <h1 class="canvas-title">Ecoterra · Reporting</h1>
+      <div class="canvas-sub">3 direcciones visuales · Dashboard</div>
+    </div>
+    <div class="canvas-meta">
+      Vistas a escala 1:2.4 · 1280×1690 px nominal<br>
+      Comparación de tipografía, color, densidad y estilo de datos<br>
+      v0.1 · abril 2026
+    </div>
+  </div>
+
+  <div class="grid-3">
+
+    <!-- ============== OPCIÓN 1 · EDITORIAL TIERRA ============== -->
+    <div class="opt-wrap">
+      <div class="opt-label">
+        <div>
+          <h2>01 · Editorial Tierra</h2>
+          <div class="sub">Source Serif + Inter Tight + IBM Plex Mono · paleta tierra cálida · tono familiar</div>
+        </div>
+        <div class="pill">Serif · Warm</div>
+      </div>
+      <div class="frame">
+        <div class="frame-inner" id="ed-frame">
+          <div class="ed-root">
+
+            <div class="ed-mast">
+              <div class="title">
+                <span class="name">Ecoterra Family Office</span>
+                <span class="tag">Reporting consolidado · Marzo 2026 · Edición mensual</span>
+              </div>
+              <div class="meta">
+                <div class="big serif">Cierre 31 · MAR · 2026</div>
+                <div>Preparado para J.P. Undurraga</div>
+                <div>Revisión &mdash; Familia Ecoterra</div>
+              </div>
+            </div>
+
+            <div class="ed-hero">
+              <div class="ed-hero-left">
+                <div class="kicker">Patrimonio consolidado</div>
+                <div class="headline">58,742,310<span class="cur">USD</span></div>
+                <div class="lede">
+                  Cinco sociedades, siete custodios, quince cuentas. El trimestre cerró
+                  con avance real en renta fija internacional y tracción sostenida en
+                  los mandatos discrecionales.
+                </div>
+                <div class="byline">
+                  <span>YTD <b class="pos" style="color:var(--pos)">+1.47%</b></span>
+                  <span>1Y <b style="color:var(--pos)">+8.36%</b></span>
+                  <span>vs Benchmark <b>+24 bp</b></span>
+                </div>
+              </div>
+              <div class="ed-hero-right">
+                <div class="ed-mini">
+                  <div>
+                    <div class="lbl">Utilidad del mes</div>
+                    <div class="delta" style="color:var(--pos)">+0.54% TWR</div>
+                  </div>
+                  <div class="val">317,420</div>
+                </div>
+                <div class="ed-mini">
+                  <div>
+                    <div class="lbl">Aportes netos YTD</div>
+                    <div class="delta">3 flujos registrados</div>
+                  </div>
+                  <div class="val">+412,800</div>
+                </div>
+                <div class="ed-mini">
+                  <div>
+                    <div class="lbl">Caja y equivalentes</div>
+                    <div class="delta">5.5% del total</div>
+                  </div>
+                  <div class="val">3,234,898</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ed-sect">
+              <div class="ed-sect-head">
+                <span class="num">01</span>
+                <span class="ttl">Patrimonio en el tiempo</span>
+                <span class="aside">13 meses · USD millones · capa normalizada</span>
+              </div>
+              <div class="ed-2col">
+                <div class="ed-chart" id="ed-chart"></div>
+                <div>
+                  <div class="ed-alloc">
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#7a3a1e"></span>
+                      <span class="name">Renta Fija Intl.</span>
+                      <span class="pct">37.2%</span>
+                      <span class="usd">21,847,520</span>
+                    </div>
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#a68a4e"></span>
+                      <span class="name">Renta Variable Intl.</span>
+                      <span class="pct">30.0%</span>
+                      <span class="usd">17,621,930</span>
+                    </div>
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#4a5a3e"></span>
+                      <span class="name">Renta Fija Local</span>
+                      <span class="pct">11.8%</span>
+                      <span class="usd">6,932,104</span>
+                    </div>
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#6b4e3a"></span>
+                      <span class="name">Alternativos</span>
+                      <span class="pct">9.0%</span>
+                      <span class="usd">5,287,608</span>
+                    </div>
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#b89968"></span>
+                      <span class="name">Renta Variable Local</span>
+                      <span class="pct">6.5%</span>
+                      <span class="usd">3,818,250</span>
+                    </div>
+                    <div class="ed-alloc-row">
+                      <span class="sw" style="background:#c4b896"></span>
+                      <span class="name">Caja</span>
+                      <span class="pct">5.5%</span>
+                      <span class="usd">3,234,898</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ed-quote">
+              <p>&ldquo;El mes cerró dentro del rango esperado. La única lectura a vigilar es la
+              rentabilidad puntual de Pimco Income Fund en UBS SW — probablemente un
+              efecto de cupón acumulado, ya marcado para revisión.&rdquo;</p>
+              <cite>Nota del analista · 04 · abr · 2026</cite>
+            </div>
+
+            <div class="ed-sect">
+              <div class="ed-sect-head">
+                <span class="num">02</span>
+                <span class="ttl">Top posiciones</span>
+                <span class="aside">6 mayores · marzo 2026</span>
+              </div>
+              <table class="ed-tbl">
+                <thead><tr>
+                  <th style="width:40%">Instrumento</th>
+                  <th>Cuenta</th>
+                  <th class="num">Peso</th>
+                  <th class="num">MV (USD)</th>
+                  <th class="num">YTD</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="instr">US Treasury 4.25% 2034<small>US91282CLM39 · Renta Fija Intl.</small></td>
+                    <td>Boatview · JPM · 2600</td>
+                    <td class="num">4.19%</td>
+                    <td class="num">2,461,000</td>
+                    <td class="num" style="color:var(--pos)">+1.84%</td>
+                  </tr>
+                  <tr>
+                    <td class="instr">iShares Core MSCI World UCITS<small>IE00B4L5Y983 · Renta Variable Intl.</small></td>
+                    <td>Boatview · GS · 9914</td>
+                    <td class="num">2.87%</td>
+                    <td class="num">1,683,734</td>
+                    <td class="num" style="color:var(--pos)">+4.12%</td>
+                  </tr>
+                  <tr>
+                    <td class="instr">Apple Inc.<small>US0378331005 · Renta Variable Intl.</small></td>
+                    <td>Boatview · JPM · 9001</td>
+                    <td class="num">2.48%</td>
+                    <td class="num">1,459,416</td>
+                    <td class="num" style="color:var(--pos)">+6.84%</td>
+                  </tr>
+                  <tr>
+                    <td class="instr">Pimco Income Fund<small>IE00B8N01F09 · Renta Fija Intl.</small></td>
+                    <td>Boatview · UBS SW · 560552</td>
+                    <td class="num">2.45%</td>
+                    <td class="num">1,441,097</td>
+                    <td class="num" style="color:var(--pos)">+2.12%</td>
+                  </tr>
+                  <tr>
+                    <td class="instr">Microsoft Corp.<small>US5949181045 · Renta Variable Intl.</small></td>
+                    <td>Boatview · GS · 9912</td>
+                    <td class="num">2.27%</td>
+                    <td class="num">1,335,463</td>
+                    <td class="num" style="color:var(--pos)">+5.92%</td>
+                  </tr>
+                  <tr>
+                    <td class="instr">BTP Italy 3.85% 2049<small>IT0005422891 · Renta Fija Intl.</small></td>
+                    <td>Boatview · JPM · 1100</td>
+                    <td class="num">1.96%</td>
+                    <td class="num">1,154,160</td>
+                    <td class="num" style="color:var(--neg)">−0.42%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ed-foot">
+              <span>Ecoterra Reporting · documento interno</span>
+              <span>Pág. 01 de 24</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== OPCIÓN 2 · BLOOMBERG EJECUTIVO ============== -->
+    <div class="opt-wrap">
+      <div class="opt-label">
+        <div>
+          <h2>02 · Bloomberg Ejecutivo</h2>
+          <div class="sub">Geist + Geist Mono · grafito & bronce · denso, profesional, control</div>
+        </div>
+        <div class="pill">Dark · Data-dense</div>
+      </div>
+      <div class="frame">
+        <div class="frame-inner" id="bl-frame">
+          <div class="bl-root">
+
+            <div class="bl-top">
+              <div class="bl-brand">
+                <div class="mk"></div>
+                <span class="name">ECOTERRA</span>
+                <span class="sep">·</span>
+                <span class="sec">REPORTING TERMINAL</span>
+              </div>
+              <div class="bl-tick">
+                <div class="it"><span class="k">CLP/USD</span><span class="v">970.42</span><span class="v dn">−0.12</span></div>
+                <div class="it"><span class="k">SPX</span><span class="v">5,842.18</span><span class="v up">+0.38%</span></div>
+                <div class="it"><span class="k">UST10Y</span><span class="v">4.28%</span><span class="v dn">−2bp</span></div>
+                <div class="it"><span class="k">GOLD</span><span class="v">2,412.80</span><span class="v up">+0.64%</span></div>
+                <span class="clk">31·MAR·2026 · 17:42 CLT</span>
+              </div>
+            </div>
+
+            <div class="bl-hero">
+              <div class="left">
+                <div class="label">AUM Consolidated · All Societies</div>
+                <div class="val">58,742,310<span class="u">USD</span></div>
+                <div class="deltas">
+                  <div class="d"><div class="l">MTD</div><div class="v up">+0.54%</div></div>
+                  <div class="d"><div class="l">YTD</div><div class="v up">+1.47%</div></div>
+                  <div class="d"><div class="l">1Y</div><div class="v up">+8.36%</div></div>
+                  <div class="d"><div class="l">vs BM</div><div class="v up">+24bp</div></div>
+                  <div class="d"><div class="l">VAR 99</div><div class="v">−3.12%</div></div>
+                </div>
+              </div>
+              <div class="right">
+                <div class="bl-kpi"><div class="l">Profit Mes</div><div class="v up">+317,420</div></div>
+                <div class="bl-kpi"><div class="l">Net Flows YTD</div><div class="v accent">+412,800</div></div>
+                <div class="bl-kpi"><div class="l">Cash</div><div class="v">3,234,898</div></div>
+                <div class="bl-kpi"><div class="l">Accrual Int.</div><div class="v">128,412</div></div>
+                <div class="bl-kpi"><div class="l">Cartolas Dic→Mar</div><div class="v accent">58 / 60</div></div>
+                <div class="bl-kpi"><div class="l">Reconciliation</div><div class="v up">MATCHED</div></div>
+              </div>
+            </div>
+
+            <div class="bl-grid">
+              <div class="panel">
+                <div class="bl-panel-head">
+                  <h3>◆ AUM Evolution · 13M</h3>
+                  <div class="tabs">
+                    <span>1M</span><span>3M</span><span>6M</span><span class="on">13M</span><span>ITD</span>
+                  </div>
+                  <div class="meta">Src: monthly_metrics_normalized</div>
+                </div>
+                <div class="bl-chart bl-chart-wrap" id="bl-chart"></div>
+              </div>
+              <div class="panel">
+                <div class="bl-panel-head">
+                  <h3>◆ Asset Allocation</h3>
+                  <div class="meta">By class · USD</div>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#c9a25b"></span>RF Intl</span>
+                  <span class="pct">37.2%</span>
+                  <span class="amt">21.85M</span>
+                  <span class="bar"><i style="width:37.2%; background:#c9a25b"></i></span>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#8a7340"></span>RV Intl</span>
+                  <span class="pct">30.0%</span>
+                  <span class="amt">17.62M</span>
+                  <span class="bar"><i style="width:30%; background:#8a7340"></i></span>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#6aa36e"></span>RF Local</span>
+                  <span class="pct">11.8%</span>
+                  <span class="amt">6.93M</span>
+                  <span class="bar"><i style="width:11.8%; background:#6aa36e"></i></span>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#c86a5a"></span>Alt</span>
+                  <span class="pct">9.0%</span>
+                  <span class="amt">5.29M</span>
+                  <span class="bar"><i style="width:9%; background:#c86a5a"></i></span>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#4a6e80"></span>RV Local</span>
+                  <span class="pct">6.5%</span>
+                  <span class="amt">3.82M</span>
+                  <span class="bar"><i style="width:6.5%; background:#4a6e80"></i></span>
+                </div>
+                <div class="bl-alloc">
+                  <span class="nm"><span class="sw" style="background:#6f6a5f"></span>Cash</span>
+                  <span class="pct">5.5%</span>
+                  <span class="amt">3.23M</span>
+                  <span class="bar"><i style="width:5.5%; background:#6f6a5f"></i></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bl-status">
+              <div>
+                <div class="lbl">TWR MTD</div>
+                <div class="v up">+0.54%</div>
+                <div class="s">vs bench +12bp</div>
+              </div>
+              <div>
+                <div class="lbl">TWR YTD</div>
+                <div class="v up">+1.47%</div>
+                <div class="s">chain-linked</div>
+              </div>
+              <div>
+                <div class="lbl">TWR 1Y</div>
+                <div class="v up">+8.36%</div>
+                <div class="s">roll-12</div>
+              </div>
+              <div>
+                <div class="lbl">TWR 3Y ann.</div>
+                <div class="v">+6.82%</div>
+                <div class="s">compound</div>
+              </div>
+            </div>
+
+            <div class="bl-grid" style="grid-template-columns: 1fr 1fr; margin-top: 20px;">
+              <div class="panel">
+                <div class="bl-panel-head">
+                  <h3>◆ Top Positions</h3>
+                  <div class="meta">6 of 142 · sorted by MV</div>
+                </div>
+                <table class="bl-tbl">
+                  <thead><tr>
+                    <th>Instrument</th><th>Acct</th>
+                    <th class="num">MV USD</th><th class="num">W%</th><th class="num">YTD</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td class="k"><span class="dot"></span>T 4.25 2034</td><td>JPM·2600</td><td class="num">2,461,000</td><td class="num"><span class="t">4.19</span></td><td class="num"><span class="up">+1.84</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>IWDA</td><td>GS·9914</td><td class="num">1,683,734</td><td class="num"><span class="t">2.87</span></td><td class="num"><span class="up">+4.12</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>AAPL</td><td>JPM·9001</td><td class="num">1,459,416</td><td class="num"><span class="t">2.48</span></td><td class="num"><span class="up">+6.84</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>PIMINC</td><td>UBS·560552</td><td class="num">1,441,097</td><td class="num"><span class="t">2.45</span></td><td class="num"><span class="up">+2.12</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>MSFT</td><td>GS·9912</td><td class="num">1,335,463</td><td class="num"><span class="t">2.27</span></td><td class="num"><span class="up">+5.92</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>BTP 3.85 49</td><td>JPM·1100</td><td class="num">1,154,160</td><td class="num"><span class="t">1.96</span></td><td class="num"><span class="dn">−0.42</span></td></tr>
+                    <tr><td class="k"><span class="dot"></span>VOO</td><td>JPM·0007</td><td class="num">1,151,956</td><td class="num"><span class="t">1.96</span></td><td class="num"><span class="up">+4.28</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel">
+                <div class="bl-panel-head">
+                  <h3>◆ Alerts · Data Quality</h3>
+                  <div class="meta">3 open · prioridad alta</div>
+                </div>
+                <table class="bl-tbl">
+                  <thead><tr>
+                    <th style="width:14%">SEV</th><th>Detalle</th><th>Scope</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td class="k"><span style="color:var(--neg)">● HIGH</span></td><td class="k">Rentab. anormal Pimco +18.4% M</td><td>UBS SW · 560552</td></tr>
+                    <tr><td class="k"><span style="color:var(--neg)">● HIGH</span></td><td class="k">Identidad saldo↔movs: diff 412.18</td><td>JPM · 2600</td></tr>
+                    <tr><td class="k"><span style="color:var(--warn)">● MED</span></td><td class="k">Cartola pendiente abril</td><td>GS · 9914</td></tr>
+                    <tr><td class="k"><span style="color:var(--warn)">● MED</span></td><td class="k">Cartola pendiente abril</td><td>BICE · 038</td></tr>
+                    <tr><td class="k"><span style="color:var(--warn)">● MED</span></td><td class="k">ISIN sin diccionario · 3 archivos</td><td>US91282CLS58</td></tr>
+                    <tr><td class="k"><span style="color:var(--ink-3)">● LOW</span></td><td class="k">Precio vacío · fallback activo</td><td>BBH · 4412</td></tr>
+                    <tr><td class="k"><span style="color:var(--ink-3)">● LOW</span></td><td class="k">Duplicado AAPL GS/JPM</td><td>transf. cross-cust.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== OPCIÓN 3 · SUIZO MODERNO ============== -->
+    <div class="opt-wrap">
+      <div class="opt-label">
+        <div>
+          <h2>03 · Suizo Moderno</h2>
+          <div class="sub">Inter Tight + JetBrains Mono · blanco nuclear · acento verde bosque · grid severo</div>
+        </div>
+        <div class="pill">Light · Minimal</div>
+      </div>
+      <div class="frame">
+        <div class="frame-inner" id="sw-frame">
+          <div class="sw-root">
+
+            <div class="sw-head">
+              <div class="brand">
+                <div class="mk"></div>
+                <div class="nm">Ecoterra</div>
+                <span class="sep">/</span>
+                <span class="tag">Reporting Familiar</span>
+              </div>
+              <div class="crumbs">
+                Consolidado &nbsp;/&nbsp; Todas las sociedades<br>
+                Cierre <b>31 Mar 2026</b> &nbsp;·&nbsp; vs <b>28 Feb 2026</b><br>
+                Capa normalizada · v4.2
+              </div>
+            </div>
+
+            <div class="sw-hero">
+              <div class="headline">
+                <div class="meta">Patrimonio consolidado</div>
+                <div class="v">58.7M<span class="u">USD</span></div>
+                <div class="sub">
+                  <div class="it"><span class="l">MTD</span><span class="n" style="color:var(--accent)">+0.54%</span></div>
+                  <div class="it"><span class="l">YTD</span><span class="n" style="color:var(--accent)">+1.47%</span></div>
+                  <div class="it"><span class="l">1Y</span><span class="n" style="color:var(--accent)">+8.36%</span></div>
+                  <div class="it"><span class="l">vs Bench</span><span class="n">+24 bp</span></div>
+                </div>
+              </div>
+              <div class="side">
+                <div class="it">
+                  <span class="l">Utilidad del mes</span>
+                  <span class="r">+317,420<span class="d">USD</span></span>
+                </div>
+                <div class="it">
+                  <span class="l">Aportes netos YTD</span>
+                  <span class="r">+412,800<span class="d">USD · 3 flujos</span></span>
+                </div>
+                <div class="it">
+                  <span class="l">Caja y equivalentes</span>
+                  <span class="r">3.23M<span class="d">5.5% del total</span></span>
+                </div>
+                <div class="it">
+                  <span class="l">Cartolas completas</span>
+                  <span class="r">58 / 60<span class="d">últimos 4 meses</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-kpi-grid">
+              <div class="sw-kpi">
+                <div class="lbl">Sociedades</div>
+                <div class="v">5</div>
+                <div class="d">5 activas · 0 inactivas</div>
+              </div>
+              <div class="sw-kpi">
+                <div class="lbl">Custodios</div>
+                <div class="v">7</div>
+                <div class="d">4 intl. · 3 locales</div>
+              </div>
+              <div class="sw-kpi">
+                <div class="lbl">Cuentas</div>
+                <div class="v">15</div>
+                <div class="d">11 mandatos · 4 brokerage</div>
+              </div>
+              <div class="sw-kpi">
+                <div class="lbl">Posiciones únicas</div>
+                <div class="v">142</div>
+                <div class="d">en 7 clases de activo</div>
+              </div>
+            </div>
+
+            <div class="sw-sect">
+              <div class="sw-sect-head">
+                <h3>Patrimonio · 13 meses</h3>
+                <span class="n">SECCIÓN 01 / 04</span>
+              </div>
+              <div class="sw-chart sw-chart-wrap" id="sw-chart"></div>
+            </div>
+
+            <div class="sw-sect">
+              <div class="sw-sect-head">
+                <h3>Composición por clase de activo</h3>
+                <span class="n">SECCIÓN 02 / 04</span>
+              </div>
+              <div class="sw-2col">
+                <div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Renta Fija Internacional</span><span class="pct">37.2%</span></div>
+                    <div class="sub"><span>USD 21,847,520</span><span>32 posiciones · 4 cuentas</span></div>
+                    <div class="bar"><i style="width:37.2%"></i></div>
+                  </div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Renta Variable Internacional</span><span class="pct">30.0%</span></div>
+                    <div class="sub"><span>USD 17,621,930</span><span>41 posiciones · 5 cuentas</span></div>
+                    <div class="bar"><i style="width:30%"></i></div>
+                  </div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Renta Fija Local</span><span class="pct">11.8%</span></div>
+                    <div class="sub"><span>USD 6,932,104</span><span>14 posiciones · 2 cuentas</span></div>
+                    <div class="bar"><i style="width:11.8%"></i></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Alternativos</span><span class="pct">9.0%</span></div>
+                    <div class="sub"><span>USD 5,287,608</span><span>8 posiciones · 3 cuentas</span></div>
+                    <div class="bar"><i style="width:9%"></i></div>
+                  </div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Renta Variable Local</span><span class="pct">6.5%</span></div>
+                    <div class="sub"><span>USD 3,818,250</span><span>12 posiciones · 2 cuentas</span></div>
+                    <div class="bar"><i style="width:6.5%"></i></div>
+                  </div>
+                  <div class="sw-alloc-row">
+                    <div class="top"><span class="name">Caja y equivalentes</span><span class="pct">5.5%</span></div>
+                    <div class="sub"><span>USD 3,234,898</span><span>en 9 cuentas</span></div>
+                    <div class="bar"><i style="width:5.5%"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-sect">
+              <div class="sw-sect-head">
+                <h3>Top posiciones</h3>
+                <span class="n">SECCIÓN 03 / 04</span>
+              </div>
+              <table class="sw-tbl">
+                <thead><tr>
+                  <th style="width:38%">Instrumento</th>
+                  <th>Cuenta</th>
+                  <th>Clase</th>
+                  <th class="num">MV (USD)</th>
+                  <th class="num">Peso</th>
+                  <th class="num">YTD</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="nm">US Treasury 4.25% 2034 <small>US91282CLM39</small></td>
+                    <td>Boatview · JPM · 2600</td>
+                    <td><span class="tag-mini">RF Intl</span></td>
+                    <td class="num">2,461,000</td>
+                    <td class="num">4.19%</td>
+                    <td class="num" style="color:var(--accent)">+1.84%</td>
+                  </tr>
+                  <tr>
+                    <td class="nm">iShares Core MSCI World <small>IE00B4L5Y983</small></td>
+                    <td>Boatview · GS · 9914</td>
+                    <td><span class="tag-mini">RV Intl</span></td>
+                    <td class="num">1,683,734</td>
+                    <td class="num">2.87%</td>
+                    <td class="num" style="color:var(--accent)">+4.12%</td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Apple Inc. <small>US0378331005</small></td>
+                    <td>Boatview · JPM · 9001</td>
+                    <td><span class="tag-mini">RV Intl</span></td>
+                    <td class="num">1,459,416</td>
+                    <td class="num">2.48%</td>
+                    <td class="num" style="color:var(--accent)">+6.84%</td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Pimco Income Fund <small>IE00B8N01F09</small></td>
+                    <td>Boatview · UBS SW · 560552</td>
+                    <td><span class="tag-mini">RF Intl</span></td>
+                    <td class="num">1,441,097</td>
+                    <td class="num">2.45%</td>
+                    <td class="num" style="color:var(--accent)">+2.12%</td>
+                  </tr>
+                  <tr>
+                    <td class="nm">Microsoft Corp. <small>US5949181045</small></td>
+                    <td>Boatview · GS · 9912</td>
+                    <td><span class="tag-mini">RV Intl</span></td>
+                    <td class="num">1,335,463</td>
+                    <td class="num">2.27%</td>
+                    <td class="num" style="color:var(--accent)">+5.92%</td>
+                  </tr>
+                  <tr>
+                    <td class="nm">BTP Italy 3.85% 2049 <small>IT0005422891</small></td>
+                    <td>Boatview · JPM · 1100</td>
+                    <td><span class="tag-mini">RF Intl</span></td>
+                    <td class="num">1,154,160</td>
+                    <td class="num">1.96%</td>
+                    <td class="num" style="color:var(--neg)">−0.42%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="sw-foot">
+              <span>Ecoterra · Reporting</span>
+              <span>Fuente: capa normalizada · 31 Mar 2026</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============ CHARTS ============
+
+const PERF = [
+  { m: "Mar 25", v: 54.21 },
+  { m: "Abr 25", v: 54.92 },
+  { m: "May 25", v: 55.34 },
+  { m: "Jun 25", v: 55.10 },
+  { m: "Jul 25", v: 55.89 },
+  { m: "Ago 25", v: 56.32 },
+  { m: "Sep 25", v: 56.01 },
+  { m: "Oct 25", v: 56.98 },
+  { m: "Nov 25", v: 57.51 },
+  { m: "Dic 25", v: 57.89 },
+  { m: "Ene 26", v: 58.10 },
+  { m: "Feb 26", v: 58.43 },
+  { m: "Mar 26", v: 58.74 },
+];
+
+function buildPath(data, w, h, pad) {
+  const min = Math.min(...data.map(d => d.v)) - 0.5;
+  const max = Math.max(...data.map(d => d.v)) + 0.5;
+  const range = max - min;
+  const step = (w - pad.l - pad.r) / (data.length - 1);
+  const toY = (v) => pad.t + (h - pad.t - pad.b) * (1 - (v - min) / range);
+  const toX = (i) => pad.l + i * step;
+  const pts = data.map((d, i) => ({ x: toX(i), y: toY(d.v), ...d }));
+  const line = pts.map((p, i) => (i === 0 ? "M" : "L") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" ");
+  const area = line + " L" + pts.at(-1).x.toFixed(1) + " " + (h - pad.b).toFixed(1) + " L" + pts[0].x.toFixed(1) + " " + (h - pad.b).toFixed(1) + " Z";
+  return { pts, line, area, toY, toX, min, max };
+}
+
+// ----- EDITORIAL -----
+function drawEd() {
+  const host = document.getElementById('ed-chart');
+  const w = 700, h = 280, pad = { l: 40, r: 50, t: 20, b: 30 };
+  const c = buildPath(PERF, w, h, pad);
+  const svg = `
+  <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="edGrad" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#7a3a1e" stop-opacity="0.18"/>
+        <stop offset="1" stop-color="#7a3a1e" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${[54, 56, 58].map(y => {
+      const yy = c.toY(y);
+      return `<line x1="${pad.l}" x2="${w-pad.r}" y1="${yy}" y2="${yy}" stroke="#d4ccbc" stroke-width="0.5" stroke-dasharray="1 3"/>
+      <text x="${w-pad.r+6}" y="${yy+3}" font-size="9" fill="#8a857a" font-family="IBM Plex Mono">${y}M</text>`;
+    }).join('')}
+    <path d="${c.area}" fill="url(#edGrad)"/>
+    <path d="${c.line}" fill="none" stroke="#7a3a1e" stroke-width="1.4"/>
+    ${c.pts.map((p, i) => i % 3 === 0 || i === c.pts.length-1 ? `<circle cx="${p.x}" cy="${p.y}" r="2.4" fill="#faf6ec" stroke="#7a3a1e" stroke-width="1"/>` : '').join('')}
+    ${c.pts.map((p, i) => i % 3 === 0 || i === c.pts.length-1 ? `<text x="${p.x}" y="${h-12}" font-size="9" fill="#8a857a" text-anchor="middle" font-family="Inter Tight" letter-spacing="0.06em">${p.m.toUpperCase()}</text>` : '').join('')}
+    <!-- last value callout -->
+    <text x="${c.pts.at(-1).x-2}" y="${c.pts.at(-1).y-10}" text-anchor="end" font-size="14" font-family="Source Serif 4" font-style="italic" fill="#1a1a1a">58.74M USD</text>
+    <!-- annotation: Sep dip -->
+    <line x1="${c.pts[6].x}" y1="${c.pts[6].y+6}" x2="${c.pts[6].x-40}" y2="${c.pts[6].y+50}" stroke="#8a857a" stroke-width="0.5"/>
+    <text x="${c.pts[6].x-44}" y="${c.pts[6].y+58}" font-size="10" font-family="Source Serif 4" font-style="italic" fill="#5a544a" text-anchor="end">retroceso breve, recuperado en Oct</text>
+  </svg>`;
+  host.innerHTML = svg;
+}
+
+// ----- BLOOMBERG -----
+function drawBl() {
+  const host = document.getElementById('bl-chart');
+  const w = 740, h = 260, pad = { l: 46, r: 30, t: 20, b: 28 };
+  const c = buildPath(PERF, w, h, pad);
+  const svg = `
+  <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="blGrad" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#c9a25b" stop-opacity="0.22"/>
+        <stop offset="1" stop-color="#c9a25b" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- grid -->
+    ${[54, 55, 56, 57, 58].map(y => {
+      const yy = c.toY(y);
+      return `<line x1="${pad.l}" x2="${w-pad.r}" y1="${yy}" y2="${yy}" stroke="#252c33" stroke-width="0.5"/>
+      <text x="${pad.l-8}" y="${yy+3}" font-size="9" fill="#6f6a5f" font-family="Geist Mono" text-anchor="end">${y}.0</text>`;
+    }).join('')}
+    <!-- vertical grid -->
+    ${c.pts.map((p, i) => i % 2 === 0 ? `<line x1="${p.x}" x2="${p.x}" y1="${pad.t}" y2="${h-pad.b}" stroke="#252c33" stroke-width="0.4"/>` : '').join('')}
+    <path d="${c.area}" fill="url(#blGrad)"/>
+    <path d="${c.line}" fill="none" stroke="#c9a25b" stroke-width="1.6"/>
+    ${c.pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="2" fill="#0e1114" stroke="#c9a25b" stroke-width="1.2"/>`).join('')}
+    ${c.pts.map((p, i) => i % 2 === 0 ? `<text x="${p.x}" y="${h-10}" font-size="9" fill="#6f6a5f" text-anchor="middle" font-family="Geist Mono" letter-spacing="0.1em">${p.m.split(' ')[0].toUpperCase()}</text>` : '').join('')}
+    <!-- last value -->
+    <line x1="${c.pts.at(-1).x}" y1="${pad.t}" x2="${c.pts.at(-1).x}" y2="${h-pad.b}" stroke="#c9a25b" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+    <rect x="${c.pts.at(-1).x-48}" y="${c.pts.at(-1).y-22}" width="48" height="16" fill="#c9a25b"/>
+    <text x="${c.pts.at(-1).x-24}" y="${c.pts.at(-1).y-10}" font-size="10" font-family="Geist Mono" fill="#0e1114" text-anchor="middle" font-weight="600">58.74M</text>
+  </svg>`;
+  host.innerHTML = svg;
+}
+
+// ----- SUIZO -----
+function drawSw() {
+  const host = document.getElementById('sw-chart');
+  const w = 1160, h = 280, pad = { l: 50, r: 80, t: 30, b: 34 };
+  const c = buildPath(PERF, w, h, pad);
+  const svg = `
+  <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    ${[55, 56, 57, 58].map(y => {
+      const yy = c.toY(y);
+      return `<line x1="${pad.l}" x2="${w-pad.r}" y1="${yy}" y2="${yy}" stroke="#f0efec" stroke-width="1"/>
+      <text x="${pad.l-10}" y="${yy+3}" font-size="10" fill="#9a9a97" font-family="JetBrains Mono" text-anchor="end">${y}M</text>`;
+    }).join('')}
+    <path d="${c.line}" fill="none" stroke="#1f4d3f" stroke-width="1.5"/>
+    ${c.pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="#ffffff" stroke="#1f4d3f" stroke-width="1.5"/>`).join('')}
+    ${c.pts.map((p, i) => `<text x="${p.x}" y="${h-10}" font-size="10" fill="#9a9a97" text-anchor="middle" font-family="Inter Tight" letter-spacing="0.04em">${p.m}</text>`).join('')}
+    <!-- last value -->
+    <text x="${c.pts.at(-1).x+8}" y="${c.pts.at(-1).y+4}" font-size="13" font-family="Inter Tight" font-weight="500" fill="#111111">58.74M</text>
+    <text x="${c.pts.at(-1).x+8}" y="${c.pts.at(-1).y+18}" font-size="10" font-family="Inter Tight" fill="#9a9a97">USD</text>
+  </svg>`;
+  host.innerHTML = svg;
+}
+
+drawEd(); drawBl(); drawSw();
+
+// scale frames to fit the canvas slot
+function scale() {
+  document.querySelectorAll('.frame').forEach(f => {
+    const inner = f.querySelector('.frame-inner');
+    const s = f.clientWidth / 1280;
+    inner.style.transform = `scale(${s})`;
+    inner.style.height = (1690 * s) + 'px';
+    f.style.aspectRatio = '1280 / ' + 1690;
+  });
+}
+scale();
+window.addEventListener('resize', scale);
+</script>
+</body>
+</html>
